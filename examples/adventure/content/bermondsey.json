@@ -1,0 +1,1275 @@
+{
+  "title": "The Bermondsey Drop",
+  "premise": "Last night under the Rotherhithe railway arches, two amateur blaggers hijacked what they thought was a crooked bookie's payroll van. Instead they lifted a monogrammed pigskin holdall belonging to East End governor 'The Alderman' Arthur Corrigan. By breakfast the holdall's contents were split three ways across South and East London: a matched pair of bespoke engraved presentation pistols, a ledger of Flying Squad bribes known as 'The Butcher's Bill', and a prize fawn greyhound named Duchess worth eighty grand on tonight's traps. Corrigan has given you until the eleven-o'clock last-orders bell to bring his gear back—or take a trip to the Deptford aggregate crusher in its place.",
+  "opening": "You step out of the drizzle into {start_name}, shaking Southwark rain off your crombie coat. In one pocket sits a pink Catford greyhound slip and a brass knuckle-duster lighter; in your hand hangs Corrigan's monogrammed pigskin holdall, currently lighter than a vicar's conscience. You are an independent Bermondsey fixer—too smart to pull triggers for a living, too skint to turn down Arthur Corrigan when his van goes walkabout. Before the eleven-o'clock bell (15 hours from now), you need to piece together who stitched up the van job, track down the presentation pistols, the Butcher's Bill, and the greyhound as rival crews move them across London, and decide who takes the fall.",
+  "tone": {
+    "name": "caper",
+    "prose_register": "Punchy, fast-talking London underworld caper prose with dry dark humour, Cockney/Soho idioms, and sharp physical consequences. Everyone has an angle, a vig, or a double-cross in play.",
+    "npc_lie_probability": 0.55,
+    "reveal_strictness": "strict",
+    "doom_hard": true,
+    "clean_endings": false,
+    "inner_voices": true,
+    "setting_style": "South London underworld caper across Bermondsey railway arches, Soho cellars, Hatton Garden vaults, unlicensed boxing gyms, chop shops, and greyhound tracks.",
+    "room_palette": [
+      "unlicensed bare-knuckle boxing gym under a dripping brick viaduct",
+      "backroom bookmaker settlement cage with scratched armoured glass",
+      "Hatton Garden basement diamond workshop with ultrasonic cleaners",
+      "Rotherhithe panel-beater chop shop smelling of cellulose spray",
+      "lock-in Victorian pub back room with a baize table and fruit machine",
+      "Spitalfields meat chiller lockup with false-floor crates"
+    ],
+    "npc_archetypes": [
+      "fast-talking ticket tout up to his neck in dog-track vigorish",
+      "retired cruiserweight turned polite East End debt collector",
+      "bespectacled diamond valuer with a jeweller loupe and a pocket ledger",
+      "bent Flying Squad detective sergeant nursing a pension shortfall",
+      "veterinary chemist who doctors greyhounds before the traps open"
+    ]
+  },
+  "player_voices": {
+    "Brass Neck": "Audacity, Impersonation & Bluff — Fronts out impossible situations with pure verbal nerve, pulls rank, and talks like you own the freehold when your pockets are lint (never physical shoving or violence).",
+    "The Book": "Forensic Odds & Ledgers — Runs the vig, the layoff maths, and the double-cross paper trail. Spots a shaved margin, a sort code, or a bent ledger on sight.",
+    "Proper Naughty": "Physical Threat & Mechanics — The sole voice of physical force: measures bottle, reach, padlocks, and concealed iron; knows which doors can be jemmied and who fancies a row.",
+    "Ear to the Ground": "Street Subtext & Micro-Tells — Reads pub subtext, Cockney rhyming slang, sweating palms, pulse jumps, and who just glanced at the back door.",
+    "The Hustle": "Transactional Arbitrage & Swaps — Spots the three-way swap, the escrow angle, or how to play two creditors' paper off against each other to skim a vig (never physical threats or violence).",
+    "Copper's Nose": "Old Bill Procedure & Forensics — Clocks warrant cards, custody logs, radio call-signs, powder burns, and how bent detectives cover their tracks.",
+    "The Guv'nor": "Underworld Hierarchy & Syndicate Leverage — Spots which crew boss is exposed to Arthur Corrigan's 23:00 audit and dictates a concrete syndicate power-play to pin the fallout on a rival (never passive summary or generic street-tax barks)."
+  },
+  "starting_inventory": [
+    "monogrammed empty pigskin holdall",
+    "pink Catford greyhound betting slip",
+    "brass knuckle-duster lighter"
+  ],
+  "starting_location": {
+    "name": "The Half-Moon Snooker & Social",
+    "description": "Fluorescent tubes hum over green baize tables scarred with cigarette burns under the damp brick of Bermondsey Arch 14. Rain hammers the corrugated iron roof whenever the overland train rumbles overhead, rattling the padlocked steel shutter of the settlement booth and a teacup full of stubbed Bensons.",
+    "affordances": [
+      "padlocked steel shutter on the back-office settlement booth",
+      "carbon-copy layoff pad chained to the bar tap",
+      "cracked leather cue case stashed beneath Table 3",
+      "chalked dog-track odds board already wiped halfway down"
+    ],
+    "exits": {
+      "north": "Spitalfields Meat Lockup 9",
+      "east": "Rotherhithe Scrap & Breakers",
+      "west": "Hatton Garden Vaults (Vane & Sons)",
+      "down the alley": "The Deptford Dog Kennels"
+    },
+    "clue_ids": ["c_layoff_carbon", "c_cue_case_shells"]
+  },
+  "factions": [
+    {
+      "id": "corrigan_firm",
+      "name": "The Corrigan Firm",
+      "aim": "Get Arthur Corrigan's engraved presentation pistols, the Butcher's Bill, and the greyhound Duchess back before eleven—and make an example of whoever tipped off the van.",
+      "standing_with_player": 0,
+      "standing": {"yardies": -3, "hatton_brokers": -1, "flying_squad": 1},
+      "assets": ["The Blind Beggar back room", "the Deptford aggregate crusher", "four polite men in crombie coats"],
+      "register": "Polite, measured East End menace; threats delivered over builders' tea with a warm smile."
+    },
+    {
+      "id": "yardies",
+      "name": "The Brixton Hill Crew",
+      "aim": "Fence the lifted pistols at double the price, run the stolen greyhound as a 12-to-1 ringer at Catford, and keep the two amateur blaggers on ice.",
+      "standing_with_player": 0,
+      "standing": {"corrigan_firm": -3, "hatton_brokers": 0, "flying_squad": -2},
+      "assets": ["Rotherhithe Scrap & Breakers", "a reinforced Transit van", "a locked twenty-foot shipping container"],
+      "register": "Sharp, dryly amused, zero patience for bluffers; every favour has a spot price in crisp fifties."
+    },
+    {
+      "id": "hatton_brokers",
+      "name": "Vane & Sons (Hatton Garden)",
+      "aim": "Acquire the engraved presentation pistols and the Butcher's Bill to trade for seized Antwerp diamonds held in the Flying Squad property office.",
+      "standing_with_player": 0,
+      "standing": {"corrigan_firm": -1, "yardies": 0, "flying_squad": -1},
+      "assets": ["the Hatton Garden basement vault", "an ultrasonic diamond cleaner", "half the bail bonds in Clerkenwell"],
+      "register": "World-weary, hospitable, offering salt beef on rye while calculating your exact liquidation value."
+    },
+    {
+      "id": "flying_squad",
+      "name": "The Sweeney (DI Finch's Unit)",
+      "aim": "Rip Page 14 out of the Butcher's Bill before CIB internal affairs audits the unit, and pocket the robbery recovery bonus.",
+      "standing_with_player": 0,
+      "standing": {"corrigan_firm": 1, "yardies": -2, "hatton_brokers": -1},
+      "assets": ["an unmarked Rover SD1", "Custody Sergeant's charge book", "evidence locker keys at Bethnal Green"],
+      "register": "Cynical copper banter, dog-eared notebooks, framing straight extortion as 'assisting with inquiries'."
+    }
+  ],
+  "truths": [
+    {
+      "id": "t_inside_job",
+      "question": "Who tipped off the Rotherhithe van job?",
+      "statement": "The Rotherhithe van hijack was an inside job. Corrigan's own bookmaker, Frankie 'The Moat' Slater, gave the van route and wax key-impression to two amateur blaggers to cover a £60,000 hole in his own Catford layoff book.",
+      "clue_ids": ["c_layoff_carbon", "c_frankie_pager", "c_van_key_wax", "c_blagger_confession", "c_bounced_cheque_envelope"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_shotguns_swap",
+      "question": "Where are Corrigan's engraved presentation pistols?",
+      "statement": "Corrigan's bespoke engraved presentation pistols are hidden in the false floor of a butcher's chiller van at Spitalfields Meat Lockup 9, where Reuben Vane has arranged to swap them for uncut Antwerp stones.",
+      "clue_ids": ["c_cue_case_shells", "c_chiller_manifest", "c_gun_oil_rag", "c_reuben_appraisal"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_butchers_bill",
+      "question": "Where is the Butcher's Bill, and who wants it gone?",
+      "statement": "Detective Inspector Ronald Finch cut a backroom deal with Desmond's crew: the Sweeney will look the other way on the heist if Desmond burns Page 14 of the Butcher's Bill, which lists Finch's offshore Jersey account.",
+      "clue_ids": ["c_jersey_sort_code", "c_rover_radio_log", "c_scorched_folio", "c_finch_admission"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_duchess_ringer",
+      "question": "Where is the greyhound Duchess?",
+      "statement": "The prize greyhound Duchess hasn't left London—Carla Kovacs dyed her white star with black boot polish at the Deptford kennels so Desmond and Frankie can run her as a 12-to-1 ringer named 'Biscuit' in Trap 4 tonight.",
+      "clue_ids": ["c_boot_polish_tin", "c_catford_trap_card", "c_vet_dockets", "c_desmond_slip"],
+      "min_clues_to_discover": 2
+    }
+  ],
+  "clues": [
+    {
+      "id": "c_layoff_carbon",
+      "truth_id": "t_inside_job",
+      "carrier": "document",
+      "movable": true,
+      "carrier_hint": "The Half-Moon Snooker & Social, carbon-copy layoff pad",
+      "text": "The carbon sheet under Frankie's layoff pad shows Frankie is £60,000 short to Corrigan's central book after three fixed traps went wrong on Tuesday."
+    },
+    {
+      "id": "c_frankie_pager",
+      "truth_id": "t_inside_job",
+      "carrier": "npc",
+      "movable": false,
+      "carrier_hint": "Frankie 'The Moat' Slater",
+      "text": "Frankie's numeric pager still holds a 3:15 AM code from Rotherhithe Scrap & Breakers confirming the van was lifted, followed by Frankie sweating through his shirt."
+    },
+    {
+      "id": "c_van_key_wax",
+      "truth_id": "t_inside_job",
+      "carrier": "location",
+      "movable": true,
+      "carrier_hint": "Rotherhithe Scrap & Breakers, workbench vice",
+      "text": "A block of green dental wax in the scrap-yard vice holds the impression of Corrigan's spare Transit key—taken inside the Half-Moon snooker hall."
+    },
+    {
+      "id": "c_blagger_confession",
+      "truth_id": "t_inside_job",
+      "carrier": "location",
+      "movable": false,
+      "carrier_hint": "Rotherhithe Scrap & Breakers, locked shipping container",
+      "text": "Through the air vents of the shipping container, two bruised amateur blaggers swear Frankie Slater drew them the van map on the back of a snooker scorecard."
+    },
+    {
+      "id": "c_cue_case_shells",
+      "truth_id": "t_shotguns_swap",
+      "carrier": "location",
+      "movable": true,
+      "carrier_hint": "The Half-Moon Snooker & Social, cracked leather cue case",
+      "text": "Inside the cracked cue case under Table 3 sit two hand-loaded brass .455 target cartridges stamped with a crown-and-anchor proof mark and a receipt stub from Spitalfields Meat Lockup 9."
+    },
+    {
+      "id": "c_chiller_manifest",
+      "truth_id": "t_shotguns_swap",
+      "carrier": "document",
+      "movable": true,
+      "carrier_hint": "Spitalfields Meat Lockup 9, clipboard on the meat hook rail",
+      "text": "The chiller-van manifest lists 'two cased presentation pieces, custom-engraved octagonal barrels' tucked beneath carcass crates bound for Hatton Garden."
+    },
+    {
+      "id": "c_gun_oil_rag",
+      "truth_id": "t_shotguns_swap",
+      "carrier": "location",
+      "movable": true,
+      "carrier_hint": "Spitalfields Meat Lockup 9, false floor of the Bedford chiller van",
+      "text": "Prying up the aluminium treadplate in the chiller van reveals walnut stock shavings, Rangoon gun oil, and Reuben Vane's wax parcel seal."
+    },
+    {
+      "id": "c_reuben_appraisal",
+      "truth_id": "t_shotguns_swap",
+      "carrier": "npc",
+      "movable": true,
+      "carrier_hint": "Reuben Vane",
+      "text": "Reuben Vane's pocket ledger values Corrigan's pair of engraved presentation pistols at forty carats of uncut Antwerp industrial boart."
+    },
+    {
+      "id": "c_jersey_sort_code",
+      "truth_id": "t_butchers_bill",
+      "carrier": "document",
+      "movable": true,
+      "carrier_hint": "Hatton Garden Vaults (Vane & Sons), ultrasonic cleaner tray",
+      "text": "A razor-sliced strip from Page 14 of the Butcher's Bill lists St. Helier sort code 40-19-88 beside 'R. Finch — monthly retainer'."
+    },
+    {
+      "id": "c_rover_radio_log",
+      "truth_id": "t_butchers_bill",
+      "carrier": "document",
+      "movable": true,
+      "carrier_hint": "Spitalfields Meat Lockup 9, latched Rover SD1 glovebox",
+      "text": "The Flying Squad Rover's logbook shows DI Finch called off the Rotherhithe patrol car ten minutes before the van was ambushed."
+    },
+    {
+      "id": "c_scorched_folio",
+      "truth_id": "t_butchers_bill",
+      "carrier": "location",
+      "movable": true,
+      "carrier_hint": "Rotherhithe Scrap & Breakers, oil-drum brazier",
+      "text": "Half-charred ledger vellum pulled from the yard brazier bears Arthur Corrigan's red ink headings—missing only Page 14."
+    },
+    {
+      "id": "c_finch_admission",
+      "truth_id": "t_butchers_bill",
+      "carrier": "npc",
+      "movable": false,
+      "carrier_hint": "Det. Insp. Ronald Finch",
+      "text": "Cornered with the Jersey sort code, DI Finch admits he told Desmond where to dump the empty van in exchange for Page 14 of the ledger."
+    },
+    {
+      "id": "c_boot_polish_tin",
+      "truth_id": "t_duchess_ringer",
+      "carrier": "location",
+      "movable": true,
+      "carrier_hint": "The Deptford Dog Kennels, grooming bench",
+      "text": "A tin of Parade Gloss black boot polish and a rubber ear-tattoo stencil sit beside a fawn greyhound hairbrush on the kennel bench."
+    },
+    {
+      "id": "c_catford_trap_card",
+      "truth_id": "t_duchess_ringer",
+      "carrier": "document",
+      "movable": true,
+      "carrier_hint": "The Deptford Dog Kennels, tack-room wall",
+      "text": "Tonight's 10:30 PM Catford Trap 4 race-card has 'Biscuit (12-1)' pencilled over Duchess's exact racing weight of 61 lbs."
+    },
+    {
+      "id": "c_vet_dockets",
+      "truth_id": "t_duchess_ringer",
+      "carrier": "npc",
+      "movable": false,
+      "carrier_hint": "Carla 'The Vet' Kovacs",
+      "text": "Carla Kovacs's kennel book shows Frankie and Desmond split a £5,000 fee to dye Duchess's white chest star until after the 10:30 PM race."
+    },
+    {
+      "id": "c_desmond_slip",
+      "truth_id": "t_duchess_ringer",
+      "carrier": "npc",
+      "movable": true,
+      "carrier_hint": "Desmond 'Nine-Pint' Baptiste",
+      "text": "Desmond carries a syndicate betting voucher placing £15,000 on Trap 4 'Biscuit' at 12-to-1 across six Bermondsey off-course shops."
+    },
+    {
+      "id": "c_bounced_cheque_envelope",
+      "truth_id": "t_inside_job",
+      "carrier": "npc",
+      "movable": false,
+      "carrier_hint": "Frankie 'The Moat' Slater",
+      "text": "Wedged inside the Half-Moon cellar coal chute sits Reuben Vane's manila packet holding Frankie Slater's bounced £60,000 cheque pinned to Avram's boart manifest."
+    }
+  ],
+  "seed_npcs": [
+    {
+      "name": "Frankie 'The Moat' Slater",
+      "role_summary": "Sweating Bermondsey turf accountant in a camel-hair coat with cigar ash on his lapels",
+      "goal": "Keep anyone from auditing his layoff pad before the 10:30 PM Catford ringer race clears his £60k hole",
+      "traits": "Machine-gun Cockney patter, relentless optimist when cornered, offers 3-to-1 odds on his own mother",
+      "location_name": "The Half-Moon Snooker & Social",
+      "tier": "hot",
+      "faction": "corrigan_firm",
+      "secret": "Tipped off the two amateur blaggers to rob Corrigan's van so he could stall Corrigan's Friday audit.",
+      "wound": "Terrified of Corrigan finding out about the £60,000 layoff shortfall; folds if shown the carbon sheet or wax key impression.",
+      "formative_memories": [
+        "Frankie gave the two blaggers a map of the Rotherhithe van route on a Half-Moon scorecard.",
+        "If Biscuit wins Trap 4 at 12-to-1 tonight, Frankie can square his book before eleven."
+      ],
+      "routine": [
+        {"start_hour": 8, "end_hour": 14, "location_name": "The Half-Moon Snooker & Social", "activity": "settling morning tabs and hiding the carbon pad"},
+        {"start_hour": 14, "end_hour": 20, "location_name": "The Deptford Dog Kennels", "activity": "checking on the dyed greyhound"},
+        {"start_hour": 20, "end_hour": 8, "location_name": "The Half-Moon Snooker & Social", "activity": "sweating by the telephone for race results"}
+      ],
+      "relationships": {
+        "Desmond 'Nine-Pint' Baptiste": "Split the ringer bet with Desmond, now worried Desmond will grass him up.",
+        "Reuben Vane": "Owes Reuben four grand on a bouncing cheque.",
+        "Carla 'The Vet' Kovacs": "Paid Carla half up front to dye the dog."
+      },
+      "sub_minds": {
+        "The Patter": {
+          "domain": "stonewalling",
+          "rank": 2,
+          "worldview": "Machine-gun Cockney bluff and cigar-smoke misdirection — talk fast enough and nobody checks the carbon under your elbow.",
+          "blind_spot": "rattles off too many alibis at once and trips over hard paper numbers.",
+          "obsession": "Keep every punter and collector away from the chained layoff pad."
+        },
+        "The Layoff": {
+          "domain": "leverage",
+          "rank": 4,
+          "intrusive": true,
+          "worldview": "Relentless turf gambler — every crisis is just another book to balance with a 12-to-1 side-bet or a shifted marker.",
+          "blind_spot": "Tries to lay off bad paper even when the gun is already cocked.",
+          "obsession": "Keep anyone from auditing his layoff pad before the 10:30 PM Catford ringer race clears his £60k hole"
+        },
+        "The Shortfall": {
+          "domain": "self_preservation",
+          "rank": 3,
+          "worldview": "Sweating survival nerve — terrified of Arthur Corrigan finding out he tipped off the Rotherhithe van blaggers to stall Friday's audit.",
+          "blind_spot": "Panics and points fingers at Desmond or Reuben the moment the carbon sheet or wax key impression surfaces.",
+          "obsession": "Terrified of Corrigan finding out about the £60,000 layoff shortfall; folds if shown the carbon sheet or wax key impression."
+        }
+      }
+    },
+    {
+      "name": "Desmond 'Nine-Pint' Baptiste",
+      "role_summary": "Six-foot-four Brixton scrap merchant in a spotless leather trench coat carrying a torque wrench",
+      "goal": "Unload the engraved presentation pistols to Reuben Vane and collect the 12-to-1 Catford payout before handing the dog back",
+      "traits": "Deadpan delivery, unhurried menace, treats panic as a personal insult",
+      "location_name": "Rotherhithe Scrap & Breakers",
+      "tier": "warm",
+      "faction": "yardies",
+      "secret": "Has the two amateur blaggers locked in a blue Maersk container at the back of his scrap yard.",
+      "wound": "DI Finch is squeezing his brother's parole; Desmond will deal if given leverage over Finch or a clean cut of the diamond swap.",
+      "formative_memories": [
+        "Desmond bought the contents of the pigskin holdall off two terrified kids at 4 AM for two grand.",
+        "DI Finch promised to drop the van inquiry if Desmond burned Page 14 of the Butcher's Bill."
+      ],
+      "routine": [
+        {"start_hour": 7, "end_hour": 16, "location_name": "Rotherhithe Scrap & Breakers", "activity": "supervising the crusher and guarding the shipping container"},
+        {"start_hour": 16, "end_hour": 22, "location_name": "Spitalfields Meat Lockup 9", "activity": "overseeing the chiller-van pistol handoff"},
+        {"start_hour": 22, "end_hour": 7, "location_name": "Rotherhithe Scrap & Breakers", "activity": "counting takings in the portakabin"}
+      ],
+      "relationships": {
+        "Frankie 'The Moat' Slater": "Knows Frankie set up the van job and holds the wax key impression as insurance.",
+        "Reuben Vane": "Negotiating a swap: two bespoke presentation pistols for uncut Antwerp stones.",
+        "Det. Insp. Ronald Finch": "Despises Finch and kept a strip of Page 14 just in case."
+      },
+      "sub_minds": {
+        "Iron Plate": {
+          "domain": "stonewalling",
+          "rank": 4,
+          "intrusive": true,
+          "worldview": "Six-foot-four deadpan Brixton heavy — never raise your voice, never flinch, and treat noisy threats as a personal insult.",
+          "blind_spot": "Underestimates quiet paper trails while dominating the physical yard.",
+          "obsession": "Hold the Rotherhithe breaker yard and keep the blue Maersk container sealed."
+        },
+        "The Carve-Up": {
+          "domain": "leverage",
+          "rank": 3,
+          "worldview": "Cold syndicate broker — pistols go to Hatton Garden for uncut stones, Biscuit runs at 12-to-1, and everybody pays market freight.",
+          "blind_spot": "Assumes every partner honours collateral arithmetic.",
+          "obsession": "Unload the engraved presentation pistols to Reuben Vane and collect the 12-to-1 Catford payout before handing the dog back"
+        },
+        "Blood & Parole": {
+          "domain": "self_preservation",
+          "rank": 2,
+          "worldview": "Protective older brother — DI Finch holds the pen over his brother's parole hearing, and the two blaggers in the container are ticking bombs.",
+          "blind_spot": "Will burn a business partner to ash if given clean dirt that breaks DI Finch's hold.",
+          "obsession": "DI Finch is squeezing his brother's parole; Desmond will deal if given leverage over Finch or a clean cut of the diamond swap."
+        }
+      }
+    },
+    {
+      "name": "Reuben Vane",
+      "role_summary": "Fourth-generation Hatton Garden diamond broker with gold-rimmed half-glasses and a thermos of chicken soup",
+      "goal": "Swap his parcel of hot Antwerp stones for Corrigan's presentation pistols and use Page 14 to get the Sweeney off his back",
+      "traits": "Courtly, sighing, speaks in proverbs and wholesale margins, never touches a firearm without surgical gloves",
+      "location_name": "Hatton Garden Vaults (Vane & Sons)",
+      "tier": "warm",
+      "faction": "hatton_brokers",
+      "secret": "Already hid the engraved presentation pistols inside a chiller van at Spitalfields Lockup 9 while keeping the razor-cut strip of Page 14 in his ultrasonic tray.",
+      "wound": "If Corrigan learns Reuben fenced his personal guns, Reuben's vault insurance won't cover the fire; trades immediately when shown proof of the chiller manifest or Finch's radio log.",
+      "formative_memories": [
+        "Reuben wiped the engraved pistol barrels with Rangoon oil and sealed them under the chiller van floor.",
+        "Reuben bought the sliced strip of Page 14 from a runner at dawn."
+      ],
+      "routine": [
+        {"start_hour": 8, "end_hour": 17, "location_name": "Hatton Garden Vaults (Vane & Sons)", "activity": "weighing stones and hiding the Jersey sort code strip"},
+        {"start_hour": 17, "end_hour": 22, "location_name": "Spitalfields Meat Lockup 9", "activity": "inspecting the false floor of the Bedford chiller van"},
+        {"start_hour": 22, "end_hour": 8, "location_name": "Hatton Garden Vaults (Vane & Sons)", "activity": "locking the double-key Chubb safe"}
+      ],
+      "relationships": {
+        "Desmond 'Nine-Pint' Baptiste": "Respects Desmond's punctuality, distrusts his pricing.",
+        "Det. Insp. Ronald Finch": "Has been paying Finch's unit protection for three years and wants the receipt.",
+        "Frankie 'The Moat' Slater": "Holds Frankie's rubber cheque in his desk drawer."
+      },
+      "sub_minds": {
+        "Velvet & Glass": {
+          "domain": "stonewalling",
+          "rank": 3,
+          "worldview": "Courtly Hatton Garden elder — sigh over a thermos of chicken soup, quote an old proverb, and keep the Chubb airlock between yourself and ruffians.",
+          "blind_spot": "Relies on armoured glass and politeness when cornered by desperate men.",
+          "obsession": "Keep Hatton Garden customs and vault ledgers looking spotless."
+        },
+        "The Wholesale Margin": {
+          "domain": "leverage",
+          "rank": 4,
+          "intrusive": true,
+          "worldview": "Fourth-generation appraiser — every hot pistol, bounced cheque, and sliced ledger strip has an exact carat weight and clearing price.",
+          "blind_spot": "Cannot resist squeezing an extra ten-percent margin out of a dangerous swap.",
+          "obsession": "Swap his parcel of hot Antwerp stones for Corrigan's presentation pistols and use Page 14 to get the Sweeney off his back"
+        },
+        "The Underwriter's Fire": {
+          "domain": "self_preservation",
+          "rank": 2,
+          "worldview": "Cautious survivor — Arthur Corrigan's torches don't respect Lloyd's policies if those engraved presentation pistols trace back to Vane & Sons.",
+          "blind_spot": "Jettisons inventory and names his suppliers the instant the chiller manifest or radio log links him to the guns.",
+          "obsession": "If Corrigan learns Reuben fenced his personal guns, Reuben's vault insurance won't cover the fire; trades immediately when shown proof of the chiller manifest or Finch's radio log."
+        }
+      }
+    },
+    {
+      "name": "Det. Insp. Ronald Finch",
+      "role_summary": "Rumpled Flying Squad inspector smelling of peppermint and cheap Scotch, driving a dented Rover SD1",
+      "goal": "Bury Page 14 of the Butcher's Bill before CIB audits the Rotherhithe patrol recall",
+      "traits": "Jovial bully, taps his warrant card on tables, calls everyone 'sunshine' while patting their pockets",
+      "location_name": "Spitalfields Meat Lockup 9",
+      "tier": "cold",
+      "faction": "flying_squad",
+      "secret": "Pulled the patrol car off Rotherhithe last night so the van would be hit, hoping the Butcher's Bill would vanish in the chaos.",
+      "wound": "One phone call to CIB with his St. Helier sort code (40-19-88) costs him his pension and five years in Ford Open Prison.",
+      "formative_memories": [
+        "Finch logged a fake call-out in the Rover SD1 radio book at 2:50 AM.",
+        "Desmond promised Finch the ledger was burned, but Finch doesn't trust him."
+      ],
+      "routine": [
+        {"start_hour": 6, "end_hour": 15, "location_name": "Spitalfields Meat Lockup 9", "activity": "shaking down the lockup foreman"},
+        {"start_hour": 15, "end_hour": 21, "location_name": "Rotherhithe Scrap & Breakers", "activity": "leaning on Desmond over the brazier ashes"},
+        {"start_hour": 21, "end_hour": 6, "location_name": "The Half-Moon Snooker & Social", "activity": "drinking off-duty and watching the door"}
+      ],
+      "relationships": {
+        "Desmond 'Nine-Pint' Baptiste": "Suspects Desmond palmed the best page of the ledger before lighting the drum.",
+        "Reuben Vane": "Threatening to seize Reuben's Antwerp parcel unless Reuben coughs up the strip.",
+        "Frankie 'The Moat' Slater": "Uses Frankie to place off-book bets."
+      },
+      "sub_minds": {
+        "The Warrant Card": {
+          "domain": "stonewalling",
+          "rank": 5,
+          "intrusive": true,
+          "worldview": "Old-school Sweeney guv'nor — tap the warrant card, call them 'sunshine', and remind every villain on the manor who writes the charge sheet.",
+          "blind_spot": "Assumes the badge makes him untouchable even while standing in a crime scene.",
+          "obsession": "Dominate the room with Flying Squad authority and brook no backchat."
+        },
+        "The Shakedown": {
+          "domain": "leverage",
+          "rank": 3,
+          "worldview": "Bent squad fixer — every villain has a collar to dodge, and every piece of evidence can be traded for Page 14 or a clean scapegoat.",
+          "blind_spot": "Leaves radio logs and offshore sort codes behind while squeezing suspects.",
+          "obsession": "Bury Page 14 of the Butcher's Bill before CIB audits the Rotherhithe patrol recall"
+        },
+        "Ford Open Prison": {
+          "domain": "self_preservation",
+          "rank": 1,
+          "worldview": "Cold 3 AM dread — CIB already has sniffing dogs on the Rotherhithe radio log, and St. Helier sort code 40-19-88 means five years inside and a cancelled pension.",
+          "blind_spot": "Cracks violently and trades official passes or confessions when confronted with the Jersey sort code or Rover log.",
+          "obsession": "One phone call to CIB with his St. Helier sort code (40-19-88) costs him his pension and five years in Ford Open Prison."
+        }
+      }
+    },
+    {
+      "name": "Carla 'The Vet' Kovacs",
+      "role_summary": "No-nonsense greyhound trainer in a waxed Barbour jacket with surgical scissors in her pocket",
+      "goal": "Keep Duchess healthy in Kennel 3 until the 10:30 PM trap and collect the second half of her £5,000 fee",
+      "traits": "Brisk, clinical, prefers dogs to villains, spots a liar by their pulse",
+      "location_name": "The Deptford Dog Kennels",
+      "tier": "cold",
+      "faction": "corrigan_firm",
+      "secret": "Dyed Corrigan's prize greyhound Duchess with black boot polish and stencilled a fake ear-tattoo so she can run as 'Biscuit'.",
+      "wound": "Corrigan funded her clinic; if she's given a clean alibi that blames Frankie for bringing the dog in under false papers, she hands over Duchess and the turpentine rag.",
+      "formative_memories": [
+        "Frankie brought Duchess into the Deptford kennels at 5 AM claiming he bought her in Romford.",
+        "A wipe of turpentine on the dog's chest takes the boot polish right off."
+      ],
+      "routine": [
+        {"start_hour": 6, "end_hour": 19, "location_name": "The Deptford Dog Kennels", "activity": "prepping the traps and guarding Kennel 3"},
+        {"start_hour": 19, "end_hour": 23, "location_name": "The Half-Moon Snooker & Social", "activity": "chasing Frankie for the second half of her fee"},
+        {"start_hour": 23, "end_hour": 6, "location_name": "The Deptford Dog Kennels", "activity": "locking the kennel compound"}
+      ],
+      "relationships": {
+        "Frankie 'The Moat' Slater": "Furious that Frankie still owes her £2,500 for the dye job.",
+        "Desmond 'Nine-Pint' Baptiste": "Wary of Desmond's boys hanging around the kennel gates."
+      },
+      "sub_minds": {
+        "Clinical Steel": {
+          "domain": "stonewalling",
+          "rank": 2,
+          "worldview": "Brisk kennel surgeon — keep your hands steady, surgical scissors in your Barbour pocket, and run noisy punters out of the paddock.",
+          "blind_spot": "She is a vet, not a heavy; intimidation only holds until Arthur Corrigan's name drops.",
+          "obsession": "Keep strangers away from Kennel 3 and the grooming bench."
+        },
+        "The Second Half": {
+          "domain": "leverage",
+          "rank": 3,
+          "worldview": "Unpaid contractor — Frankie Slater still owes £2,500 for the boot-polish dye job, and nobody gets near the dog without squaring the clinic slate.",
+          "blind_spot": "Holding out for Frankie's second payment keeps her tied to a rigged race.",
+          "obsession": "Keep Duchess healthy in Kennel 3 until the 10:30 PM trap and collect the second half of her £5,000 fee"
+        },
+        "Kennel 3 Alibi": {
+          "domain": "self_preservation",
+          "rank": 4,
+          "intrusive": true,
+          "worldview": "Cornered practitioner — Arthur Corrigan paid for every surgical table in this clinic, and if he learns she dyed Duchess without an alibi pinning the Romford papers on Frankie, she is finished.",
+          "blind_spot": "Flips on Frankie Slater and surrenders the turpentine rag the moment she is offered cover.",
+          "obsession": "Corrigan funded her clinic; if she's given a clean alibi that blames Frankie for bringing the dog in under false papers, she hands over Duchess and the turpentine rag."
+        }
+      }
+    }
+  ],
+  "doom": {
+    "name": "last orders at The Blind Beggar",
+    "total_minutes": 900,
+    "stages": [
+      {
+        "index": 0,
+        "name": "morning drizzle",
+        "at_fraction": 0.0,
+        "world_effect": "Rain drips from the Bermondsey viaduct arches. Pagers buzz quietly in wool pockets."
+      },
+      {
+        "index": 1,
+        "name": "the word goes round",
+        "at_fraction": 0.18,
+        "world_effect": "Corrigan's black Daimler is spotted cruising Whitechapel Road. Shutters come down on half the off-course bookies."
+      },
+      {
+        "index": 2,
+        "name": "the traps load at Catford",
+        "at_fraction": 0.36,
+        "world_effect": "Evening floodlights hum over the South London tracks. The Sweeney set up a snap vehicle check at Rotherhithe Tunnel."
+      },
+      {
+        "index": 3,
+        "name": "the ten-thirty hare runs",
+        "at_fraction": 0.52,
+        "world_effect": "Four men in crombie coats take a corner booth at The Blind Beggar and order a pot of tea. Phones stop being answered."
+      },
+      {
+        "index": 4,
+        "name": "the eleven-o'clock bell",
+        "at_fraction": 1.0,
+        "world_effect": "The landlord's brass bell rings for last orders. Arthur Corrigan checks his pocket watch and nods toward the car park."
+      }
+    ]
+  },
+  "acts": [
+    {
+      "act": 1,
+      "truths_discovered_gte": 0,
+      "doom_stage_gte": 0,
+      "tone_note": "Act 1 — Everyone's Sweet: every villain in London swears blind they were at their nan's last night. Follow the paper trail and the shell casings."
+    },
+    {
+      "act": 2,
+      "truths_discovered_gte": 1,
+      "doom_stage_gte": 1,
+      "tone_note": "Act 2 — The Carve-Up: the first lie has cracked. Crews start moving the gear behind each other's backs and cutting side deals."
+    },
+    {
+      "act": 3,
+      "truths_discovered_gte": 3,
+      "doom_stage_gte": 2,
+      "tone_note": "Act 3 — Proper Naughty: all the angles are on the baize. Pick who gets stitched up before the landlord rings the bell."
+    }
+  ],
+  "storylets": [
+    {
+      "id": "s_frankie_taps_holdall",
+      "trigger": "scene",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Frankie 'The Moat' Slater"},
+        {"act_is": 1}
+      ],
+      "beat": "When you haul on the padlocked settlement shutter with bare hands and fail to budge the steel, you drop to one knee under Table 3 to inspect the concealed leather cue case first—finding its brass padlock clasp rusted solid and wedged tight into the timber stretcher so it cannot be opened without a heavy brass lever tool—while Frankie eyes your empty pigskin holdall, dabs his forehead with a silk handkerchief, and swears on his mother's life that the Rotherhithe hijackers were 'outside talent from north of the river' as he clamps his elbow over the carbon-copy layoff pad on the bar.",
+      "effects": [{"tension": 0.5}],
+      "voice": "Ear to the Ground",
+      "voice_line": "A man who swears on his mum before noon was awake at three in the morning.",
+      "tags": ["opening", "frankie"]
+    },
+    {
+      "id": "s_carbon_pad_read",
+      "trigger": "scene",
+      "weight": 4.0,
+      "once": false,
+      "preconditions": [
+        {"location_is": "The Half-Moon Snooker & Social"},
+        {"clue_undiscovered": "c_layoff_carbon"}
+      ],
+      "beat": "When the player sweeps a dimpled pint glass into the zinc drip-tray to draw Frankie's eyes and yanks the chained layoff pad out from under his elbow, the thick brass bar-tap chain holds fast and refuses to snap—forcing you to hook the taut brass chain under the cast-iron pry-lip of the bar-mounted bottle-opener bracket and wrench the iron beer-pull handle down as a lever to shear the corroded copper split-ring, scraping your knuckles across the zinc lip to tear the blue carbon sheet free and reveal c_layoff_carbon.",
+      "effects": [
+        {"reveal_clue": "c_layoff_carbon"}
+      ],
+      "voice": "The Book",
+      "voice_line": "Sixty grand shy on Tuesday's traps. No wonder his shirt's sticking to his shoulder blades.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_cue_case_opened",
+      "trigger": "scene",
+      "weight": 4.0,
+      "once": false,
+      "preconditions": [
+        {"location_is": "The Half-Moon Snooker & Social"},
+        {"clue_discovered": "c_layoff_carbon"},
+        {"clue_undiscovered": "c_cue_case_shells"}
+      ],
+      "beat": "When the player wedges the heavy brass spider-rest from Table 3 into the previously inspected cue case's rusted clasp, the first straight pry slips off the verdigris-caked shackle, bruising your knuckles against the oak table leg and alerting Frankie Slater—who lunges across the baize with a heavy ash billiard cue to pin the leather case beneath the stretcher—forcing you to brace the intact brass spider-rest head as a cross-bar fulcrum against the oak leg and twist the cue-rest shaft as a tourniquet lever to shear the padlock shackle pin and rip the rotted inner canvas flap across the jagged brass hasp, extracting the two brass-hulled .455 target cartridges and grease-stained Spitalfields Lockup 9 receipt stub (c_cue_case_shells).",
+      "effects": [
+        {"reveal_clue": "c_cue_case_shells"},
+        {"add_affordance": ["The Half-Moon Snooker & Social", "pried-open leather cue case beneath Table 3 with sheared padlock shackle and torn canvas lining"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Brass-hulled .455 target cartridges. You don't pot the black with those.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_frankie_squeezed_on_shortfall",
+      "trigger": "scene",
+      "weight": 6.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Frankie 'The Moat' Slater"},
+        {"clue_discovered": "c_layoff_carbon"},
+        {"clue_undiscovered": "c_frankie_pager"}
+      ],
+      "beat": "Confronted with the £60,000 shortfall on the carbon sheet, Frankie's patter stalls. His numeric pager goes off on his belt; if the player grabs it or presses him before he clears the screen, reveal c_frankie_pager and Frankie begs you not to tell Corrigan until after the 10:30 PM Catford race.",
+      "effects": [
+        {"tension": 1.0},
+        {"relationship": ["Frankie 'The Moat' Slater", "player", "Cornered; desperate to cut you into the 10:30 PM ringer race to buy your silence."]}
+      ],
+      "voice": "The Hustle",
+      "voice_line": "He's skint, he's sweating, and he's got a live angle running tonight. Now we own him.",
+      "tags": ["frankie", "leverage"]
+    },
+    {
+      "id": "s_frankie_confesses_van_map",
+      "trigger": "scene",
+      "weight": 7.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Frankie 'The Moat' Slater"},
+        {"clue_discovered": "c_van_key_wax"}
+      ],
+      "beat": "When the player wedges a cast-iron bar stool into the settlement booth's sliding cash-drop hatch, heats the brass knuckle-duster lighter to press the serrated Ford Transit key profile from the green dental-wax mould against the shutter's Chubb keyway—flaring hot tallow across your thumb and shearing the soft wax impression inside the brass tumblers so hardened dental-wax permanently fouls the Chubb keyway against any future key insertion until flushed—and traps Frankie's buzzing numeric pager in the drop tray, Frankie admits he only meant the two blaggers to lift the petty cash tin, then executes an independent counter-scheme: jamming an iron crowbar into the shutter's chain-wheel to trap the wedged bar-stool leg and threatening to dial DI Finch's Flying Squad car straight to Arch 14 unless you clear his bounced cheque at Reuben Vane's vault.",
+      "effects": [
+        {"reveal_clue": "c_frankie_pager"},
+        {"add_affordance": ["The Half-Moon Snooker & Social", "settlement booth Chubb keyway permanently fouled with sheared green dental-wax (blocks key insertion until flushed with solvent)"]},
+        {"faction_shift": ["corrigan_firm", 1]},
+        {"relationship": ["Frankie 'The Moat' Slater", "player", "Barricaded behind the jammed shutter; threatening to call DI Finch's car unless you clear his bounced cheque at Reuben Vane's."]}
+      ],
+      "voice": "Brass Neck",
+      "voice_line": "Never hire two clowns in balaclavas to do an accountant's job.",
+      "tags": ["frankie", "payoff"]
+    },
+    {
+      "id": "a_scrap_yard_arrival",
+      "trigger": "arrival",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"location_is": "Rotherhithe Scrap & Breakers"}
+      ],
+      "beat": "A hydraulic car-baler drops with a teeth-rattling crunch, flattening a Ford Cortina into a three-foot cube. Oily smoke curls from an iron brazier drum beside a padlocked blue Maersk shipping container, and somebody inside the container thumps twice against the corrugated steel.",
+      "effects": [
+        {"add_affordance": ["Rotherhithe Scrap & Breakers", "padlocked blue Maersk shipping container with muffled thumping inside"]},
+        {"add_affordance": ["Rotherhithe Scrap & Breakers", "smouldering oil-drum brazier with charred vellum scraps"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Whoever is inside that twenty-foot box didn't climb in there for the view.",
+      "tags": ["arrival", "scrap_yard"]
+    },
+    {
+      "id": "s_desmond_sizes_up",
+      "trigger": "scene",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Desmond 'Nine-Pint' Baptiste"},
+        {"location_is": "Rotherhithe Scrap & Breakers"}
+      ],
+      "beat": "Desmond wipes a heavy torque wrench with a chamois cloth, dismisses your unbacked custody-warrant bluff with a humourless laugh, and immediately pivots to an active counter-move—kicking the smouldering oil-drum brazier's lower draft-vent open with his steel-capped boot and pitching an unprompted side-deal to split the Catford ringer purse if you bring him hard proof of DI Finch's offshore bank skim or uncut Hatton Garden stones.",
+      "effects": [{"tension": 0.5}],
+      "voice": "Brass Neck",
+      "voice_line": "Don't blink. He's pricing the coat off your back.",
+      "tags": ["desmond"]
+    },
+    {
+      "id": "s_container_blaggers",
+      "trigger": "scene",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"location_is": "Rotherhithe Scrap & Breakers"},
+        {"clue_discovered": "c_scorched_folio"},
+        {"clue_undiscovered": "c_van_key_wax"}
+      ],
+      "beat": "When the player tries to spin the cast-iron workbench vice's tommy-bar to unclamp the green dental-wax key mould, the rusted screw-thread is seized solid with weld-slag and Desmond Baptiste brings his heavy torque wrench crashing down onto the cast-iron vice jaw—shearing the tommy-bar pin, bruising your forearm, and cracking a corner off the wax block—forcing you to yank the bent steel rod out of the half-pried Maersk container air-louvre and jam it into the cracked vice jaw as a lever to wrench c_van_key_wax free while the sprung air-louvre gap lets the two amateur blaggers inside shout c_blagger_confession.",
+      "effects": [
+        {"reveal_clue": "c_van_key_wax"},
+        {"reveal_clue": "c_blagger_confession"},
+        {"add_affordance": ["Rotherhithe Scrap & Breakers", "sheared tommy-bar pin, cracked cast-iron workbench vice jaw, and pried-open Maersk air louvre"]}
+      ],
+      "voice": "Ear to the Ground",
+      "voice_line": "Two kids from Peckham who thought they were proper heavy blaggers. Classic.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_scrap_brazier_inspected",
+      "trigger": "scene",
+      "weight": 4.0,
+      "once": false,
+      "preconditions": [
+        {"location_is": "Rotherhithe Scrap & Breakers"},
+        {"clue_undiscovered": "c_scorched_folio"}
+      ],
+      "beat": "When the player uses a sheared steel rod to rake the half-charred Butcher's Bill vellum from the smouldering oil-drum brazier (revealing c_scorched_folio) and then jams the hot steel rod into the padlocked Maersk shipping container's rusted lower air-louvre, the thick corrugated slat only bends open a half-inch before Desmond's heavy boot kicks the rod sideways, leaving the steel rod wedged in the half-pried air-louvre.",
+      "effects": [
+        {"reveal_clue": "c_scorched_folio"},
+        {"add_affordance": ["Rotherhithe Scrap & Breakers", "half-pried Maersk container air-louvre with a bent steel rod wedged in the lower slat"]}
+      ],
+      "voice": "The Book",
+      "voice_line": "Vellum doesn't burn clean in damp diesel. Somebody tore Page 14 out before they struck the match.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_desmond_deals_on_finch",
+      "trigger": "scene",
+      "weight": 7.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Desmond 'Nine-Pint' Baptiste"},
+        {"truth_discovered": "t_butchers_bill"}
+      ],
+      "beat": "When you lay out DI Finch's Jersey account scam, Desmond Baptiste STILL refuses to hand over his voucher for free—keeping his four-pound lump hammer wedged against the armoured payoff grille until you thrust Finch's duplicate custody carbon into the glowing oil-drum brazier (scorching your crombie cuff) and surrender the grease-stained Spitalfields delivery docket into Desmond's pocket as his personal insurance; even then, when Desmond unlocks the cage's outer padlock, the rusted inner drop-latch seizes halfway in its track from the spilled sump oil and grit, pinching Desmond's £15,000 syndicate voucher inside the narrow slot, and when you strike the drop-latch with Desmond's four-pound lump hammer, the glancing blow mushroom-flattens the soft brass latch-pin and jams the slider tighter while bruising your palm—forcing you to thread the sheared steel tommy-bar pin from the workbench vice you broke on your first visit through the latch-eye as a toggle-pin and lever it steadily against the cage frame with the intact four-pound lump-hammer handle to inch the pinched £15,000 Catford syndicate voucher (c_desmond_slip) free with its corner torn on the burred steel slot, while Desmond lets you carry the intact four-pound lump hammer for the Half-Moon shutter and proposes an unprompted double-cross to pin the missing holdall debt on Frankie Slater.",
+      "effects": [
+        {"reveal_clue": "c_desmond_slip"},
+        {"reveal_clue": "c_chiller_manifest"},
+        {"add_affordance": ["Rotherhithe Scrap & Breakers", "mushroom-flattened brass payoff latch wedged open with the sheared workbench-vice tommy-bar pin"]},
+        {"faction_shift": ["yardies", 2]},
+        {"inter_faction_shift": ["yardies", "flying_squad", -2]},
+        {"relationship": ["Desmond 'Nine-Pint' Baptiste", "player", "Respects your homework after you burned Finch's duplicate carbon; backing your play against DI Finch."]}
+      ],
+      "voice": "The Hustle",
+      "voice_line": "Nothing brings two villains together faster than stitching up a bent copper.",
+      "tags": ["desmond", "payoff"]
+    },
+    {
+      "id": "a_hatton_garden_arrival",
+      "trigger": "arrival",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"location_is": "Hatton Garden Vaults (Vane & Sons)"}
+      ],
+      "beat": "Behind three reinforced buzz-doors, the basement workshop smells of pickled herring, jeweller's rouge, and ozone. An ultrasonic cleaner hums on themahogany counter beside a brass diamond scale and a double-key Chubb vault door.",
+      "effects": [
+        {"add_affordance": ["Hatton Garden Vaults (Vane & Sons)", "humming ultrasonic cleaner tray with a razor-sliced ledger strip"]},
+        {"add_affordance": ["Hatton Garden Vaults (Vane & Sons)", "pocket appraisal book beside the brass diamond scale"]}
+      ],
+      "voice": "The Book",
+      "voice_line": "Half a million in loose stones on the baize and not a single receipt that would please the Inland Revenue.",
+      "tags": ["arrival", "hatton_garden"]
+    },
+    {
+      "id": "s_reuben_offers_salt_beef",
+      "trigger": "scene",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Reuben Vane"},
+        {"location_is": "Hatton Garden Vaults (Vane & Sons)"}
+      ],
+      "beat": "Reuben peers at you over his half-glasses, pushes a plate of salt beef on rye across the counter, and sighs that 'sporting antiques' are a terrible investment compared to Antwerp boart—unless you have something that will make DI Finch lose his appetite.",
+      "effects": [],
+      "voice": "Ear to the Ground",
+      "voice_line": "When Reuben feeds you lunch, he's already sold your watch.",
+      "tags": ["reuben"]
+    },
+    {
+      "id": "s_ultrasonic_strip_found",
+      "trigger": "scene",
+      "weight": 4.0,
+      "once": false,
+      "preconditions": [
+        {"location_is": "Hatton Garden Vaults (Vane & Sons)"},
+        {"clue_undiscovered": "c_jersey_sort_code"}
+      ],
+      "beat": "When the player cranks the corroded brass drain valve on the humming ultrasonic solvent bath, the seized brass petcock stem shears off in their hand and splashes scalding acidic solvent across their knuckles—forcing them to crack the glass sight-gauge with the two .455 target cartridges to drain the tank and snatch the razor-sliced Page 14 vellum strip with the ivory-tipped tweezers before the hot acid eats the ink and Reuben Vane trips the Chubb vault deadbolt, revealing c_jersey_sort_code.",
+      "effects": [
+        {"reveal_clue": "c_jersey_sort_code"},
+        {"add_affordance": ["Hatton Garden Vaults (Vane & Sons)", "drained ultrasonic solvent bath with ivory tweezers holding the rescued Page 14 vellum strip"]}
+      ],
+      "voice": "The Book",
+      "voice_line": "St. Helier sort code 40-19-88. That's where a Flying Squad inspector parks his retirement.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_reuben_releases_chiller_keys",
+      "trigger": "scene",
+      "weight": 7.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Reuben Vane"},
+        {"clue_discovered": "c_rover_radio_log"}
+      ],
+      "beat": "When shown the Flying Squad radio log proving Finch set up the ambush, Reuben Vane STILL refuses to hand over the pistols for paper alone—slamming the double-key Chubb vault grille shut and holding his finger over the under-counter alarm tripwire until you BOTH lock a signed carbon copy of Finch's 2:50 AM radio dispatch log inside his floor safe as insurance AND surrender the two brass-hulled .455 target cartridges from the Half-Moon so he can verify the proof-marks against the barrels; even then, Reuben WITHHOLDS the forty carats of uncut Antwerp boart in his Chubb vault and slips a forged customs lien into the gun-case lining to force Desmond Baptiste to settle his Hatton Garden account first, only then unlatching the mahogany false compartment to release the cased pair of engraved presentation pistols, the spare Spitalfields chiller padlock key, and c_reuben_appraisal.",
+      "effects": [
+        {"reveal_clue": "c_reuben_appraisal"},
+        {"faction_shift": ["hatton_brokers", 2]},
+        {"inter_faction_shift": ["hatton_brokers", "flying_squad", -2]},
+        {"set_fact": ["chiller_key_held", "true"]},
+        {"relationship": ["Reuben Vane", "player", "Drove a ruthless diamond-broker's bargain: kept the forty carats of Antwerp boart in his Chubb vault and demanded both Finch's dispatch carbon and the two .455 cartridges before releasing the engraved presentation pistols."]}
+      ],
+      "voice": "The Hustle",
+      "voice_line": "One copper's logbook traded for two bespoke presentation pieces. That's proper arbitrage.",
+      "tags": ["reuben", "payoff"]
+    },
+    {
+      "id": "a_spitalfields_arrival",
+      "trigger": "arrival",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"location_is": "Spitalfields Meat Lockup 9"}
+      ],
+      "beat": "Frost coats the galvanized meat hooks of Lockup 9. A diesel Bedford chiller van idles inside the loading bay beside an unmarked police Rover SD1 with its court-radio still crackling on the dashboard.",
+      "effects": [
+        {"add_affordance": ["Spitalfields Meat Lockup 9", "Bedford chiller van with a riveted aluminium false floor"]},
+        {"add_affordance": ["Spitalfields Meat Lockup 9", "unmarked Rover SD1 with a locked glovebox and a magnetic spare-key box under the wheel arch"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Meat hooks, a diesel chiller, and the Sweeney on the premises. Mind where you put your prints.",
+      "tags": ["arrival", "spitalfields"]
+    },
+    {
+      "id": "s_chiller_floor_pried",
+      "trigger": "scene",
+      "weight": 8.5,
+      "once": false,
+      "preconditions": [
+        {"location_is": "Spitalfields Meat Lockup 9"},
+        {"clue_undiscovered": "c_gun_oil_rag"}
+      ],
+      "beat": "When the player tries to pry open the sub-zero frost-welded false floor of the Bedford chiller van with the greasy loading-bay tyre lever alone, the thick ice-weld holds fast against single-handed leverage—forcing you to wedge the intact steel tyre lever into the treadplate seam as a standing fulcrum while hooking the overhead butcher's chain-hoist onto the floorplate eye-bolt and kicking the cast-iron ratchet pawl, which rips only the front corner of the floorplate up before the rusted hoist chain snaps under the ice load, gashing your palm, dropping the chiller van's rear roller-shutter half-shut, and drawing DI Finch's brogue down onto the warped aluminium while exposing c_chiller_manifest and c_gun_oil_rag as you stow the intact steel tyre lever for later use.",
+      "effects": [
+        {"reveal_clue": "c_chiller_manifest"},
+        {"reveal_clue": "c_gun_oil_rag"},
+        {"add_affordance": ["Spitalfields Meat Lockup 9", "snapped hoist chain, half-dropped chiller roller-shutter, and pried chiller-floor seam"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Rangoon oil and walnut shavings. Those presentation pistols were sleeping right here.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_rover_glovebox_checked",
+      "trigger": "scene",
+      "weight": 7.5,
+      "once": false,
+      "preconditions": [
+        {"location_is": "Spitalfields Meat Lockup 9"},
+        {"clue_discovered": "c_gun_oil_rag"},
+        {"clue_undiscovered": "c_rover_radio_log"}
+      ],
+      "beat": "When the player unhooks a hanging beef carcass on the overhead steel meat-rail to crash toward DI Finch as a diversion, retrieves the magnetic spare key from the wheel arch, and unlocks the unmarked Rover SD1 glovebox to tear out c_rover_radio_log, reaching for the Rover SD1's handbrake triggers immediate counter-force: DI Finch slams the heavy driver's door across your forearm (bruising the bone) and snatches the dashboard court-radio handset to call in an armed Flying Squad sweep on Lockup 9—forcing you to wrench the coiled microphone cord out of the dashboard junction box while Finch remains unpinned and draws his heavy ash truncheon across the loading-bay exit.",
+      "effects": [
+        {"reveal_clue": "c_chiller_manifest"},
+        {"reveal_clue": "c_rover_radio_log"},
+        {"add_affordance": ["Spitalfields Meat Lockup 9", "severed Rover SD1 dashboard handset cord and DI Finch blocking the loading-bay exit with drawn ash truncheon"]}
+      ],
+      "voice": "Ear to the Ground",
+      "voice_line": "Called off the patrol car at 2:50 AM. Finch didn't just investigate the robbery—he directed the traffic.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_finch_shakes_down_player",
+      "trigger": "scene",
+      "weight": 6.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Det. Insp. Ronald Finch"},
+        {"clue_undiscovered": "c_finch_admission"}
+      ],
+      "beat": "DI Finch taps his warrant card against your chest, calls you 'sunshine', and warns that anyone caught carrying Corrigan's ledger without handing Page 14 to the Flying Squad first is going down for armed robbery.",
+      "effects": [{"tension": 1.0}],
+      "voice": "Brass Neck",
+      "voice_line": "He's sweating harder than Frankie. A copper who asks for one specific page has his name written on it.",
+      "tags": ["finch"]
+    },
+    {
+      "id": "s_finch_cornered_with_sort_code",
+      "trigger": "scene",
+      "weight": 8.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Det. Insp. Ronald Finch"},
+        {"clue_discovered": "c_jersey_sort_code"},
+        {"clue_discovered": "c_rover_radio_log"}
+      ],
+      "beat": "When you recite St. Helier sort code 40-19-88 out loud, DI Finch STILL refuses to fold—swinging his heavy ash truncheon to knock the dispatch log from your grip until you kick off the Rover SD1's handbrake through the open window and knock its V8 gearstick into neutral so the two-ton police Rover rolls backward down the frosted loading-bay slope and pins Finch's coat against the Bedford chiller's flank; even pinned against the chiller, Finch refuses to fold—snapping his steel handcuffs around the Rover's window pillar and holding his lit petrol lighter flame to the corner of the Flying Squad Rotherhithe tunnel escort pass, threatening to burn the permit to ash right there unless you BOTH hand back the torn 2:50 AM dispatch-log margin so he can doctor his station carbon AND countersign a witness charge-sheet pinning the Spitalfields meat-van breach on Desmond Baptiste's crew while Finch keeps the original station carbon locked inside his handcuffed briefcase, only then grudgingly admitting c_finch_admission and stamping the scorched-corner Flying Squad tunnel escort pass.",
+      "effects": [
+        {"reveal_clue": "c_finch_admission"},
+        {"add_affordance": ["Spitalfields Meat Lockup 9", "unmarked Rover SD1 rolled in neutral pinning DI Finch against the Bedford chiller, and stamped Flying Squad escort pass"]},
+        {"faction_shift": ["flying_squad", 2]},
+        {"relationship": ["Det. Insp. Ronald Finch", "player", "Pinned by his own rolling Rover SD1, yet held his lighter to the tunnel pass until you traded the torn dispatch-log margin and signed a charge-sheet against Desmond's crew."]}
+      ],
+      "voice": "The Book",
+      "voice_line": "Nothing clears London traffic like a Flying Squad inspector protecting his pension.",
+      "tags": ["finch", "payoff"]
+    },
+    {
+      "id": "a_deptford_kennels_arrival",
+      "trigger": "arrival",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"location_is": "The Deptford Dog Kennels"}
+      ],
+      "beat": "Twenty greyhounds bay behind wire runs under the sodium lamps of the Deptford railway embankment. In Kennel 3, a sleek dog with suspiciously glossy black fur paces beside a grooming bench smelling sharply of boot polish and turpentine.",
+      "effects": [
+        {"add_affordance": ["The Deptford Dog Kennels", "Kennel 3 housing a sleek greyhound smelling of black boot polish"]},
+        {"add_affordance": ["The Deptford Dog Kennels", "grooming bench with Parade Gloss tin and Catford Trap 4 race-card"]}
+      ],
+      "voice": "Ear to the Ground",
+      "voice_line": "Greyhounds don't wear Parade Gloss unless somebody's running a ringer at Catford.",
+      "tags": ["arrival", "kennels"]
+    },
+    {
+      "id": "s_kennel_bench_inspected",
+      "trigger": "scene",
+      "weight": 5.0,
+      "once": false,
+      "preconditions": [
+        {"location_is": "The Deptford Dog Kennels"},
+        {"clue_undiscovered": "c_boot_polish_tin"}
+      ],
+      "beat": "When the player kicks out the sodium heat-lamp plug and uses the heavy steel hydrotherapy tub wrench to snap the rusted tack-board padlock clip, splashing cold turpentine onto the rubber grooming stencil initially fails to dissolve the baked-on carnauba wax-resin Parade Gloss—forcing the player to clamp the stiff rubber stencil in the zinc bench's corner vice-dog, bridge the unplugged sodium heat-lamp's hot ballast transformer across the motorized drainage-sluice bypass wire to crank open the jammed Kennel 3 overhead inspection hatch (opening an emergent physical pathway and reach-chute into Kennel 3's straw run), and press the warm ballast casing against the stencil to soften and scrape away the hardened black wax crust with a serrated steel curry-comb, revealing c_boot_polish_tin and c_catford_trap_card while leaving the Kennel 3 inspection hatch wedged open for your return visit.",
+      "effects": [
+        {"reveal_clue": "c_boot_polish_tin"},
+        {"reveal_clue": "c_catford_trap_card"},
+        {"add_affordance": ["The Deptford Dog Kennels", "wedged-open Kennel 3 overhead inspection hatch (cranked via the hot ballast bypass wire), curry-comb scraped rubber stencil, and turpentine-stained zinc bench"]}
+      ],
+      "voice": "Copper's Nose",
+      "voice_line": "Parade Gloss beside a greyhound brush and stencil. Somebody's doctoring markings before the traps open.",
+      "tags": ["clue_gate"]
+    },
+    {
+      "id": "s_carla_defends_kennel",
+      "trigger": "scene",
+      "weight": 6.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Carla 'The Vet' Kovacs"},
+        {"location_is": "The Deptford Dog Kennels"},
+        {"clue_undiscovered": "c_vet_dockets"}
+      ],
+      "beat": "Carla clicks her surgical scissors shut and stands in front of Kennel 3. She says the dog stays in the straw until somebody either pays the £2,500 Frankie owes her or proves Frankie forged the Romford bill of sale.",
+      "effects": [{"tension": 0.5}],
+      "voice": "Proper Naughty",
+      "voice_line": "She's not scared of Corrigan and she's handy with those shears. Show her paper, not muscle.",
+      "tags": ["carla"]
+    },
+    {
+      "id": "s_carla_flips_on_frankie",
+      "trigger": "scene",
+      "weight": 7.0,
+      "once": true,
+      "preconditions": [
+        {"npc_present": "Carla 'The Vet' Kovacs"},
+        {"truth_discovered": "t_inside_job"},
+        {"clue_discovered": "c_boot_polish_tin"}
+      ],
+      "beat": "Even when shown proof that Frankie set up the van hijack, Carla Kovacs keeps her surgical shears levelled across the outer wire door and refuses to unpadlock Kennel 3 until you endorse Desmond's £15,000 Catford syndicate voucher over to her clinic to cover Frankie's £2,500 unpaid fee and countersign her Romford indemnity slip against DI Finch; when the corroded outer kennel padlock still jams in the rain, you reach through the Kennel 3 overhead inspection hatch you cranked open on your first visit to slide the interior shoot-bolt clear and use the stiff brass-bristled kennel grooming brush and surgical spirit Carla hands you to scrape the caked black wax polish out of Duchess's white chest star before taking c_vet_dockets and Duchess's Slip Lead.",
+      "effects": [
+        {"reveal_clue": "c_vet_dockets"},
+        {"set_fact": ["duchess_recovered", "true"]},
+        {"faction_shift": ["corrigan_firm", 2]},
+        {"relationship": ["Carla 'The Vet' Kovacs", "player", "Drove a hard bargain for Desmond's syndicate voucher to cover her £2,500 clinic fee before letting you unbolt Kennel 3 via the pried inspection hatch."]}
+      ],
+      "voice": "Brass Neck",
+      "voice_line": "One pedigree greyhound, present and correct. Two items left on Arthur's shopping list.",
+      "tags": ["carla", "payoff"]
+    },
+    {
+      "id": "s_turf_war_crossfire",
+      "trigger": "scene",
+      "weight": 6.5,
+      "once": true,
+      "preconditions": [
+        {"inter_faction_standing_lte": ["corrigan_firm", "yardies", -4]}
+      ],
+      "beat": "A battered Transit van screeches past the entrance and showers the brickwork with shattered headlamp glass—open turf war has broken out between the Corrigan Firm and the Brixton Hill Crew.",
+      "effects": [
+        {"tension": 1.5},
+        {"add_affordance": ["player_location", "shattered safety glass and spent 9mm casings from a drive-by"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Negotiations have officially moved to the panel-beating stage.",
+      "tags": ["turf_war"]
+    },
+    {
+      "id": "w_desmond_relocates_manifest",
+      "trigger": "warm",
+      "weight": 6.0,
+      "once": true,
+      "preconditions": [
+        {"clue_undiscovered": "c_chiller_manifest"}
+      ],
+      "beat": "Off-screen, Desmond Baptiste sends a runner to Spitalfields Lockup 9 to lift the chiller-van manifest and stash it at Rotherhithe Scrap & Breakers before the Sweeney can seize it.",
+      "effects": [
+        {"move_clue": ["c_chiller_manifest", "Rotherhithe Scrap & Breakers"]},
+        {"inter_faction_shift": ["yardies", "flying_squad", -1]},
+        {
+          "rumor": {
+            "text": "Desmond's runner was seen lifting the chiller-van delivery docket from Spitalfields and bolting toward Rotherhithe Scrap & Breakers.",
+            "source": "Billingsgate porters",
+            "reliability": "true"
+          }
+        }
+      ],
+      "tags": ["warm", "heist"]
+    },
+    {
+      "id": "w_reuben_moves_sort_code",
+      "trigger": "warm",
+      "weight": 5.5,
+      "once": true,
+      "preconditions": [
+        {"clue_undiscovered": "c_jersey_sort_code"},
+        {"act_gte": 2}
+      ],
+      "beat": "Off-screen, Reuben Vane grows nervous about a Flying Squad raid and moves the razor-sliced Page 14 strip from Hatton Garden to the chiller van at Spitalfields Lockup 9.",
+      "effects": [
+        {"move_clue": ["c_jersey_sort_code", "Spitalfields Meat Lockup 9"]},
+        {
+          "rumor": {
+            "text": "Reuben Vane cleared his ultrasonic tray in Hatton Garden and sent a sealed parcel over to Spitalfields Lockup 9.",
+            "source": "Clerkenwell courier",
+            "reliability": "true"
+          }
+        }
+      ],
+      "tags": ["warm", "heist"]
+    },
+    {
+      "id": "w_frankie_hedges_catford_book",
+      "trigger": "warm",
+      "weight": 5.0,
+      "once": true,
+      "preconditions": [
+        {"truth_undiscovered": "t_duchess_ringer"}
+      ],
+      "beat": "Off-screen, Frankie Slater phones three Bermondsey tic-tac men to lay off another ten grand on a mystery dog in Trap 4 at Catford.",
+      "effects": [
+        {"tension": 0.5},
+        {
+          "rumor": {
+            "text": "Frankie the Moat is laying heavy money on a 12-to-1 outsider named 'Biscuit' in the 10:30 PM Catford trap.",
+            "source": "tic-tac men",
+            "reliability": "distorted"
+          }
+        }
+      ],
+      "tags": ["warm", "frankie"]
+    },
+    {
+      "id": "w_finch_raids_scrap_yard",
+      "trigger": "warm",
+      "weight": 5.5,
+      "once": true,
+      "preconditions": [
+        {"truth_undiscovered": "t_butchers_bill"}
+      ],
+      "beat": "Off-screen, DI Finch parks his unmarked Rover across the gates of Rotherhithe Scrap & Breakers, demanding the ashes from Desmond's oil drum.",
+      "effects": [
+        {"inter_faction_shift": ["flying_squad", "yardies", -2]},
+        {"tension": 0.8},
+        {
+          "rumor": {
+            "text": "DI Finch and Desmond Baptiste had a nose-to-nose row outside Rotherhithe Scrap & Breakers over a burned ledger.",
+            "source": "minicab radio",
+            "reliability": "true"
+          }
+        }
+      ],
+      "tags": ["warm", "turf_war"]
+    },
+    {
+      "id": "w_carla_walks_the_ringer",
+      "trigger": "warm",
+      "weight": 4.5,
+      "once": true,
+      "preconditions": [
+        {"clue_undiscovered": "c_boot_polish_tin"}
+      ],
+      "beat": "Off-screen, Carla Kovacs exercises a suspiciously dark-coated greyhound behind the Deptford railway embankment under a tarpaulin.",
+      "effects": [
+        {
+          "rumor": {
+            "text": "Someone at the Deptford kennels is trialling a jet-black greyhound that runs the bends exactly like Corrigan's fawn bitch Duchess.",
+            "source": "track clockers",
+            "reliability": "true"
+          }
+        }
+      ],
+      "tags": ["warm", "carla"]
+    },
+    {
+      "id": "w_false_heathrow_rumor",
+      "trigger": "warm",
+      "weight": 3.5,
+      "once": true,
+      "preconditions": [
+        {"act_is": 1},
+        {"npc_tier": ["Frankie 'The Moat' Slater", "warm"]}
+      ],
+      "beat": "Off-screen, Frankie Slater tacks a forged KLM air-freight waybill to the Half-Moon noticeboard claiming the stolen holdall was flown to Amsterdam, while padlocking a heavy iron coal-bar across the cellar chute to hide Reuben Vane's bounced-cheque drop.",
+      "effects": [
+        {"add_affordance": ["The Half-Moon Snooker & Social", "forged KLM Amsterdam air-freight waybill tacked above the padlocked cellar coal chute"]},
+        {
+          "rumor": {
+            "text": "Frankie Slater tacked a forged KLM air-freight waybill to the Half-Moon noticeboard claiming Corrigan's holdall was flown to Amsterdam while chaining the cellar coal-chute hatch shut—though the Spitalfields Lockup 9 receipt stub proves the gear never left East London.",
+            "source": "Half-Moon barfly",
+            "reliability": "false"
+          }
+        }
+      ],
+      "tags": ["warm", "red_herring", "frankie"]
+    },
+    {
+      "id": "d_stage1_daimler_spotted",
+      "trigger": "doom",
+      "weight": 10.0,
+      "once": true,
+      "preconditions": [
+        {"doom_stage_gte": 1}
+      ],
+      "beat": "Arthur Corrigan's black Daimler glides past the end of the street at ten miles an hour. The passenger window rolls down two inches; a man in a camel coat taps his wristwatch once.",
+      "effects": [
+        {"tension": 1.0},
+        {
+          "rumor": {
+            "text": "Corrigan's Daimler just did a slow lap of Bermondsey. Anyone holding his gear has until eleven before the crusher starts.",
+            "source": "street lookouts",
+            "reliability": "true"
+          }
+        }
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "That's Arthur's driver. He doesn't do second laps.",
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage2_sweeney_roadblock",
+      "trigger": "doom",
+      "weight": 10.0,
+      "once": true,
+      "preconditions": [
+        {"doom_stage_gte": 2}
+      ],
+      "beat": "Blue lamps flash in the rain at the mouth of Rotherhithe Tunnel—DI Finch's Flying Squad has thrown up a 'routine goods vehicle check', stopping every van between Bermondsey and Spitalfields.",
+      "effects": [
+        {"tension": 1.5},
+        {"inter_faction_shift": ["flying_squad", "corrigan_firm", -2]}
+      ],
+      "voice": "The Book",
+      "voice_line": "Finch is panicking. When the Sweeney block the tunnel, they're looking for paper, not villains.",
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage3_blind_beggar_booth",
+      "trigger": "doom",
+      "weight": 10.0,
+      "once": true,
+      "preconditions": [
+        {"doom_stage_gte": 3}
+      ],
+      "beat": "Over the pub payphone comes a single message from Whitechapel: Arthur Corrigan has taken the corner booth at The Blind Beggar, ordered a pot of Earl Grey, and laid a clean polythene sheet in the boot of the Jag.",
+      "effects": [
+        {"tension": 2.0}
+      ],
+      "voice": "Brass Neck",
+      "voice_line": "Polythene in the boot. Time to cash your chips, mate.",
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage4_last_orders_bell",
+      "trigger": "doom",
+      "weight": 20.0,
+      "once": true,
+      "preconditions": [
+        {"doom_stage_gte": 4}
+      ],
+      "beat": "The landlord's brass bell clangs for eleven-o'clock last orders across the rain-darkened arches.",
+      "effects": [
+        {"end_run": "failure"}
+      ],
+      "tags": ["doom", "ending"]
+    },
+    {
+      "id": "r_frankie_recalls",
+      "trigger": "rehydrate",
+      "weight": 5.0,
+      "once": false,
+      "preconditions": [
+        {"npc_present": "Frankie 'The Moat' Slater"}
+      ],
+      "beat": "Frankie eyes the green dental-wax still fouling his Chubb keyway and the cast-iron bar stool wedged into his drop-tray earlier; seeing Duchess on your lead or the recovered Rotherhithe wax, he realizes his Catford ringer bet is dead and pivots to jamming a notched steel bar across the settlement hatch while offering to frame DI Finch and Desmond Baptiste for the van job.",
+      "effects": [],
+      "tags": ["rehydrate"]
+    },
+    {
+      "id": "r_desmond_recalls",
+      "trigger": "rehydrate",
+      "weight": 5.0,
+      "once": false,
+      "preconditions": [
+        {"npc_present": "Desmond 'Nine-Pint' Baptiste"},
+        {"clue_discovered": "c_reuben_appraisal"}
+      ],
+      "beat": "Seeing you return from Hatton Garden and Spitalfields with Reuben Vane's leather pistol trunk and DI Finch's torn radio dispatch log under your arm, Desmond Baptiste immediately advances from his earlier ultimatum to the final settlement—unhooking the heavy tow-chain from the Maersk container doors and pulling the 12-to-1 Catford syndicate voucher from his breast pocket to close the account.",
+      "effects": [],
+      "tags": ["rehydrate"]
+    },
+    {
+      "id": "r_reuben_recalls",
+      "trigger": "rehydrate",
+      "weight": 5.0,
+      "once": false,
+      "preconditions": [
+        {"npc_present": "Reuben Vane"}
+      ],
+      "beat": "Reuben adjusts his jeweller's loupe, immediately picking up his earlier wholesale invoice for the Spitalfields chiller padlock key and Antwerp boart while tripping the counter deadbolt to secure the vault grille.",
+      "effects": [],
+      "tags": ["rehydrate"]
+    },
+    {
+      "id": "r_carla_recalls",
+      "trigger": "rehydrate",
+      "weight": 5.0,
+      "once": false,
+      "preconditions": [
+        {"npc_present": "Carla 'The Vet' Kovacs"}
+      ],
+      "beat": "Carla Kovacs eyes the turpentine-soaked zinc bench and the rubber ear-tattoo stencil you scraped with the steel curry-comb on your first visit; realizing her Catford ringer cover is blown now that you hold Desmond's £15,000 syndicate voucher, she pivots from guarding Kennel 3 to bolting the veterinary medicine cabinet and offering to countersign a Romford indemnity slip pinning the ringer fraud on Frankie Slater.",
+      "effects": [],
+      "tags": ["rehydrate"]
+    },
+    {
+      "id": "s_climax_chute_and_shutter_standoff",
+      "trigger": "scene",
+      "weight": 9.5,
+      "once": true,
+      "preconditions": [
+        {"location_is": "The Half-Moon Snooker & Social"},
+        {"clue_discovered": "c_vet_dockets"},
+        {"act_gte": 3}
+      ],
+      "beat": "When you return to the Half-Moon with Duchess on her lead and the recovered gear as Arthur Corrigan's outriders pull up outside, Frankie Slater barricades himself behind the steel settlement shutter and jams the cellar coal chute with his lead counterweight; when you try to insert the spare Spitalfields padlock key into the settlement booth's Chubb lock, the key is blocked solid by the hardened green dental-wax sheared off inside the brass tumblers on your earlier attempt—forcing you to first flush and scrape the hardened dental-wax debris out of the Chubb keyway with raw carbolic solvent and a wire pick before the Spitalfields key can turn the secondary cylinder, while driving the intact Spitalfields steel tyre lever into the padlocked coal-chute flange with Desmond's intact four-pound lump hammer wrenches loose Frankie's lead counterweight, clears the cross-braced iron bar chained across the cellar trapdoor, and intercepts Reuben Vane's wedged envelope containing Frankie's bounced cheque alongside Avram's pinned manifest (c_bounced_cheque_envelope), leaving Frankie's notched crowbar still wedging the main steel shutter down to a six-inch gap until the next turn as Frankie tries to torch his layoff ledger.",
+      "effects": [
+        {"reveal_clue": "c_bounced_cheque_envelope"},
+        {"tension": 1.2},
+        {"set_fact": ["climax_standoff_resolved", "true"]},
+        {"add_affordance": ["The Half-Moon Snooker & Social", "solvent-flushed Chubb keyway with secondary cylinder unlocked, pried-open cellar coal chute with freed lead counterweight, and settlement shutter still held by Frankie's jammed crowbar"]}
+      ],
+      "voice": "Proper Naughty",
+      "voice_line": "Chute's cleared, the wax-fouled tumblers are flushed clean, and Reuben's rubber cheque is in your fist—one heave with that lead counterweight snaps Frankie's crowbar.",
+      "tags": ["frankie", "climax", "payoff"]
+    }
+  ]
+}

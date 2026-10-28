@@ -1,0 +1,731 @@
+{
+  "title": "Glassharbor",
+  "premise": "The tidal port of Glassharbor clings to basalt cliffs above a fog-bound inlet. Smugglers, harbor wardens, and guild archivists trade secrets around the lantern-lit piers while an ancient clockwork floodgate threatens to fail before the midnight king-tide.",
+  "opening": "You have just stepped off a storm-battered coastal skiff onto {start_name}, carrying an unsealed inquiry writ and your inspector's pocket ledger. You are an independent Maritime Inquiry Inspector—raised on salt-piers like this one and trained to audit crooked port ledgers—summoned after Glassharbor's magistrate vanished before stamping your writ. Your objective: before the midnight king-tide strikes in sixteen hours (12:00 AM), find out why the floodgate is failing and who profits from it, then decide whether to expose the conspirators to the Watch, broker a backroom deal, or find another way to spill the tide.",
+  "tone": {
+    "name": "noir",
+    "prose_register": "Terse, sensory, rain-and-brass noir. Dialogue carries subtext; nobody explains themselves fully. Consequences are specific and named.",
+    "npc_lie_probability": 0.5,
+    "reveal_strictness": "strict",
+    "doom_hard": true,
+    "clean_endings": false,
+    "inner_voices": true
+  },
+  "player_voices": {
+    "Suspicion": "Reads every kindness as a hook. Short, flat sentences.",
+    "Empathy": "Notices what people are afraid of. Speaks gently, sometimes wrongly.",
+    "Salt-Memory": "The part of you that grew up in ports like this. Nostalgic, bodily, smells and sounds.",
+    "Ledger": "Counts, dates, discrepancies. Dry. Hates a number that does not add up.",
+    "Nerve": "Measures exits and distances. Clipped. Speaks up when the body is in danger."
+  },
+  "starting_location": {
+    "name": "The Salt-Glass Wharf",
+    "description": "Rain slicks the basalt flagstones of the wharf. Iron cargo cranes creak overhead in the sea wind, and salt-crusted oil lanterns cast amber rings across moored skiffs and a bolted customs shed.",
+    "affordances": [
+      "padlocked customs shed door with a corroded brass seal",
+      "waterlogged manifest ledger chained to the bollard",
+      "coil of tarred hemp rope beside the Winch House",
+      "tide-mark painted on the seawall, already a hand above the last line"
+    ],
+    "exits": {
+      "north": "The Amber Lantern Tavern",
+      "east": "The Floodgate Gearworks",
+      "west": "The Sunken Archive Vaults",
+      "under the piers": "The Compact Boathouse"
+    },
+    "clue_ids": ["c_manifest", "c_seal_replaced"]
+  },
+  "factions": [
+    {
+      "id": "wardens",
+      "name": "The Harbor Wardens",
+      "aim": "Keep the floodgate shut and find whoever has been at the customs shed before the king-tide makes it everyone's problem.",
+      "standing_with_player": 0,
+      "standing": {"compact": -3, "archivists": 0, "floodgate": 1},
+      "assets": ["the customs shed", "the night watch", "the harbor key-ring"],
+      "register": "Clipped maritime cadence; questions answered with questions; respect earned by evidence."
+    },
+    {
+      "id": "compact",
+      "name": "The Smugglers' Compact",
+      "aim": "Keep the wardens looking at the gate while the vaults empty themselves into Compact boats.",
+      "standing_with_player": 0,
+      "standing": {"wardens": -3, "archivists": -1, "floodgate": -2},
+      "assets": ["the boathouse under the piers", "the tavern tally board", "a dozen runners who are not children, officially"],
+      "register": "Friendly, fast, always a trade on offer; threats arrive as favours."
+    },
+    {
+      "id": "archivists",
+      "name": "The Guild of Archivists",
+      "aim": "Protect the tide-ledgers and the guild's name, in that order, whatever the water does.",
+      "standing_with_player": 0,
+      "standing": {"wardens": 0, "compact": -1, "floodgate": 2},
+      "assets": ["the Sunken Archive", "the tide-ledgers", "Folio 9"],
+      "register": "Formal, archaic, precise; refusal phrased as procedure."
+    },
+    {
+      "id": "floodgate",
+      "name": "The Floodgate",
+      "aim": "Hold. It is losing.",
+      "standing_with_player": 0,
+      "standing": {},
+      "assets": ["the main sluice", "the lesser sluice nobody remembers", "the bells"],
+      "register": "Groans, bells, pressure gauges. It does not speak; it is spoken about."
+    }
+  ],
+  "truths": [
+    {
+      "id": "t_valve",
+      "question": "Why is the floodgate failing?",
+      "statement": "The floodgate is not dying of age. Soren Vale pulled the brass pressure valve from the gearworks on commission from the Compact, and has been bleeding the gate ever since.",
+      "clue_ids": ["c_valve_scratches", "c_pressure_chart", "c_soren_commission", "c_warden_count"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_manifest",
+      "question": "What left the customs shed at two in the morning?",
+      "statement": "Captain Mara Vance signed the forged manifest that let the valve leave the customs shed as 'lamp fittings'. She did it because her daughter Ilsa owes the Compact more than a warden earns in five years.",
+      "clue_ids": ["c_manifest", "c_ilsa_debt", "c_seal_replaced", "c_vance_confession"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_bypass",
+      "question": "Is there another way to spill the king-tide?",
+      "statement": "The Sunken Archive holds Folio 9, schematics for a manual bypass sluice that could spill the king-tide harmlessly. Archivist Orin hides it because the guild sold copies to the Compact twelve years ago and he fears the scandal more than the water.",
+      "clue_ids": ["c_schematic_stub", "c_guild_receipt", "c_bypass_wheel", "c_orin_knows"],
+      "min_clues_to_discover": 2
+    },
+    {
+      "id": "t_tide",
+      "question": "Is the king-tide warning right?",
+      "statement": "The king-tide warning was moved forward a full day by someone altering the tide-ledger. The Compact wants the panic: an evacuated vault district is an unlocked one.",
+      "clue_ids": ["c_tide_ledger", "c_boathouse_prep", "c_runner_slip"],
+      "min_clues_to_discover": 2
+    }
+  ],
+  "clues": [
+    {"id": "c_valve_scratches", "truth_id": "t_valve", "carrier": "location", "carrier_hint": "The Floodgate Gearworks", "text": "The pressure valve housing in the gearworks shows bright tool scratches under the grease, not corrosion. Someone removed the valve recently and carefully."},
+    {"id": "c_pressure_chart", "truth_id": "t_valve", "carrier": "document", "carrier_hint": "The Amber Lantern Tavern, hidden", "text": "Soren Vale's ciphered pressure chart, once read, shows the gate's pressure falling in a straight line from a single night three weeks ago. Age does not draw straight lines."},
+    {"id": "c_soren_commission", "truth_id": "t_valve", "carrier": "document", "carrier_hint": "Soren Vale's possessions or the boathouse", "text": "A Compact chit promising Soren Vale 'passage out and a clean name upon delivery of the brass'."},
+    {"id": "c_warden_count", "truth_id": "t_valve", "carrier": "npc", "carrier_hint": "Captain Mara Vance", "text": "Vance's own key-ring count: one licensed floodgate key is missing, and the log shows it was last signed out to the gearworks engineer who was dismissed. Soren Vale."},
+    {"id": "c_manifest", "truth_id": "t_manifest", "carrier": "document", "carrier_hint": "The Salt-Glass Wharf, chained ledger", "text": "The chained manifest ledger records a crate of 'lamp fittings' signed out of the customs shed at two in the morning, three weeks ago, initialled M.V."},
+    {"id": "c_ilsa_debt", "truth_id": "t_manifest", "carrier": "location", "carrier_hint": "The Amber Lantern Tavern, tally board", "text": "The Compact's tally board behind the tavern bar carries a chalk marker against 'I. Vance' with more strokes than any other name, and a line through the newest ones."},
+    {"id": "c_seal_replaced", "truth_id": "t_manifest", "carrier": "location", "carrier_hint": "The Salt-Glass Wharf, customs shed", "text": "The brass seal on the customs shed is bright and new under its salt; the padlock it hangs from is forty years old. Someone replaced the seal, not the lock."},
+    {"id": "c_vance_confession", "truth_id": "t_manifest", "carrier": "npc", "carrier_hint": "Captain Mara Vance", "text": "Captain Vance admits she signed the manifest. She says it the way people say the name of a dead relative."},
+    {"id": "c_schematic_stub", "truth_id": "t_bypass", "carrier": "document", "carrier_hint": "The Sunken Archive Vaults, index drawer", "text": "A torn index card in the Archive's drawer reads 'Folio 9 — the Lesser Sluice — manual bypass, west wall'. The folio itself is not where the card says."},
+    {"id": "c_guild_receipt", "truth_id": "t_bypass", "carrier": "document", "carrier_hint": "The Sunken Archive Vaults, locked case", "text": "A guild receipt, twelve years old, acknowledging payment from the Compact 'for copies of Folios 7 through 9'. Signed by the previous Keeper."},
+    {"id": "c_bypass_wheel", "truth_id": "t_bypass", "carrier": "location", "carrier_hint": "The Floodgate Gearworks, west wall", "text": "On the west wall of the gearworks a wheelhouse has been bricked over. The mortar is a generation younger than the stone around it, and behind it something still ticks."},
+    {"id": "c_orin_knows", "truth_id": "t_bypass", "carrier": "npc", "carrier_hint": "Archivist Orin", "text": "Orin confirms Folio 9 exists, that he moved it, and that the lesser sluice can be opened by hand from the bricked wheelhouse. He asks you to say it was found, not given."},
+    {"id": "c_tide_ledger", "truth_id": "t_tide", "carrier": "document", "carrier_hint": "The Sunken Archive Vaults, tide-ledger", "text": "The tide-ledger's king-tide date has been scraped and re-inked. Under the new ink the old date is one day later."},
+    {"id": "c_boathouse_prep", "truth_id": "t_tide", "carrier": "location", "carrier_hint": "The Compact Boathouse", "text": "The Compact's boats are being loaded with nothing: empty crates, straw, oilcloth. Boats you load empty are boats you mean to fill elsewhere."},
+    {"id": "c_runner_slip", "truth_id": "t_tide", "carrier": "document", "carrier_hint": "A Compact runner", "text": "A runner's slip, folded small: 'When the bells ring the vaults are ours. Not before.'"}
+  ],
+  "seed_npcs": [
+    {
+      "name": "Captain Mara Vance",
+      "role_summary": "One-eyed Harbor Warden inspecting cargo seals",
+      "goal": "Find who tampered with the customs shed and confiscate any unlicensed floodgate keys before the king-tide, without anyone looking too closely at the manifest.",
+      "traits": "Clipped maritime cadence, suspicious of strangers, respects hard evidence over flattery, goes very quiet when her daughter is mentioned.",
+      "location_name": "The Salt-Glass Wharf",
+      "tier": "hot",
+      "faction": "wardens",
+      "secret": "She signed the forged manifest that let the valve out of the shed.",
+      "wound": "Her daughter Ilsa owes the Compact. Vance will lie, stall, and threaten to protect her; she breaks only if shown both the manifest entry and the tally board, or offered a way to keep Ilsa out of it.",
+      "formative_memories": [
+        "Someone pried at the customs shed padlock during the midnight tide; she replaced the seal herself and told no one.",
+        "Archivist Orin owes the harbor watch two crates of lamp oil.",
+        "Soren Vale will be arrested on sight if he sets foot on the wharf."
+      ],
+      "routine": [
+        {"start_hour": 6, "end_hour": 14, "location_name": "The Salt-Glass Wharf", "activity": "inspecting seals and skiffs"},
+        {"start_hour": 14, "end_hour": 22, "location_name": "The Warden Customs House", "activity": "writing the watch log"},
+        {"start_hour": 22, "end_hour": 6, "location_name": "The Salt-Glass Wharf", "activity": "walking the night watch alone"}
+      ],
+      "relationships": {"Soren Vale": "Will arrest him on sight.", "Archivist Orin": "Owes her lamp oil; otherwise harmless."}
+    },
+    {
+      "name": "Soren Vale",
+      "role_summary": "Disgraced clockwork engineer and contraband broker",
+      "goal": "Move the brass pressure valve from its hiding place to the boathouse before the evening tide and collect the Compact's promised passage out of Glassharbor.",
+      "traits": "Fast-talking, ink-stained fingers, deflects direct questions with trade bargains, flinches at the sound of the gate bells.",
+      "location_name": "The Amber Lantern Tavern",
+      "tier": "warm",
+      "faction": "compact",
+      "secret": "He removed the valve himself and has been bleeding the gate for three weeks on the Compact's commission.",
+      "wound": "He built that gate's last repair and knows exactly how many people drown if it goes. He will lie fluently, but a direct appeal to the gearworks, or proof of the tool scratches, makes him bargain instead of lie.",
+      "formative_memories": [
+        "Soren hid a ciphered pressure chart behind the loose panel in the Amber Lantern's back booth.",
+        "Captain Mara Vance will arrest Soren on sight if he returns to the wharf.",
+        "The Compact's chit is in his coat lining. He checks it is still there too often."
+      ],
+      "routine": [
+        {"start_hour": 10, "end_hour": 18, "location_name": "The Amber Lantern Tavern", "activity": "brokering from the back booth"},
+        {"start_hour": 18, "end_hour": 2, "location_name": "The Compact Boathouse", "activity": "working the boats"},
+        {"start_hour": 2, "end_hour": 10, "location_name": "The Amber Lantern Tavern", "activity": "sleeping upstairs"}
+      ],
+      "relationships": {"Captain Mara Vance": "Hates and fears her in equal measure.", "Archivist Orin": "Thinks Orin is a coward with a useful library."}
+    },
+    {
+      "name": "Archivist Orin",
+      "role_summary": "Keeper of the Sunken Archive tide-ledgers",
+      "goal": "Seal the lower gearworks sluice records, recover the missing manifest ledger, and keep Folio 9 out of every conversation.",
+      "traits": "Formal, archaic vocabulary, fiercely protective of guild records, refuses aid without a signed writ or rare artifact, touches his collar when lying.",
+      "location_name": "The Sunken Archive Vaults",
+      "tier": "warm",
+      "faction": "archivists",
+      "secret": "He moved Folio 9, the bypass schematics, and knows the lesser sluice can still be opened by hand.",
+      "wound": "The guild sold copies of the folio to the Compact under the last Keeper; Orin covered it up. He talks if shown the guild receipt, or if the water reaches the lower stacks.",
+      "formative_memories": [
+        "The floodgate gearworks cannot hold another storm surge without the brass valve.",
+        "Folio 9 is no longer in the index drawer. He knows where it is.",
+        "The tide-ledger was re-inked while he slept, and he has told no one."
+      ],
+      "routine": [
+        {"start_hour": 7, "end_hour": 19, "location_name": "The Sunken Archive Vaults", "activity": "cataloguing"},
+        {"start_hour": 19, "end_hour": 23, "location_name": "The Amber Lantern Tavern", "activity": "one cup of hot wine, alone"},
+        {"start_hour": 23, "end_hour": 7, "location_name": "The Guild Dormitory", "activity": "sleeping badly"}
+      ],
+      "relationships": {"Captain Mara Vance": "Owes her lamp oil; respects her.", "Soren Vale": "Will not say his name aloud."}
+    },
+    {
+      "name": "Ilsa Vance",
+      "role_summary": "The Warden's daughter, tavern bookkeeper with chalk on her cuffs",
+      "goal": "Pay down the Compact marker before her mother finds out how deep it goes.",
+      "traits": "Bright, brittle, counts coins while she talks, changes the subject with jokes.",
+      "location_name": "The Amber Lantern Tavern",
+      "tier": "cold",
+      "faction": "compact",
+      "secret": "She knows her mother signed the manifest to buy down the debt, and she carries the runner's slip for the Compact.",
+      "wound": "She thinks she is protecting her mother. Kindness works on her where pressure does not.",
+      "formative_memories": [
+        "The tally board strokes against her name were struck through the night the valve left the shed.",
+        "Pell gave her a folded slip to pass on when the bells ring."
+      ],
+      "routine": [
+        {"start_hour": 8, "end_hour": 16, "location_name": "The Amber Lantern Tavern", "activity": "keeping the books"},
+        {"start_hour": 16, "end_hour": 24, "location_name": "The Compact Boathouse", "activity": "counting crates"},
+        {"start_hour": 0, "end_hour": 8, "location_name": "The Warden Customs House", "activity": "sleeping in her mother's office"}
+      ],
+      "relationships": {"Captain Mara Vance": "Her mother. Loves her, lies to her.", "Soren Vale": "Owes him nothing and tells him so."}
+    },
+    {
+      "name": "Pell",
+      "role_summary": "Compact runner, twelve or so, barefoot in any weather",
+      "goal": "Deliver slips, watch the stranger with the writ, and report to the boathouse.",
+      "traits": "Talks like an adult who learned it from the wrong adults; grins when caught; genuinely afraid of the water.",
+      "location_name": "The Compact Boathouse",
+      "tier": "cold",
+      "faction": "compact",
+      "secret": "Pell carries the runner's slips and knows the bells are the signal.",
+      "wound": "Nobody has ever asked Pell what happens to the runners when the vault district floods. Asking does more than threatening.",
+      "formative_memories": [
+        "The boathouse boats are being loaded with straw and empty crates. Pell asked why and got a cuff.",
+        "The stranger with the writ got off a skiff this morning."
+      ],
+      "routine": [
+        {"start_hour": 6, "end_hour": 12, "location_name": "The Salt-Glass Wharf", "activity": "watching arrivals"},
+        {"start_hour": 12, "end_hour": 20, "location_name": "The Amber Lantern Tavern", "activity": "running slips"},
+        {"start_hour": 20, "end_hour": 6, "location_name": "The Compact Boathouse", "activity": "sleeping under a tarp"}
+      ],
+      "relationships": {"Ilsa Vance": "Likes her. She gives Pell bread."}
+    }
+  ],
+  "doom": {
+    "name": "the king-tide",
+    "total_minutes": 960,
+    "stages": [
+      {"index": 0, "name": "calm", "at_fraction": 0.0, "world_effect": "Fog, rain, the gate holding. Nothing visibly wrong except the tide-mark."},
+      {"index": 1, "name": "the gate groans", "at_fraction": 0.25, "world_effect": "The floodgate bells ring once without a hand on them. Pressure gauges in the gearworks twitch. Wardens double the pier watch."},
+      {"index": 2, "name": "the lower vaults take water", "at_fraction": 0.5, "world_effect": "Ankle-deep seawater in the Sunken Archive's lower stacks. Archivists carry folios upstairs. The Compact's boats are suddenly busy."},
+      {"index": 3, "name": "the wharf goes under", "at_fraction": 0.75, "world_effect": "The Salt-Glass Wharf floods to the knee. Skiffs are cut loose or sunk. The customs shed door is forced by the water itself. Wardens fall back to the customs house."},
+      {"index": 4, "name": "the king-tide", "at_fraction": 1.0, "world_effect": "The main sluice fails. The inlet comes over the seawall. Whatever was not decided is decided by the water."}
+    ]
+  },
+  "acts": [
+    {"act": 1, "tone_note": "Act 1: arrival. Everyone is polite and nobody is helpful. Let the town show its seams before anyone names them."},
+    {"act": 2, "truths_discovered_gte": 1, "tone_note": "Act 2: the first truth is out. Alliances shift; NPCs bargain faster and trust slower. Consequences of earlier choices start arriving."},
+    {"act": 2, "doom_stage_gte": 2, "tone_note": "Act 2: the water is in the vaults. Urgency replaces courtesy. People say what they want now, not what they should."},
+    {"act": 3, "truths_discovered_gte": 2, "tone_note": "Act 3: the shape of the thing is visible. Every scene should cost something. Endings are available to anyone who knows how."},
+    {"act": 3, "doom_stage_gte": 3, "tone_note": "Act 3: the wharf is under. There is no more investigating, only deciding."}
+  ],
+  "storylets": [
+    {
+      "id": "s_warden_tests_writ",
+      "trigger": "scene",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_present": "Captain Mara Vance"}, {"act_is": 1}],
+      "beat": "Vance asks to see the inquiry writ before answering anything, notes aloud that it is unsealed, and hands it back held by one corner. She does not say the writ is worthless. She lets the player work that out.",
+      "effects": [{"tension": 1}],
+      "voice": "Suspicion",
+      "voice_line": "She looked at the seal before she looked at your face.",
+      "tags": ["intro", "wardens"]
+    },
+    {
+      "id": "s_warden_notices_seal",
+      "trigger": "scene",
+      "weight": 5,
+      "once": true,
+      "preconditions": [{"npc_present": "Captain Mara Vance"}, {"inventory_has": "brass customs seal"}],
+      "beat": "Vance recognises the brass seal the player is carrying as the one from the customs shed and goes very still. She does not accuse. She asks where it was found, and the answer will decide whether the player leaves the wharf freely.",
+      "effects": [{"tension": 2}, {"faction_shift": ["wardens", -1]}],
+      "voice": "Nerve",
+      "voice_line": "Her hand is not on the cutlass. It is near it.",
+      "tags": ["wardens", "consequence"]
+    },
+    {
+      "id": "s_manifest_examined",
+      "trigger": "scene",
+      "weight": 3,
+      "once": false,
+      "preconditions": [{"location_is": "The Salt-Glass Wharf"}, {"clue_undiscovered": "c_manifest"}],
+      "beat": "If the player actually reads the chained manifest ledger (not merely glances), the two-in-the-morning entry for 'lamp fittings' initialled M.V. is there to be found. Reveal clue c_manifest. If Vance is present she notices the player reading and finds a reason to need the ledger.",
+      "effects": [],
+      "voice": "Ledger",
+      "voice_line": "Nobody signs out lamp fittings at two in the morning.",
+      "tags": ["clue", "wharf"]
+    },
+    {
+      "id": "s_seal_mismatch",
+      "trigger": "scene",
+      "weight": 2,
+      "once": false,
+      "preconditions": [{"location_is": "The Salt-Glass Wharf"}, {"clue_undiscovered": "c_seal_replaced"}],
+      "beat": "If the player inspects the customs shed closely, the seal is bright under its salt and the padlock is forty years old. Reveal clue c_seal_replaced only on close inspection or if the player handles the seal.",
+      "effects": [],
+      "voice": "Salt-Memory",
+      "voice_line": "Salt takes a season to dull brass. This brass has had a week.",
+      "tags": ["clue", "wharf"]
+    },
+    {
+      "id": "s_valve_scratches",
+      "trigger": "scene",
+      "weight": 3,
+      "once": false,
+      "preconditions": [{"location_is": "The Floodgate Gearworks"}, {"clue_undiscovered": "c_valve_scratches"}],
+      "beat": "If the player examines the pressure valve housing and wipes or looks under the grease, bright tool scratches show. Reveal clue c_valve_scratches. A glance from the doorway finds only grease.",
+      "effects": [],
+      "voice": "Ledger",
+      "voice_line": "Corrosion does not leave parallel lines.",
+      "tags": ["clue", "gearworks"]
+    },
+    {
+      "id": "s_bricked_wheelhouse",
+      "trigger": "scene",
+      "weight": 2,
+      "once": false,
+      "preconditions": [{"location_is": "The Floodgate Gearworks"}, {"clue_undiscovered": "c_bypass_wheel"}],
+      "beat": "If the player explores the west wall of the gearworks or listens at it, the bricked-over wheelhouse with its younger mortar is there, and something ticks behind it. Reveal clue c_bypass_wheel. Opening it requires tools, time, and will be heard.",
+      "effects": [],
+      "tags": ["clue", "gearworks"]
+    },
+    {
+      "id": "s_tide_ledger_erasure",
+      "trigger": "scene",
+      "weight": 3,
+      "once": false,
+      "preconditions": [{"location_is": "The Sunken Archive Vaults"}, {"clue_undiscovered": "c_tide_ledger"}],
+      "beat": "If the player gets access to the tide-ledger (Orin will not simply hand it over; it takes the writ, a trade, distraction, or Orin's absence) and angles it to the lamp, the king-tide date has been scraped and re-inked. Reveal clue c_tide_ledger.",
+      "effects": [],
+      "voice": "Ledger",
+      "voice_line": "Two dates. Someone wanted the earlier one to be true.",
+      "tags": ["clue", "archive"]
+    },
+    {
+      "id": "s_schematic_stub",
+      "trigger": "scene",
+      "weight": 2,
+      "once": false,
+      "preconditions": [{"location_is": "The Sunken Archive Vaults"}, {"clue_undiscovered": "c_schematic_stub"}],
+      "beat": "If the player searches the index drawers (not with Orin watching), the torn card for 'Folio 9 — the Lesser Sluice' turns up. Reveal clue c_schematic_stub. The folio itself is absent from the shelf it names.",
+      "effects": [],
+      "tags": ["clue", "archive"]
+    },
+    {
+      "id": "s_guild_receipt",
+      "trigger": "scene",
+      "weight": 2,
+      "once": false,
+      "preconditions": [{"location_is": "The Sunken Archive Vaults"}, {"clue_undiscovered": "c_guild_receipt"}, {"clue_discovered": "c_schematic_stub"}],
+      "beat": "If the player forces or talks their way into the locked case in the Archive, the twelve-year-old guild receipt from the Compact for 'Folios 7 through 9' is inside. Reveal clue c_guild_receipt. Orin, if present, will physically put himself between the player and the case first.",
+      "effects": [{"tension": 1}],
+      "tags": ["clue", "archive"]
+    },
+    {
+      "id": "s_tally_board",
+      "trigger": "scene",
+      "weight": 3,
+      "once": false,
+      "preconditions": [{"location_is": "The Amber Lantern Tavern"}, {"clue_undiscovered": "c_ilsa_debt"}],
+      "beat": "If the player looks at the chalk tally board behind the bar or asks about it, the marker against 'I. Vance' is the longest and its newest strokes are struck through. Reveal clue c_ilsa_debt. If Ilsa is present she rubs at the board with her sleeve.",
+      "effects": [],
+      "voice": "Empathy",
+      "voice_line": "Someone paid that down all at once. Not with coin.",
+      "tags": ["clue", "tavern"]
+    },
+    {
+      "id": "s_pressure_chart",
+      "trigger": "scene",
+      "weight": 2,
+      "once": false,
+      "preconditions": [{"location_is": "The Amber Lantern Tavern"}, {"clue_undiscovered": "c_pressure_chart"}],
+      "beat": "If the player searches the back booth, the loose panel yields Soren's ciphered pressure chart. Reading it takes time or Ledger-type reasoning; the straight-line drop begins three weeks ago. Reveal clue c_pressure_chart only once actually read. Soren, if present, will try to buy it back on the spot.",
+      "effects": [],
+      "tags": ["clue", "tavern"]
+    },
+    {
+      "id": "s_soren_offers_trade",
+      "trigger": "scene",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_present": "Soren Vale"}, {"truth_undiscovered": "t_valve"}],
+      "beat": "Soren offers to 'help' with the inquiry in exchange for the player's writ as cover to reach the wharf. He blames corrosion, names the Archivists as negligent, and watches the player's hands the whole time. This is a lie delivered with real charm; do not have him break.",
+      "effects": [{"tension": 1}],
+      "voice": "Suspicion",
+      "voice_line": "He wants the writ more than he wants to help.",
+      "tags": ["compact", "lie"]
+    },
+    {
+      "id": "s_soren_caught_on_scratches",
+      "trigger": "scene",
+      "weight": 5,
+      "once": true,
+      "preconditions": [{"npc_present": "Soren Vale"}, {"clue_discovered": "c_valve_scratches"}],
+      "beat": "If the player confronts Soren with the tool scratches, he stops lying and starts bargaining: he will say where the valve is if the player gets him off the wardens' list. He will not confess to the commission unless the chit is produced. If he agrees to a deal, reveal clue c_warden_count is NOT his to give; he can instead point the player at the boathouse.",
+      "effects": [{"tension": 2}, {"faction_shift": ["compact", -1]}],
+      "voice": "Empathy",
+      "voice_line": "He built this gate's last repair. He knows the number.",
+      "tags": ["compact", "turn"]
+    },
+    {
+      "id": "s_orin_demands_writ",
+      "trigger": "scene",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_present": "Archivist Orin"}, {"act_is": 1}],
+      "beat": "Orin refuses access to the ledgers without a sealed writ or a guild artifact, citing procedure in archaic phrasing. He is not hostile; he is frightened, and touches his collar twice.",
+      "effects": [],
+      "voice": "Empathy",
+      "voice_line": "That is not a man protecting books. That is a man protecting himself with books.",
+      "tags": ["archivists", "intro"]
+    },
+    {
+      "id": "s_orin_flinches_at_folio",
+      "trigger": "scene",
+      "weight": 5,
+      "once": true,
+      "preconditions": [{"npc_present": "Archivist Orin"}, {"clue_discovered": "c_schematic_stub"}],
+      "beat": "If the player says 'Folio 9' or 'the lesser sluice' aloud, Orin's hand goes to his collar and he changes the subject to the lamp oil he owes the wardens. He will deny the folio exists. He is lying, and bad at it.",
+      "effects": [{"tension": 1}],
+      "tags": ["archivists", "lie"]
+    },
+    {
+      "id": "s_orin_breaks",
+      "trigger": "scene",
+      "weight": 6,
+      "once": true,
+      "preconditions": [{"npc_present": "Archivist Orin"}, {"clue_discovered": "c_guild_receipt"}],
+      "beat": "Shown the guild receipt, Orin sits down on the stacks and tells the truth: he moved Folio 9, the lesser sluice can be opened by hand from the bricked wheelhouse, and he asks the player to say it was found, not given. Reveal clue c_orin_knows. He will give the folio's location if the player agrees.",
+      "effects": [{"tension": 1}, {"faction_shift": ["archivists", 1]}, {"journal": "Orin asked that Folio 9 be 'found, not given'."}],
+      "voice": "Empathy",
+      "voice_line": "Twelve years of carrying it. He looks lighter and worse.",
+      "tags": ["archivists", "turn"]
+    },
+    {
+      "id": "s_vance_cornered",
+      "trigger": "scene",
+      "weight": 6,
+      "once": true,
+      "preconditions": [{"npc_present": "Captain Mara Vance"}, {"clue_discovered": "c_manifest"}, {"clue_discovered": "c_ilsa_debt"}],
+      "beat": "If the player puts the manifest entry and the tally board together in front of Vance, she does not deny it. She says she signed it, the way people say a dead relative's name, and asks what the player intends to do about Ilsa. Reveal clue c_vance_confession. Her next move depends entirely on the answer.",
+      "effects": [{"tension": 2}],
+      "voice": "Nerve",
+      "voice_line": "Nobody else is on the wharf. Remember that.",
+      "tags": ["wardens", "turn"]
+    },
+    {
+      "id": "s_vance_offers_deal",
+      "trigger": "scene",
+      "weight": 5,
+      "once": true,
+      "preconditions": [{"npc_present": "Captain Mara Vance"}, {"truth_discovered": "t_manifest"}],
+      "beat": "Vance offers to deputise the player and open the customs house, the key-ring log, and the night watch to them, on one condition: Ilsa's name stays off every page. If the player accepts, she hands over the key-ring count (reveal clue c_warden_count). If they refuse, she does not threaten; she simply stops being useful.",
+      "effects": [],
+      "voice": "Suspicion",
+      "voice_line": "A deal from a warden is still a deal with the Compact's debtor.",
+      "tags": ["wardens", "choice"]
+    },
+    {
+      "id": "s_ilsa_kindness",
+      "trigger": "scene",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_present": "Ilsa Vance"}, {"clue_discovered": "c_ilsa_debt"}],
+      "beat": "If the player is kind to Ilsa rather than pressing her, she admits the debt was 'handled' by her mother and that she carries a slip for Pell she has not read. If asked gently, she lets the player read it. Reveal clue c_runner_slip. If pressed instead, she jokes, pockets the slip, and leaves.",
+      "effects": [{"faction_shift": ["compact", -1]}],
+      "voice": "Empathy",
+      "voice_line": "She has been waiting for someone to ask instead of tell.",
+      "tags": ["compact", "choice"]
+    },
+    {
+      "id": "s_pell_asked_not_threatened",
+      "trigger": "scene",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_present": "Pell"}],
+      "beat": "If the player threatens Pell, Pell grins and lies. If the player asks Pell what happens to the runners when the vaults flood, Pell goes quiet and tells the truth about the bells being the signal. Reveal clue c_runner_slip only in the second case.",
+      "effects": [],
+      "voice": "Empathy",
+      "voice_line": "Barefoot in this. Nobody has asked this child a real question in a year.",
+      "tags": ["compact", "choice"]
+    },
+    {
+      "id": "s_compact_knife_warning",
+      "trigger": "scene",
+      "weight": 3,
+      "once": true,
+      "preconditions": [{"location_is": "The Amber Lantern Tavern"}, {"faction_standing_lt": ["compact", -1]}],
+      "beat": "A stranger the player has not been introduced to leaves a boning knife point-down in the player's table and walks out without a word. Nobody in the tavern looks up. This is the Compact noticing.",
+      "effects": [{"tension": 2}],
+      "voice": "Nerve",
+      "voice_line": "Back to the wall. Count the doors. Two.",
+      "tags": ["compact", "consequence"]
+    },
+    {
+      "id": "s_boathouse_search",
+      "trigger": "scene",
+      "weight": 3,
+      "once": false,
+      "preconditions": [{"location_is": "The Compact Boathouse"}, {"clue_undiscovered": "c_boathouse_prep"}],
+      "beat": "If the player inspects the boats, they are being loaded with straw and empty crates. Reveal clue c_boathouse_prep. If the player goes further and searches Soren's coat or locker here, the Compact chit may be found (reveal c_soren_commission) but someone will notice.",
+      "effects": [],
+      "voice": "Ledger",
+      "voice_line": "Boats loaded empty are boats meant to be filled elsewhere.",
+      "tags": ["clue", "boathouse"]
+    },
+    {
+      "id": "s_wounded_nerve",
+      "trigger": "scene",
+      "weight": 1,
+      "once": false,
+      "preconditions": [{"player_status_contains": "bleed"}],
+      "beat": "The player is hurt. NPCs notice and treat them differently: wardens suspicious, Compact amused, Orin alarmed. Nothing is free while bleeding.",
+      "effects": [],
+      "voice": "Nerve",
+      "voice_line": "Pressure on it. Keep talking. Do not sit down.",
+      "tags": ["status"]
+    },
+    {
+      "id": "a_tavern_first",
+      "trigger": "arrival",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"location_is": "The Amber Lantern Tavern"}],
+      "beat": "First arrival at the tavern: the room reads the player before the player reads the room. Conversations drop a notch and resume. The tally board is visible but nobody is looking at it.",
+      "effects": [],
+      "voice": "Salt-Memory",
+      "voice_line": "Wet wool, lamp oil, hot wine. Every port tavern you ever walked into, and every one of them went quiet like this.",
+      "tags": ["arrival", "tavern"]
+    },
+    {
+      "id": "a_gearworks_first",
+      "trigger": "arrival",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"location_is": "The Floodgate Gearworks"}],
+      "beat": "First arrival at the gearworks: the main gauge needle sits in a place that does not match the sound the gate is making. Nobody is on duty.",
+      "effects": [],
+      "voice": "Ledger",
+      "voice_line": "The gauge says fine. The gate does not sound fine.",
+      "tags": ["arrival", "gearworks"]
+    },
+    {
+      "id": "a_archive_first",
+      "trigger": "arrival",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"location_is": "The Sunken Archive Vaults"}],
+      "beat": "First arrival at the Archive: it is colder than it should be and the lower stair is damp. Orin, if present, positions himself between the player and the index drawers without seeming to.",
+      "effects": [],
+      "voice": "Empathy",
+      "voice_line": "He is not guarding the books from you. He is guarding something from the books.",
+      "tags": ["arrival", "archive"]
+    },
+    {
+      "id": "a_wharf_watch_doubled",
+      "trigger": "arrival",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"location_is": "The Salt-Glass Wharf"}, {"faction_standing_lt": ["wardens", 0]}],
+      "beat": "Returning to the wharf: there are two wardens on the pier where there was one, and they are looking at the player, not the skiffs. Name the cause in the room's recent events: the player's earlier conduct.",
+      "effects": [{"tension": 1}],
+      "tags": ["arrival", "consequence", "wardens"]
+    },
+    {
+      "id": "a_tavern_after_dark",
+      "trigger": "arrival",
+      "weight": 3,
+      "once": true,
+      "preconditions": [{"location_is": "The Amber Lantern Tavern"}, {"clock_between": [20, 4]}],
+      "beat": "The tavern after dark belongs to the Compact. Runners come and go. Someone is keeping the tally board current. Orin, if his routine puts him here, sits alone with one cup and leaves when the player sits down.",
+      "effects": [{"tension": 1}],
+      "tags": ["arrival", "tavern", "night"]
+    },
+    {
+      "id": "a_archive_flooding",
+      "trigger": "arrival",
+      "weight": 6,
+      "once": true,
+      "preconditions": [{"location_is": "The Sunken Archive Vaults"}, {"doom_stage_gte": 2}],
+      "beat": "The lower stacks are ankle-deep in seawater. Orin, if present, is carrying folios upstairs two at a time and has stopped caring about procedure. He may say more than he means to.",
+      "effects": [{"tension": 1}],
+      "voice": "Nerve",
+      "voice_line": "Water on the lower stair. Note where the upper exit is.",
+      "tags": ["arrival", "doom", "archive"]
+    },
+    {
+      "id": "a_wharf_underwater",
+      "trigger": "arrival",
+      "weight": 6,
+      "once": true,
+      "preconditions": [{"location_is": "The Salt-Glass Wharf"}, {"doom_stage_gte": 3}],
+      "beat": "The wharf is knee-deep. The skiffs are gone or sunk. The customs shed door has been forced by the water itself and whatever was inside is floating. The wardens have fallen back to the customs house.",
+      "effects": [{"tension": 2}],
+      "voice": "Salt-Memory",
+      "voice_line": "You have seen a wharf go under once before. You left before the end that time.",
+      "tags": ["arrival", "doom", "wharf"]
+    },
+    {
+      "id": "w_soren_moves_valve",
+      "trigger": "warm",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"npc_tier": ["Soren Vale", "warm"]}, {"truth_undiscovered": "t_valve"}],
+      "beat": "Off-screen, Soren moves the brass valve from its hiding place toward the boathouse under oilcloth. A rumor reaches the player distorted: 'Soren Vale was seen hauling something heavy toward the piers.'",
+      "effects": [{"rumor": {"text": "Soren Vale was seen under the piers after dark hauling something heavy wrapped in oilcloth.", "source": "dock hands", "reliability": "distorted"}}, {"add_affordance": ["The Compact Boathouse", "fresh drag marks in the mud leading to the water"]}],
+      "tags": ["warm", "compact"]
+    },
+    {
+      "id": "w_vance_doubles_watch",
+      "trigger": "warm",
+      "weight": 3,
+      "once": true,
+      "preconditions": [{"faction_standing_lt": ["wardens", 0]}],
+      "beat": "Off-screen, Vance doubles the pier watch and has the player's description passed to every warden. The rumor is accurate.",
+      "effects": [{"rumor": {"text": "The Harbor Wardens doubled the pier watch and are asking after a stranger carrying an unsealed writ.", "source": "warden runner", "reliability": "true"}}, {"tension": 1}],
+      "tags": ["warm", "wardens", "consequence"]
+    },
+    {
+      "id": "w_orin_hides_folio",
+      "trigger": "warm",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"clue_discovered": "c_schematic_stub"}, {"truth_undiscovered": "t_bypass"}],
+      "beat": "Off-screen, Orin moves Folio 9 again, from the Archive to the Guild Dormitory. A rumor reaches the player: the Archivist was seen leaving the vaults with a folio case at an hour he never leaves.",
+      "effects": [{"rumor": {"text": "Archivist Orin left the Sunken Archive carrying a folio case, at an hour he never leaves.", "source": "a lamplighter", "reliability": "true"}}, {"set_fact": ["folio_9_location", "The Guild Dormitory"]}],
+      "tags": ["warm", "archivists"]
+    },
+    {
+      "id": "w_compact_false_rumor",
+      "trigger": "warm",
+      "weight": 3,
+      "once": true,
+      "preconditions": [{"tension_lt": 6}, {"truth_undiscovered": "t_valve"}],
+      "beat": "The Compact seeds a rumor that the Archivists let the gate rot through negligence. It is false, and it is the kind of false that sounds true.",
+      "effects": [{"rumor": {"text": "They say the Archivists have known for a year the gate was failing and sat on the reports to protect the guild.", "source": "tavern talk", "reliability": "false"}}, {"faction_shift": ["archivists", 0]}],
+      "tags": ["warm", "compact", "lie"]
+    },
+    {
+      "id": "w_ilsa_seeks_player",
+      "trigger": "warm",
+      "weight": 4,
+      "once": true,
+      "preconditions": [{"clue_discovered": "c_ilsa_debt"}],
+      "beat": "Off-screen, Ilsa hears that the stranger has been looking at the tally board and goes looking for them. Her disposition toward the player becomes 'frightened, wants to talk before her mother does'.",
+      "effects": [{"relationship": ["Ilsa Vance", "player", "Frightened; wants to talk to the player before her mother does."]}, {"rumor": {"text": "The Warden's daughter has been asking after the stranger with the writ.", "source": "Pell", "reliability": "true"}}],
+      "tags": ["warm", "compact"]
+    },
+    {
+      "id": "w_pell_tails_player",
+      "trigger": "warm",
+      "weight": 3,
+      "once": true,
+      "preconditions": [{"faction_standing_lt": ["compact", 0]}],
+      "beat": "Off-screen, Pell is set to tail the player. Small wet footprints start appearing wherever the player has just been.",
+      "effects": [{"add_affordance": ["player_location", "small wet bare footprints that stop at the doorway"]}, {"relationship": ["Pell", "player", "Ordered to follow the stranger and report to the boathouse."]}],
+      "voice": "Nerve",
+      "voice_line": "Footprints. Child-sized. They stop where you can see them.",
+      "tags": ["warm", "compact", "consequence"]
+    },
+    {
+      "id": "d_stage1_bells",
+      "trigger": "doom",
+      "weight": 10,
+      "once": true,
+      "preconditions": [{"doom_stage_gte": 1}],
+      "beat": "The floodgate bells ring once with no hand on the rope. Every NPC in Glassharbor hears it and reacts in character: Vance swears, Soren flinches, Orin closes his eyes.",
+      "effects": [{"rumor": {"text": "The floodgate bells rang once on their own. The old hands say that is the gate talking.", "source": "the bells", "reliability": "true"}}, {"tension": 1}, {"journal": "The gate bells rang by themselves."}],
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage2_vaults",
+      "trigger": "doom",
+      "weight": 10,
+      "once": true,
+      "preconditions": [{"doom_stage_gte": 2}],
+      "beat": "Seawater reaches the lower stacks of the Sunken Archive. Archivists carry folios upstairs. The Compact's boats are suddenly busy under the piers.",
+      "effects": [{"rumor": {"text": "The Sunken Archive is taking water in the lower stacks. The Archivists are carrying the ledgers upstairs by lamplight.", "source": "a lamplighter", "reliability": "true"}}, {"set_fact": ["archive_lower_stacks", "flooded"]}, {"tension": 2}],
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage3_wharf",
+      "trigger": "doom",
+      "weight": 10,
+      "once": true,
+      "preconditions": [{"doom_stage_gte": 3}],
+      "beat": "The Salt-Glass Wharf floods to the knee. The wardens fall back to the customs house and stop policing anything below it. The Compact moves openly.",
+      "effects": [{"rumor": {"text": "The wharf is under. The wardens have pulled back to the customs house and the Compact's boats are out in daylight.", "source": "everyone", "reliability": "true"}}, {"faction_shift": ["wardens", -1]}, {"faction_shift": ["compact", 1]}, {"set_fact": ["wharf", "flooded"]}, {"tension": 2}],
+      "tags": ["doom"]
+    },
+    {
+      "id": "d_stage4_kingtide",
+      "trigger": "doom",
+      "weight": 100,
+      "once": true,
+      "preconditions": [{"doom_stage_gte": 4}],
+      "beat": "The main sluice fails. The inlet comes over the seawall. Whatever was not decided is decided by the water. This is the failure ending: compose the epilogue from the faction table and the journal, name who drowned and who profited, and do not soften it.",
+      "effects": [{"end_run": "failure"}],
+      "tags": ["doom", "ending"]
+    },
+    {
+      "id": "r_vance_recalls",
+      "trigger": "rehydrate",
+      "weight": 5,
+      "once": false,
+      "preconditions": [{"npc_present": "Captain Mara Vance"}],
+      "beat": "Vance, waking back into the scene, opens with what the watch has learned about the player since they last spoke: where they went, who they talked to, what they were seen carrying. She has been keeping count.",
+      "effects": [],
+      "tags": ["rehydrate", "wardens"]
+    },
+    {
+      "id": "r_soren_knows_rumors",
+      "trigger": "rehydrate",
+      "weight": 5,
+      "once": false,
+      "preconditions": [{"npc_present": "Soren Vale"}, {"rumor_contains": "Soren"}],
+      "beat": "Soren, waking back into the scene, already knows what is being said about him and opens by correcting the rumor, which tells the player he has heard it.",
+      "effects": [],
+      "tags": ["rehydrate", "compact"]
+    },
+    {
+      "id": "r_orin_after_folio",
+      "trigger": "rehydrate",
+      "weight": 5,
+      "once": false,
+      "preconditions": [{"npc_present": "Archivist Orin"}, {"clue_discovered": "c_schematic_stub"}],
+      "beat": "Orin, waking back into the scene, has rearranged the index drawers since the player last searched them and mentions, unprompted, that 'certain folios were removed for conservation years ago'. He has been rehearsing this.",
+      "effects": [],
+      "tags": ["rehydrate", "archivists"]
+    }
+  ]
+}

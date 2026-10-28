@@ -1,0 +1,2474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Concordia Infinite Adventure — The Bermondsey Drop</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top-bar">
+    <div class="brand">
+      <span class="brand-badge">CONCORDIA ASYNC</span>
+      <h1 id="world-title">The Bermondsey Drop</h1>
+    </div>
+    <div class="clock-bar">
+      <select id="top-world-select" class="pill parliament-pill" title="Switch RPG World Seed or open Custom World Prompt">
+        <option value="bermondsey">🌍 World: London Gangsters</option>
+        <option value="dystopian_scifi">🌍 World: Dystopian Sci-Fi</option>
+        <option value="vampire_romance">🌍 World: Vampire Love Drama</option>
+        <option value="glassharbor">🌍 World: Clockwork Noir (Glassharbor)</option>
+        <option value="__custom__">✨ Custom RPG Prompt...</option>
+      </select>
+      <span class="pill" id="sim-clock">Day 1, 08:00 AM</span>
+      <span class="pill" id="sim-tick">Tick 0</span>
+      <span class="pill" id="sim-act">Act 1 · Tension 2.0</span>
+      <span class="pill" id="sim-doom">Countdown: calm</span>
+      <span class="pill status-pill" id="conn-status">Connecting...</span>
+      <button type="button" id="prose-mode-btn" class="pill prose-mode-pill" title="Toggle GM resolution style between Concise (to-the-point) and Literary">⚡ Prose: Concise</button>
+      <button type="button" id="open-parliament-btn" class="pill parliament-pill" title="Configure your Parliament of Sub-Minds or mint a custom voice">🧠 Psyche</button>
+      <button type="button" id="reset-btn" class="pill reset-pill" title="Restart simulation from Tick 0">↻ Reset</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Left Column (~70%): Live Narrative Stream + Compact Sub-Minds + Action Bar -->
+    <section class="panel center-panel">
+      <div class="feed-header">
+        <div class="feed-title-group">
+          <h2>Live Narrative Stream</h2>
+          <span class="location-pill" id="stream-location-pill">Loading...</span>
+        </div>
+        <span class="subtle" id="pending-indicator">Ready for your action</span>
+      </div>
+
+      <div id="role-briefing-banner" class="role-summary role-briefing-banner"></div>
+
+      <div id="narrative-feed" class="narrative-feed"></div>
+
+      <div id="epilogue-slides-panel" class="epilogue-slides-panel hidden"></div>
+
+      <div id="voice-options-panel" class="voice-options-panel">
+        <div class="voice-panel-header">
+          <div class="voice-panel-title">
+            <span class="voice-badge">SUB-MINDS</span>
+            <div id="voice-affinity-bar" class="voice-affinity-bar"></div>
+          </div>
+          <div class="voice-panel-controls">
+            <button type="button" id="mint-voice-quick-btn" class="voice-toggle-btn" title="Initialize or customize your Parliament of Sub-Minds">+ Parliament</button>
+            <button type="button" id="toggle-voices-btn" class="voice-toggle-btn" title="Collapse or expand Sub-Mind options">Hide</button>
+          </div>
+        </div>
+        <div id="voice-options-grid" class="voice-options-grid"></div>
+      </div>
+
+      <form id="action-form" class="action-bar">
+        <input
+          type="text"
+          id="action-input"
+          placeholder="What do you do or say? (e.g. Inspect the layoff pad, lean on Frankie Slater, go east...)"
+          maxlength="500"
+          autocomplete="off"
+          required
+        >
+        <button type="submit" id="send-btn">Act</button>
+      </form>
+    </section>
+
+    <!-- Right Column (~30%): Tabbed Sidebar (Scene | Dossier | Debug) -->
+    <aside class="panel sidebar-panel">
+      <nav class="sidebar-tabs" role="tablist">
+        <button type="button" class="tab-btn active" data-tab="scene">
+          Scene <span class="tab-badge" id="scene-tab-badge">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="dossier">
+          Dossier <span class="tab-badge" id="truth-count-badge">0/4</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="debug">
+          Debug
+        </button>
+      </nav>
+
+      <!-- TAB 1: SCENE (Location, Present NPCs, Clean Room Props, Exits) -->
+      <div id="tab-scene" class="tab-pane active">
+        <div class="card">
+          <div class="card-header">
+            <h2>Current Location</h2>
+            <span class="badge" id="location-id-badge">--</span>
+          </div>
+          <h3 id="location-name" class="loc-title">Loading...</h3>
+          <div id="location-image-wrap" class="loc-image-wrap">
+            <img id="location-image" class="loc-image hidden" alt="Current location establishing shot">
+            <div id="location-shot-caption" class="loc-shot-caption hidden"></div>
+            <div id="location-image-skeleton" class="loc-image-skeleton">Photography Director framing scene...</div>
+          </div>
+          <p id="location-desc" class="loc-desc"></p>
+
+          <div class="sub-section">
+            <h4>Present Here (Click to question)</h4>
+            <div id="present-npcs-list" class="chip-container"></div>
+          </div>
+
+          <div class="sub-section">
+            <h4>Exits &amp; Passages (Click to travel)</h4>
+            <div id="exits-list" class="exits-container"></div>
+          </div>
+
+          <div class="sub-section">
+            <h4>Room Props (Click to inspect)</h4>
+            <div id="affordances-list" class="chip-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DOSSIER (Parliament Character Sheet, Role, Inventory, Mysteries, Factions, Journal) -->
+      <div id="tab-dossier" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h2>Parliament of Sub-Minds (Character Sheet)</h2>
+            <button type="button" id="dossier-edit-parliament-btn" class="voice-toggle-btn">Configure / Mint</button>
+          </div>
+          <p class="subtle">Sub-Minds replace traditional stats. Acting through a voice builds its Rank &amp; mechanical leverage; breakthroughs and backfires leave formative scars and obsessions.</p>
+          <div id="character-sheet-list" class="submind-sheet-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Role &amp; Inventory</h2>
+          </div>
+          <p id="player-role-summary" class="role-summary">
+            <strong>Independent Bermondsey Fixer</strong> — Summoned by East End governor "The Alderman" Arthur Corrigan with his empty pigskin holdall. Track down the lifted engraved presentation pistols, the <em>Butcher's Bill</em> bribe ledger, and the prize greyhound <em>Duchess</em>—and decide who takes the fall before the 11:00 PM last-orders bell.
+          </p>
+          <p id="player-status" class="status-text"></p>
+          <div class="sub-section">
+            <h4>Carried Items</h4>
+            <div id="inventory-list" class="chip-container"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Mysteries &amp; Factions</h2>
+          </div>
+          <div class="sub-section">
+            <h4>Active Mysteries</h4>
+            <div id="truths-list" class="graph-list"></div>
+          </div>
+          <div class="sub-section">
+            <h4>Faction Standings</h4>
+            <div id="factions-list" class="chip-container"></div>
+          </div>
+          <div class="sub-section">
+            <h4>Recent Leads</h4>
+            <div id="journal-list" class="rumors-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: DEBUG / GOD VIEW (Telemetry, Off-Screen Rumors, 3-Tier Roster, World Graph) -->
+      <div id="tab-debug" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h2>Engine Telemetry</h2>
+          </div>
+          <div id="telemetry-grid" class="telemetry-grid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Three-Tier NPC Roster (God View)</h2>
+            <span class="badge" id="npc-count-badge">0 NPCs</span>
+          </div>
+          <div id="npc-roster-list" class="npc-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Off-Screen World Rumors</h2>
+          </div>
+          <div id="rumors-list" class="rumors-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Discovered World Graph</h2>
+            <span class="badge" id="graph-count-badge">0 rooms</span>
+          </div>
+          <div id="world-graph-list" class="graph-list"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Hybrid Character Creation & Parliament Builder Modal -->
+  <div id="parliament-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="parliament-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="voice-badge">CHARACTER SHEET INITIALIZATION</span>
+          <h2 id="parliament-modal-title">Initialize Your Parliament of Sub-Minds</h2>
+        </div>
+        <button type="button" id="close-parliament-btn" class="voice-toggle-btn" title="Close modal">✕</button>
+      </div>
+      <p class="subtle">
+        In this world, your inner voices are your stats and how you perceive &amp; act. Weight the setting faculties below, or mint a custom Sub-Mind from a formative memory or obsession.
+      </p>
+
+      <div class="mint-voice-box">
+        <h4>🌍 World Seed &amp; Generative RPG Prompt</h4>
+        <div class="preset-bar">
+          <span class="subtle">Instant Seeds:</span>
+          <button type="button" class="chip-btn world-seed-btn" data-world-preset="bermondsey">London Gangsters (Default)</button>
+          <button type="button" class="chip-btn world-seed-btn" data-world-preset="vampire_romance">Vampire Love Drama</button>
+          <button type="button" class="chip-btn world-seed-btn" data-world-preset="dystopian_scifi">Dystopian Sci-Fi</button>
+          <button type="button" class="chip-btn world-seed-btn" data-world-preset="glassharbor">Clockwork Noir</button>
+        </div>
+        <div class="mint-form-row">
+          <input
+            type="text"
+            id="world-title-input"
+            class="mint-input mint-name-input"
+            placeholder="Optional World Title"
+            maxlength="80"
+          >
+          <input
+            type="text"
+            id="world-prompt-input"
+            class="mint-input mint-concept-input"
+            placeholder="Or type any RPG premise (e.g. Gothic vampire court romance, cyberpunk orbital lockdown...)"
+            maxlength="320"
+          >
+          <button type="button" id="world-generate-btn" class="mint-btn">Generate World</button>
+        </div>
+        <span id="world-generate-status" class="subtle"></span>
+        <div id="modal-role-briefing" class="subtle modal-role-briefing"></div>
+      </div>
+
+      <div id="archetype-preset-bar" class="preset-bar">
+        <span class="subtle">Archetype Presets:</span>
+        <button type="button" class="chip-btn preset-btn" data-preset="balanced">Balanced Fixer (All 7)</button>
+        <button type="button" class="chip-btn preset-btn" data-preset="enforcer">Heavy Muscle &amp; Brass</button>
+        <button type="button" class="chip-btn preset-btn" data-preset="auditor">Forensic Bookkeeper</button>
+        <button type="button" class="chip-btn preset-btn" data-preset="street">Street Hustler</button>
+      </div>
+      <div id="archetype-preset-desc" class="subtle archetype-preset-desc"></div>
+
+      <div id="modal-voices-list" class="modal-voices-list"></div>
+
+      <div class="mint-voice-box">
+        <h4>+ Procedurally Mint a Custom Sub-Mind</h4>
+        <div class="mint-form-row">
+          <input
+            type="text"
+            id="mint-name-input"
+            class="mint-input mint-name-input"
+            placeholder="Optional Name (e.g. Ghost of Shergar)"
+            maxlength="60"
+          >
+          <input
+            type="text"
+            id="mint-concept-input"
+            class="mint-input mint-concept-input"
+            placeholder="Describe a formative memory, obsession, or weird instinct..."
+            maxlength="240"
+          >
+          <button type="button" id="mint-submit-btn" class="mint-btn">Mint Voice</button>
+        </div>
+        <span id="mint-status-text" class="subtle"></span>
+      </div>
+
+      <div class="modal-footer">
+        <span id="parliament-summary-text" class="subtle"></span>
+        <div class="modal-footer-actions">
+          <button type="button" id="cancel-parliament-btn" class="voice-toggle-btn">Keep Current</button>
+          <button type="button" id="commit-parliament-btn" class="commit-parliament-btn">Commit Parliament &amp; Play</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Lightbox Modal for Location & NPC Artwork -->
+  <div id="image-lightbox-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
+    <div class="lightbox-card">
+      <div class="lightbox-header">
+        <div>
+          <span id="lightbox-badge" class="voice-badge">SCENE ARTWORK</span>
+          <h3 id="lightbox-title" class="lightbox-title">Artwork</h3>
+        </div>
+        <button type="button" id="close-lightbox-btn" class="voice-toggle-btn" title="Close full-size image">✕</button>
+      </div>
+      <div class="lightbox-img-wrap">
+        <img id="lightbox-image" class="lightbox-image" alt="Full-size scene or character artwork">
+      </div>
+      <p id="lightbox-caption" class="lightbox-caption"></p>
+    </div>
+  </div>
+
+  <script id="adventure-client-script">
+(() => {
+  'use strict';
+
+  const MYSTERY_TITLES = {
+    // Player-safe labels for unsolved threads. Prefer `truth.question` from
+    // the bible; these are fallbacks for bibles authored before that field.
+    // Never phrase a title so that it states the answer.
+    't_valve': 'Why Is the Floodgate Failing?',
+    't_manifest': 'What Left the Customs Shed at Two in the Morning?',
+    't_bypass': 'Is There Another Way to Spill the King-Tide?',
+    't_tide': 'Is the King-Tide Warning Right?',
+    't_inside_job': 'Who Tipped Off the Rotherhithe Van Job?',
+    't_shotguns_swap': "Where Are Corrigan's Engraved Presentation Pistols?",
+    't_butchers_bill': "Where Is the Butcher's Bill, and Who Wants It Gone?",
+    't_duchess_ringer': 'Where Is the Greyhound Duchess?',
+    't_oxygen_cull': "Who Is the Dead Man in Jonas Reed's Parka?",
+    't_eidolon_ghost': 'Why Is Jonas Reed Missing Three Days of Memory?',
+    't_scrubber_bypass': 'Who Silenced the Station?',
+    't_forbidden_bond': 'What Happened to Dr. Park in the Ambulance Bay?',
+    't_crimson_betrayal': 'What Does Detective Finch Want?',
+    't_blood_concordat': 'Who Boards the 06:00 AM Train to Montreal?',
+  };
+
+  const TIER_ORDER = {
+    'hot': 0,
+    'warm': 1,
+    'cold': 2,
+  };
+
+  const seenEventKeys = new Set();
+  let latestSubMinds = {};
+  let latestCharacterPresets = [];
+  let draftActiveRanks = {};
+  let hasPromptedInitialParliament = false;
+  let busyPollTimer = null;
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    if (text != null) {
+      node.textContent = String(text);
+    }
+    return node;
+  }
+
+  function createButton(className, text) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = className;
+    btn.textContent = text;
+    return btn;
+  }
+
+  function setText(id, text) {
+    const node = document.getElementById(id);
+    if (node != null) {
+      node.textContent = text;
+    }
+  }
+
+  function getActionInput() {
+    const node = document.getElementById('action-input');
+    return node instanceof HTMLInputElement ? node : null;
+  }
+
+  function compactSentence(text, maxWords) {
+    const raw = (text ?? '').trim();
+    if (!raw) {
+      return '';
+    }
+    const sentenceMatch = /^.+?[.!?](?=\s|$)/.exec(raw);
+    const firstSentence = sentenceMatch ? sentenceMatch[0] : raw;
+    const words = firstSentence.split(/\s+/);
+    if (words.length <= maxWords) {
+      return firstSentence;
+    }
+    return (
+      words
+        .slice(0, maxWords)
+        .join(' ')
+        .replace(/[,;:\-—]+$/, '') + '…'
+    );
+  }
+
+  function compactActionLabel(text, maxWords) {
+    const raw = (text ?? '').trim();
+    if (!raw) {
+      return 'Act on this angle';
+    }
+    const firstClause = (
+      raw.split(/[.;—]|,\s+(?:then|while|and|before|so\b)/i)[0] ?? raw
+    ).trim();
+    const words = firstClause.split(/\s+/);
+    if (words.length <= maxWords) {
+      return firstClause.replace(/[,;:\-—.]+$/, '');
+    }
+    return (
+      words
+        .slice(0, maxWords)
+        .join(' ')
+        .replace(/[,;:\-—.]+$/, '') + '…'
+    );
+  }
+
+  function isInternalSpilloverProp(propText) {
+    const lower = propText.trim().toLowerCase();
+    return (
+      lower.startsWith('physical spillover from ') ||
+      lower.startsWith('evidence of ') ||
+      lower.startsWith('reprisal prepared by ')
+    );
+  }
+
+  function populateCardExtensions(card, options) {
+    const {
+      headline,
+      chips,
+      imageUrl,
+      shotCaption,
+      metaText,
+      bodyText,
+    } = options;
+
+    if (headline && card.querySelector('.event-headline') == null) {
+      const headEl = el('div', 'event-headline', headline);
+      const bodyEl = card.querySelector('.event-body');
+      if (bodyEl != null) {
+        card.insertBefore(headEl, bodyEl);
+      } else {
+        card.appendChild(headEl);
+      }
+    }
+
+    if (
+      Array.isArray(chips) &&
+      chips.length > 0 &&
+      card.querySelector('.event-chips-row') == null
+    ) {
+      const chipsRow = el('div', 'event-chips-row');
+      for (const chip of chips) {
+        if (chip && typeof chip.label === 'string' && chip.label.trim()) {
+          const kindSlug = String(chip.kind || 'info').replace(/[^a-z0-9_-]/gi, '');
+          chipsRow.appendChild(
+            el(
+              'span',
+              'event-delta-chip chip-' + kindSlug,
+              chip.label.trim(),
+            ),
+          );
+        }
+      }
+      if (chipsRow.childElementCount > 0) {
+        const existingShot = card.querySelector('.event-shot-wrap');
+        if (existingShot != null) {
+          card.insertBefore(chipsRow, existingShot);
+        } else {
+          card.appendChild(chipsRow);
+        }
+      }
+    }
+
+    if (
+      typeof imageUrl === 'string' &&
+      imageUrl.startsWith('/api/image/') &&
+      card.querySelector('.event-shot-wrap') == null
+    ) {
+      const shotWrap = el('div', 'event-shot-wrap');
+      const shotImg = document.createElement('img');
+      shotImg.className = 'event-shot-img';
+      shotImg.src = imageUrl;
+      shotImg.alt = shotCaption || headline || metaText || 'Scene panel';
+      shotImg.title = 'Click to view full-size Photography Director panel';
+      shotImg.addEventListener('click', () => {
+        openImageLightbox({
+          src: imageUrl,
+          badge: 'PHOTOGRAPHY DIRECTOR PANEL',
+          title: shotCaption || headline || metaText,
+          caption: bodyText,
+        });
+      });
+      shotWrap.appendChild(shotImg);
+      if (typeof shotCaption === 'string' && shotCaption.trim()) {
+        shotWrap.appendChild(
+          el('div', 'event-shot-caption', '🎬 ' + shotCaption.trim()),
+        );
+      }
+      card.appendChild(shotWrap);
+    }
+  }
+
+  function appendFeedItem(options) {
+    const {
+      metaText,
+      headline,
+      bodyText,
+      chips,
+      imageUrl,
+      shotCaption,
+      variantClass,
+      dedupKey,
+    } = options;
+    const feed = document.getElementById('narrative-feed');
+    if (feed == null) {
+      return;
+    }
+    if (dedupKey && seenEventKeys.has(dedupKey)) {
+      const existingCard = feed.querySelector(
+        '[data-dedup-key="' + CSS.escape(dedupKey) + '"]',
+      );
+      if (existingCard != null) {
+        populateCardExtensions(existingCard, options);
+      }
+      return;
+    }
+    if (dedupKey) {
+      seenEventKeys.add(dedupKey);
+    }
+    const card = el(
+      'div',
+      variantClass ? 'event-card ' + variantClass : 'event-card',
+    );
+    if (dedupKey) {
+      card.setAttribute('data-dedup-key', dedupKey);
+    }
+    const meta = el('div', 'event-meta', metaText);
+    const body = el('div', 'event-body', bodyText);
+    card.appendChild(meta);
+    card.appendChild(body);
+    populateCardExtensions(card, options);
+    const loadingCard = document.getElementById('actor-loading-card');
+    if (loadingCard != null && loadingCard.parentNode === feed) {
+      feed.insertBefore(card, loadingCard);
+    } else {
+      feed.appendChild(card);
+    }
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  function renderTurnLoadingCard(options) {
+    const {resolvingPlayer, respondingActors, locTitle} = options;
+    const feed = document.getElementById('narrative-feed');
+    if (feed == null) {
+      return;
+    }
+    const existing = document.getElementById('actor-loading-card');
+    const actors = Array.isArray(respondingActors) ? respondingActors : [];
+    if (!resolvingPlayer && actors.length === 0) {
+      if (existing != null) {
+        existing.remove();
+      }
+      return;
+    }
+
+    const card =
+      existing ??
+      el(
+        'div',
+        'event-card loading-event-card',
+      );
+    card.id = 'actor-loading-card';
+    card.className = resolvingPlayer
+      ? 'event-card loading-event-card loading-player-card'
+      : 'event-card loading-event-card loading-npc-card';
+    card.replaceChildren();
+
+    const meta = el('div', 'event-meta loading-event-meta');
+    const metaLeft = el('span', 'loading-meta-left');
+    metaLeft.appendChild(el('span', 'loading-spinner-dot', ''));
+    const actorNames = actors.join(', ');
+    metaLeft.appendChild(
+      document.createTextNode(
+        resolvingPlayer
+          ? 'Game Master — Adjudicating Your Action…'
+          : actorNames + ' — Responding in ' + (locTitle || 'Scene') + '…',
+      ),
+    );
+    meta.appendChild(metaLeft);
+    meta.appendChild(
+      el(
+        'span',
+        'loading-status-tag',
+        resolvingPlayer ? 'RESOLVING MOVE' : 'ACTOR RESPONDING',
+      ),
+    );
+
+    const body = el(
+      'div',
+      'event-body loading-event-body',
+      resolvingPlayer
+        ? 'Adjudicating your action against the scene and co-located characters…'
+        : actorNames +
+            (actors.length === 1 ? ' is ' : ' are ') +
+            'deliberating their Inner Parliament and composing a response. Please wait before taking your next turn…',
+    );
+    card.appendChild(meta);
+    card.appendChild(body);
+    if (card.parentNode !== feed || feed.lastElementChild !== card) {
+      feed.appendChild(card);
+    }
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  function renderNarrativeLog(narrativeLog) {
+    for (const entry of narrativeLog) {
+      if (!entry || entry.id == null || !entry.text) {
+        continue;
+      }
+      let bodyText = entry.text.trim();
+      if (bodyText.startsWith('Key specifics noted (')) {
+        continue;
+      }
+      const dedupKey = 'entry:' + String(entry.id);
+      const kind = entry.kind ?? 'scene_resolution';
+      const locName = entry.location_name || entry.location_id || 'Scene';
+      const clock = entry.clock ? ' · ' + entry.clock : '';
+      let metaText = locName + ' — Scene Event' + clock;
+      let variantClass = '';
+
+      if (kind === 'intro') {
+        metaText = 'Opening Scene — ' + locName + clock;
+        bodyText = bodyText
+          .replace(/\n*\s*Around you, you spot:[\s\S]*$/i, '')
+          .trim();
+        variantClass = 'intro-event';
+      } else if (kind === 'player_action') {
+        metaText = 'You (' + (entry.actor || 'Traveler') + ') — Action' + clock;
+        bodyText = '> ' + bodyText;
+        variantClass = 'player-event';
+      } else if (kind === 'scene_resolution') {
+        metaText = locName + ' — Outcome' + clock;
+        variantClass = 'resolution-event';
+      } else if (kind === 'npc_resolution') {
+        metaText = (entry.actor || 'NPC') + ' — ' + locName + clock;
+        variantClass = 'npc-event';
+      } else if (kind === 'arrival') {
+        metaText = 'Arrived — ' + locName + clock;
+        bodyText = bodyText
+          .replace(/^\[Location:[^\]]+\]\s*/i, '')
+          .replace(/\s*Notable details:[\s\S]*$/i, '')
+          .trim();
+        variantClass = 'arrival-event';
+      } else if (kind === 'rumor') {
+        metaText = 'Street Whisper' + clock;
+        bodyText = bodyText.replace(
+          /\[(?:false |distorted )?rumor[^\]]*\]\s*/gi,
+          '',
+        );
+        variantClass = 'rumor-event';
+      } else if (kind === 'inner_voice') {
+        metaText = 'Sub-Mind — ' + (entry.actor || 'Faculty') + clock;
+        variantClass = 'inner-voice-event';
+      } else if (kind === 'revelation') {
+        metaText = 'Mystery Pieced Together' + clock;
+        variantClass = 'revelation-event';
+      } else if (kind === 'doom') {
+        metaText = 'World Countdown — ' + (entry.actor || 'Doom') + clock;
+        variantClass = 'doom-event';
+      } else if (kind === 'ending') {
+        metaText = 'Epilogue' + clock;
+        variantClass = 'ending-event';
+      }
+
+      const headline =
+        typeof entry.headline === 'string' ? entry.headline.trim() : '';
+      const chips = Array.isArray(entry.chips) ? entry.chips : [];
+      const imageUrl =
+        typeof entry.image_url === 'string' ? entry.image_url : '';
+      const shotCaption =
+        typeof entry.shot_caption === 'string' ? entry.shot_caption : '';
+
+      appendFeedItem({
+        metaText,
+        headline,
+        bodyText,
+        chips,
+        imageUrl,
+        shotCaption,
+        variantClass,
+        dedupKey,
+      });
+    }
+  }
+
+  function renderEpilogueSlides(story) {
+    const panel = document.getElementById('epilogue-slides-panel');
+    if (panel == null) {
+      return;
+    }
+    const slides = story?.ending_slides ?? [];
+    if (!story?.ended || !Array.isArray(slides) || slides.length === 0) {
+      panel.classList.add('hidden');
+      panel.replaceChildren();
+      return;
+    }
+    panel.classList.remove('hidden');
+    panel.replaceChildren();
+
+    const header = el('div', 'epilogue-header');
+    const titleWrap = el('div', 'epilogue-title-wrap');
+    titleWrap.appendChild(
+      el(
+        'span',
+        'voice-badge',
+        'EMERGENT EPILOGUE · ' +
+          String(story.ending_archetype || 'resolution')
+            .replace(/_/g, ' ')
+            .toUpperCase(),
+      ),
+    );
+    titleWrap.appendChild(
+      el('h3', 'epilogue-main-title', story.ending_title || 'Epilogue'),
+    );
+    header.appendChild(titleWrap);
+    panel.appendChild(header);
+
+    const grid = el('div', 'epilogue-slides-grid');
+    slides.forEach((slide, index) => {
+      if (slide == null) {
+        return;
+      }
+      const card = el(
+        'div',
+        'epilogue-slide-card epilogue-slide-' + String(slide.kind || index),
+      );
+      const slideHead = el('div', 'epilogue-slide-head');
+      slideHead.appendChild(
+        el(
+          'span',
+          'epilogue-slide-num',
+          'SLIDE ' + String(index + 1) + ' OF ' + String(slides.length),
+        ),
+      );
+      if (slide.voice) {
+        slideHead.appendChild(
+          el(
+            'span',
+            'voice-tag-badge voice-tag-emergent',
+            String(slide.voice) + ' · Rank ' + String(slide.rank ?? 1),
+          ),
+        );
+      }
+      card.appendChild(slideHead);
+      card.appendChild(
+        el('h4', 'epilogue-slide-title', slide.title || 'Epilogue Slide'),
+      );
+      if (slide.body) {
+        card.appendChild(el('p', 'epilogue-slide-body', slide.body));
+      }
+
+      const entries = slide.entries ?? [];
+      if (Array.isArray(entries) && entries.length > 0) {
+        const npcGrid = el('div', 'epilogue-npc-fates-list');
+        for (const entry of entries) {
+          if (entry == null) {
+            continue;
+          }
+          const npcRow = el('div', 'epilogue-npc-fate-row');
+          const npcTop = el('div', 'epilogue-npc-fate-top');
+          npcTop.appendChild(
+            el('strong', 'epilogue-npc-name', entry.npc || 'NPC'),
+          );
+          const vTag =
+            (entry.dominant_voice || 'Sub-Mind') +
+            ' (Rank ' +
+            String(entry.rank ?? 1) +
+            (entry.intrusive ? ' · INTRUSIVE' : '') +
+            ')';
+          npcTop.appendChild(el('span', 'epilogue-npc-voice', vTag));
+          npcRow.appendChild(npcTop);
+          if (entry.fate) {
+            npcRow.appendChild(el('div', 'epilogue-npc-text', entry.fate));
+          }
+          npcGrid.appendChild(npcRow);
+        }
+        card.appendChild(npcGrid);
+      }
+      grid.appendChild(card);
+    });
+    panel.appendChild(grid);
+  }
+
+  async function submitAction(actionText) {
+    const cleaned = actionText.trim();
+    if (!cleaned) {
+      return;
+    }
+    const pendingEl = document.getElementById('pending-indicator');
+    if (pendingEl != null) {
+      pendingEl.textContent = '⏳ Adjudicating your action…';
+      pendingEl.className = 'pending-pill busy-player';
+    }
+    renderTurnLoadingCard({
+      resolvingPlayer: true,
+      respondingActors: [],
+      locTitle: '',
+    });
+    try {
+      const response = await fetch('/api/action', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: cleaned}),
+      });
+      if (!response.ok) {
+        setText('pending-indicator', 'Action rejected by server.');
+        return;
+      }
+      const data = await response.json();
+      if (data?.state != null) {
+        renderState(data.state);
+      }
+    } catch {
+      setText('pending-indicator', 'Network error submitting action.');
+    }
+  }
+
+  async function resetSimulation() {
+    setText('pending-indicator', 'Resetting simulation...');
+    try {
+      const response = await fetch('/api/reset', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}',
+      });
+      if (!response.ok) {
+        setText('pending-indicator', 'Reset failed.');
+        return;
+      }
+      const data = await response.json();
+      seenEventKeys.clear();
+      hasPromptedInitialParliament = false;
+      const feed = document.getElementById('narrative-feed');
+      if (feed != null) {
+        feed.replaceChildren();
+      }
+      if (data?.state != null) {
+        renderState(data.state);
+      }
+    } catch {
+      setText('pending-indicator', 'Network error resetting simulation.');
+    }
+  }
+
+  function syncSubMindsFromStory(story) {
+    const rawMinds = story?.sub_minds ?? {};
+    const playerVoices = story?.player_voices ?? {};
+    const voiceAffinity = story?.voice_affinity ?? {};
+    const merged = {};
+    for (const [name, node] of Object.entries(rawMinds)) {
+      if (node != null) {
+        merged[name] = node;
+      }
+    }
+    for (const [vName, vDesc] of Object.entries(playerVoices)) {
+      if (merged[vName] == null) {
+        merged[vName] = {
+          name: vName,
+          domain: 'instinct',
+          worldview: vDesc,
+          blind_spot: 'tunnel vision when pressed',
+          rank: voiceAffinity[vName] ?? 1,
+          xp: Math.max(0, (voiceAffinity[vName] ?? 1) - 1),
+          scars: [],
+          obsession: '',
+          origin: 'setting',
+          active: true,
+          intrusive: (voiceAffinity[vName] ?? 1) >= 4,
+        };
+      }
+    }
+    latestSubMinds = merged;
+    if (Array.isArray(story?.character_presets)) {
+      latestCharacterPresets = story.character_presets;
+    } else {
+      latestCharacterPresets = [];
+    }
+  }
+
+  function renderCharacterSheet(story) {
+    const sheetBox = document.getElementById('character-sheet-list');
+    if (sheetBox == null) {
+      return;
+    }
+    syncSubMindsFromStory(story);
+    sheetBox.replaceChildren();
+    const entries = Object.values(latestSubMinds);
+    if (entries.length === 0) {
+      sheetBox.appendChild(
+        el('span', 'subtle', 'No Sub-Minds registered on character sheet.'),
+      );
+      return;
+    }
+    entries.sort((a, b) => {
+      const actA = a.active !== false ? 1 : 0;
+      const actB = b.active !== false ? 1 : 0;
+      if (actA !== actB) {
+        return actB - actA;
+      }
+      return (b.rank ?? 1) - (a.rank ?? 1);
+    });
+
+    for (const sm of entries) {
+      const vName = sm.name || 'Sub-Mind';
+      const rank = sm.rank ?? 1;
+      const isActive = sm.active !== false;
+      const isIntrusive = Boolean(sm.intrusive || rank >= 4);
+      let cls = 'submind-sheet-card';
+      if (!isActive) {
+        cls += ' dormant';
+      } else if (isIntrusive) {
+        cls += ' intrusive';
+      }
+      const card = el('div', cls);
+
+      const header = el('div', 'submind-sheet-header');
+      const titleLeft = el(
+        'span',
+        '',
+        vName + (isActive ? ' · Rank ' + String(rank) : ' · Dormant'),
+      );
+      header.appendChild(titleLeft);
+
+      const badgesRight = el('div', '');
+      if (isIntrusive && isActive) {
+        badgesRight.appendChild(
+          el('span', 'voice-tag-badge voice-tag-intrusive', 'Intrusive'),
+        );
+      }
+      if (sm.origin === 'emergent') {
+        badgesRight.appendChild(
+          el('span', 'voice-tag-badge voice-tag-emergent', 'Emergent'),
+        );
+      } else if (sm.origin === 'custom') {
+        badgesRight.appendChild(
+          el('span', 'voice-tag-badge voice-tag-custom', 'Custom'),
+        );
+      }
+      header.appendChild(badgesRight);
+      card.appendChild(header);
+
+      const domLabel = (sm.domain || 'instinct').replace(/_/g, ' ');
+      const blindLabel = sm.blind_spot ? ' · Blind spot: ' + sm.blind_spot : '';
+      card.appendChild(
+        el('div', 'submind-sheet-meta', 'Domain: ' + domLabel + blindLabel),
+      );
+      if (sm.worldview) {
+        card.appendChild(el('div', 'subtle', compactSentence(sm.worldview, 22)));
+      }
+      if (sm.obsession) {
+        card.appendChild(
+          el('div', 'submind-sheet-obsession', 'Obsession: ' + sm.obsession),
+        );
+      }
+      const scars = sm.scars ?? [];
+      if (scars.length > 0) {
+        const latestScar = scars[scars.length - 1] ?? '';
+        card.appendChild(el('div', 'submind-sheet-scar', 'Scar: ' + latestScar));
+      }
+      sheetBox.appendChild(card);
+    }
+  }
+
+  function renderParliamentModal() {
+    const presetBar = document.getElementById('archetype-preset-bar');
+    if (presetBar != null && latestCharacterPresets.length > 0) {
+      presetBar.replaceChildren();
+      presetBar.appendChild(el('span', 'subtle', 'Archetype Presets:'));
+      for (const presetObj of latestCharacterPresets) {
+        if (presetObj == null) {
+          continue;
+        }
+        const label =
+          presetObj.name ||
+          presetObj.label ||
+          presetObj.id ||
+          presetObj.key ||
+          'Archetype';
+        const descText =
+          presetObj.tagline || presetObj.description || '';
+        const btn = createButton('chip-btn preset-btn', label);
+        btn.title = descText || label;
+        btn.addEventListener('click', () => {
+          applyArchetypePreset(
+            presetObj.id || presetObj.key || label,
+            presetObj.ranks,
+          );
+          if (descText) {
+            setText(
+              'archetype-preset-desc',
+              label + ': ' + descText,
+            );
+          }
+        });
+        presetBar.appendChild(btn);
+      }
+      const balBtn = createButton('chip-btn preset-btn', 'Balanced (All 1)');
+      balBtn.addEventListener('click', () => {
+        applyArchetypePreset('balanced');
+        setText(
+          'archetype-preset-desc',
+          'Balanced: Every setting Sub-Mind awakened at Rank 1.',
+        );
+      });
+      presetBar.appendChild(balBtn);
+    }
+
+    const listBox = document.getElementById('modal-voices-list');
+    if (listBox == null) {
+      return;
+    }
+    listBox.replaceChildren();
+    const names = Object.keys(latestSubMinds);
+    for (const vName of names) {
+      const sm = latestSubMinds[vName];
+      if (sm == null) {
+        continue;
+      }
+      const curRank =
+        draftActiveRanks[vName] ?? (sm.active !== false ? (sm.rank ?? 1) : 0);
+      const row = el(
+        'div',
+        curRank > 0 ? 'modal-voice-row' : 'modal-voice-row inactive',
+      );
+      const info = el('div', 'modal-voice-info');
+      const titleLine = el('div', 'modal-voice-title', vName);
+      if (sm.origin === 'custom') {
+        titleLine.appendChild(
+          el('span', 'voice-tag-badge voice-tag-custom', 'Custom'),
+        );
+      } else if (sm.origin === 'emergent') {
+        titleLine.appendChild(
+          el('span', 'voice-tag-badge voice-tag-emergent', 'Emergent'),
+        );
+      }
+      info.appendChild(titleLine);
+      info.appendChild(el('div', 'modal-voice-desc', sm.worldview || ''));
+      const domStr = (sm.domain || 'instinct').replace(/_/g, ' ');
+      info.appendChild(
+        el(
+          'div',
+          'modal-voice-blind',
+          'Domain: ' +
+            domStr +
+            (sm.blind_spot ? ' · Blind spot: ' + sm.blind_spot : ''),
+        ),
+      );
+      row.appendChild(info);
+
+      const controls = el('div', 'modal-voice-controls');
+      const minusBtn = createButton('voice-toggle-btn', '−');
+      minusBtn.title = 'Lower Rank (0 = Dormant)';
+      minusBtn.addEventListener('click', () => {
+        const next = Math.max(0, (draftActiveRanks[vName] ?? 1) - 1);
+        draftActiveRanks[vName] = next;
+        renderParliamentModal();
+      });
+
+      const rankPill = el(
+        'span',
+        'rank-pill',
+        curRank > 0 ? 'Rank ' + String(curRank) : 'Dormant',
+      );
+
+      const plusBtn = createButton('voice-toggle-btn', '+');
+      plusBtn.title = 'Raise Starting Rank (Rank 4+ becomes Intrusive)';
+      plusBtn.addEventListener('click', () => {
+        const next = Math.min(5, (draftActiveRanks[vName] ?? 0) + 1);
+        draftActiveRanks[vName] = next;
+        renderParliamentModal();
+      });
+
+      controls.appendChild(minusBtn);
+      controls.appendChild(rankPill);
+      controls.appendChild(plusBtn);
+      row.appendChild(controls);
+      listBox.appendChild(row);
+    }
+
+    const activeCount = Object.values(draftActiveRanks).filter(
+      (r) => r > 0,
+    ).length;
+    const totalPts = Object.values(draftActiveRanks).reduce((a, b) => a + b, 0);
+    setText(
+      'parliament-summary-text',
+      String(activeCount) +
+        ' active Sub-Minds · ' +
+        String(totalPts) +
+        ' total Rank points (Rank 4+ triggers Intrusive blind spots)',
+    );
+  }
+
+  function openParliamentModal() {
+    draftActiveRanks = {};
+    for (const [vName, sm] of Object.entries(latestSubMinds)) {
+      draftActiveRanks[vName] = sm.active !== false ? (sm.rank ?? 1) : 0;
+    }
+    renderParliamentModal();
+    setText('mint-status-text', '');
+    const modal = document.getElementById('parliament-modal');
+    if (modal != null) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  function closeParliamentModal() {
+    const modal = document.getElementById('parliament-modal');
+    if (modal != null) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  function openImageLightbox(options) {
+    const {src, badge, title, caption} = options;
+    if (!src) {
+      return;
+    }
+    const modal = document.getElementById('image-lightbox-modal');
+    const imgEl = document.getElementById('lightbox-image');
+    if (modal == null || !(imgEl instanceof HTMLImageElement)) {
+      return;
+    }
+    imgEl.src = src;
+    imgEl.alt = title || 'Scene artwork';
+    setText('lightbox-badge', badge || 'SCENE ARTWORK');
+    setText('lightbox-title', title || 'Scene Artwork');
+    setText('lightbox-caption', caption || '');
+    modal.classList.remove('hidden');
+  }
+
+  function closeImageLightbox() {
+    const modal = document.getElementById('image-lightbox-modal');
+    if (modal != null) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  function applyArchetypePreset(preset, explicitRanks) {
+    const names = Object.keys(latestSubMinds);
+    if (explicitRanks != null && typeof explicitRanks === 'object') {
+      for (const vName of names) {
+        draftActiveRanks[vName] = explicitRanks[vName] ?? 0;
+      }
+      renderParliamentModal();
+      return;
+    }
+    for (const vName of names) {
+      const lower = vName.toLowerCase();
+      if (preset === 'balanced') {
+        draftActiveRanks[vName] = 1;
+      } else if (preset === 'enforcer') {
+        if (lower.includes('naughty') || lower.includes('brass')) {
+          draftActiveRanks[vName] = 3;
+        } else if (lower.includes('guv') || lower.includes('ear')) {
+          draftActiveRanks[vName] = 2;
+        } else {
+          draftActiveRanks[vName] = 0;
+        }
+      } else if (preset === 'auditor') {
+        if (lower.includes('book') || lower.includes('copper')) {
+          draftActiveRanks[vName] = 3;
+        } else if (lower.includes('ear') || lower.includes('hustle')) {
+          draftActiveRanks[vName] = 2;
+        } else {
+          draftActiveRanks[vName] = 0;
+        }
+      } else if (preset === 'street') {
+        if (lower.includes('hustle') || lower.includes('ear')) {
+          draftActiveRanks[vName] = 3;
+        } else if (lower.includes('brass') || lower.includes('book')) {
+          draftActiveRanks[vName] = 2;
+        } else {
+          draftActiveRanks[vName] = 1;
+        }
+      }
+    }
+    renderParliamentModal();
+  }
+
+  async function generateOrSwitchWorld(options) {
+    const {preset = '', title = '', premise = ''} = options;
+    setText('world-generate-status', 'Synthesizing RPG world & Parliament...');
+    try {
+      const resp = await fetch('/api/generate_world', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({preset, title, premise}),
+      });
+      if (!resp.ok) {
+        setText('world-generate-status', 'Failed to generate world.');
+        return;
+      }
+      const data = await resp.json();
+      seenEventKeys.clear();
+      const feed = document.getElementById('narrative-feed');
+      if (feed != null) {
+        feed.replaceChildren();
+      }
+      if (data?.state != null) {
+        renderState(data.state);
+        draftActiveRanks = {};
+        for (const [vName, sm] of Object.entries(latestSubMinds)) {
+          draftActiveRanks[vName] = sm.active !== false ? (sm.rank ?? 1) : 0;
+        }
+        renderParliamentModal();
+      }
+      const wTitle = data?.state?.ledger?.story?.world_title || title || preset || 'New World';
+      setText(
+        'world-generate-status',
+        'Loaded "' + wTitle + '"! Weight your voices or click Commit Parliament & Play.',
+      );
+    } catch {
+      setText('world-generate-status', 'Network error generating world.');
+    }
+  }
+
+  async function mintCustomVoice() {
+    const nameNode = document.getElementById('mint-name-input');
+    const conceptNode = document.getElementById('mint-concept-input');
+    const nameHint =
+      nameNode instanceof HTMLInputElement ? nameNode.value.trim() : '';
+    const concept =
+      conceptNode instanceof HTMLInputElement ? conceptNode.value.trim() : '';
+    if (!concept) {
+      setText(
+        'mint-status-text',
+        'Enter a formative memory, obsession, or instinct first.',
+      );
+      return;
+    }
+    setText('mint-status-text', 'Minting custom Sub-Mind...');
+    try {
+      const resp = await fetch('/api/mint_voice', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          concept,
+          nameHint,
+          rank: 2,
+        }),
+      });
+      if (!resp.ok) {
+        setText('mint-status-text', 'Failed to mint custom Sub-Mind.');
+        return;
+      }
+      const data = await resp.json();
+      if (nameNode instanceof HTMLInputElement) {
+        nameNode.value = '';
+      }
+      if (conceptNode instanceof HTMLInputElement) {
+        conceptNode.value = '';
+      }
+      if (data?.state != null) {
+        renderState(data.state);
+      }
+      if (data?.voice?.name) {
+        draftActiveRanks[data.voice.name] = data.voice.rank ?? 2;
+        setText(
+          'mint-status-text',
+          'Minted "' +
+            data.voice.name +
+            '" (' +
+            (data.voice.domain || 'custom') +
+            ') at Rank ' +
+            String(data.voice.rank ?? 2) +
+            '!',
+        );
+      }
+      renderParliamentModal();
+    } catch {
+      setText('mint-status-text', 'Network error minting custom Sub-Mind.');
+    }
+  }
+
+  async function commitParliament() {
+    const activeOnly = {};
+    for (const [vName, r] of Object.entries(draftActiveRanks)) {
+      if (r > 0) {
+        activeOnly[vName] = r;
+      }
+    }
+    setText('parliament-summary-text', 'Committing Parliament...');
+    try {
+      const resp = await fetch('/api/init_voices', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({activeRanks: activeOnly}),
+      });
+      if (!resp.ok) {
+        setText('parliament-summary-text', 'Failed to commit Parliament.');
+        return;
+      }
+      const data = await resp.json();
+      if (data?.state != null) {
+        renderState(data.state);
+      }
+      closeParliamentModal();
+    } catch {
+      setText('parliament-summary-text', 'Network error committing Parliament.');
+    }
+  }
+
+  function renderState(payload) {
+    const ledger = payload.ledger;
+    if (ledger == null) {
+      return;
+    }
+    const latency = payload.latency;
+    const memories = payload.memories ?? {};
+    const telemetry = ledger.telemetry;
+
+    setText('sim-clock', ledger.clock_formatted || 'Day 1');
+    setText('sim-tick', 'Tick ' + String(ledger.tick ?? 0));
+
+    const story = ledger.story;
+    const tone = story?.tone;
+    const truthsMap = story?.truths ?? {};
+    const titleEl = document.getElementById('world-title');
+    const roleSummaryEl = document.getElementById('player-role-summary');
+    const roleBannerEl = document.getElementById('role-briefing-banner');
+    const modalBriefingEl = document.getElementById('modal-role-briefing');
+    const topWorldSelectEl = document.getElementById('top-world-select');
+    const actionInputEl = getActionInput();
+
+    const dynamicTitle =
+      story?.world_title ||
+      (truthsMap['t_inside_job'] != null
+        ? 'The Bermondsey Drop'
+        : truthsMap['t_valve'] != null
+          ? 'Glassharbor Chronicle'
+          : 'Concordia RPG');
+    if (titleEl != null) {
+      titleEl.textContent = dynamicTitle;
+    }
+    document.title = 'Concordia Infinite Adventure — ' + dynamicTitle;
+
+    if (topWorldSelectEl instanceof HTMLSelectElement) {
+      if (truthsMap['t_inside_job'] != null) {
+        topWorldSelectEl.value = 'bermondsey';
+      } else if (truthsMap['t_valve'] != null) {
+        topWorldSelectEl.value = 'glassharbor';
+      } else if (truthsMap['t_oxygen_cull'] != null) {
+        topWorldSelectEl.value = 'dystopian_scifi';
+      } else if (truthsMap['t_forbidden_bond'] != null) {
+        topWorldSelectEl.value = 'vampire_romance';
+      } else {
+        topWorldSelectEl.value = '__custom__';
+      }
+    }
+
+    const playerRole = story?.player_role ?? {};
+    const roleTitle = playerRole.title || 'Protagonist';
+    const roleSummary =
+      playerRole.summary ||
+      story?.world_opening ||
+      story?.world_premise ||
+      ledger.premise ||
+      '';
+
+    if (roleSummaryEl != null) {
+      roleSummaryEl.replaceChildren();
+      roleSummaryEl.appendChild(el('strong', '', roleTitle));
+      if (roleSummary) {
+        roleSummaryEl.appendChild(
+          document.createTextNode(' — ' + roleSummary),
+        );
+      }
+    }
+
+    if (roleBannerEl != null) {
+      roleBannerEl.replaceChildren();
+      roleBannerEl.appendChild(
+        el('strong', '', 'Your Role: ' + roleTitle + ' · '),
+      );
+      roleBannerEl.appendChild(document.createTextNode(roleSummary));
+    }
+
+    if (modalBriefingEl != null) {
+      modalBriefingEl.replaceChildren();
+      modalBriefingEl.appendChild(
+        el(
+          'strong',
+          '',
+          dynamicTitle + ' — Your Role (' + roleTitle + '): ',
+        ),
+      );
+      modalBriefingEl.appendChild(document.createTextNode(roleSummary));
+    }
+
+    if (actionInputEl != null) {
+      if (truthsMap['t_inside_job'] != null) {
+        actionInputEl.placeholder =
+          'What do you do or say? (e.g. Inspect the carbon layoff pad, lean on Frankie Slater, go east...)';
+      } else if (truthsMap['t_valve'] != null) {
+        actionInputEl.placeholder =
+          'What do you do or say? (e.g. Inspect the customs ledger, question Mara Vance, go north...)';
+      } else if (truthsMap['t_oxygen_cull'] != null) {
+        actionInputEl.placeholder =
+          'What do you do or say? (e.g. Show Jonas the Polaroid of the corpse, check the bolt cutters, go north to the hangar...)';
+      } else if (truthsMap['t_forbidden_bond'] != null) {
+        actionInputEl.placeholder =
+          "What do you do or say? (e.g. Check the blood cooler sign-out binder, ask Claire about David's bandage, go north to the breakroom...)";
+      } else {
+        actionInputEl.placeholder =
+          'What do you do or say? (Click a Sub-Mind option above or type any action...)';
+      }
+    }
+
+    const actNum = story?.act ?? 1;
+    const tensionNum = (story?.tension ?? 2.0).toFixed(1);
+    setText(
+      'sim-act',
+      'Act ' + String(actNum) + ' · Tension ' + tensionNum + '/10',
+    );
+
+    const proseMode =
+      ledger.prose_mode === 'literary' ? 'literary' : 'concise';
+    const proseBtn = document.getElementById('prose-mode-btn');
+    if (proseBtn instanceof HTMLButtonElement) {
+      proseBtn.setAttribute('data-mode', proseMode);
+      proseBtn.textContent =
+        proseMode === 'concise' ? '⚡ Prose: Concise' : '📖 Prose: Literary';
+      proseBtn.classList.toggle('literary-mode', proseMode === 'literary');
+    }
+
+    const doomCfg = story?.doom;
+    const stages = doomCfg?.stages ?? [];
+    const curStageIdx = story?.doom_stage ?? 0;
+    const curStage = stages[curStageIdx];
+    setText(
+      'sim-doom',
+      (doomCfg?.name || 'Countdown') + ': ' + (curStage?.name || 'calm'),
+    );
+    const resolvingPlayer = Boolean(
+      payload.resolving_player ?? payload.pending_player_actions,
+    );
+    const respondingActors = Array.isArray(payload.responding_actors)
+      ? payload.responding_actors.filter(Boolean)
+      : [];
+    const isForegroundBusy = resolvingPlayer || respondingActors.length > 0;
+
+    const pendingEl = document.getElementById('pending-indicator');
+    if (pendingEl != null) {
+      if (resolvingPlayer) {
+        pendingEl.textContent = '⏳ Adjudicating your action…';
+        pendingEl.className = 'pending-pill busy-player';
+      } else if (respondingActors.length > 0) {
+        pendingEl.textContent =
+          '⏳ Waiting for ' + respondingActors.join(', ') + ' to respond…';
+        pendingEl.className = 'pending-pill busy-npc';
+      } else {
+        pendingEl.textContent = '✓ Ready for your action';
+        pendingEl.className = 'pending-pill ready';
+      }
+    }
+
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn instanceof HTMLButtonElement) {
+      sendBtn.textContent =
+        respondingActors.length > 0
+          ? '⏳ Actor Responding…'
+          : resolvingPlayer
+            ? '⏳ Resolving…'
+            : 'Act';
+      sendBtn.classList.toggle('btn-busy', isForegroundBusy);
+    }
+
+    if (isForegroundBusy) {
+      if (busyPollTimer == null) {
+        busyPollTimer = setInterval(() => {
+          void loadInitialState();
+        }, 700);
+      }
+    } else if (busyPollTimer != null) {
+      clearInterval(busyPollTimer);
+      busyPollTimer = null;
+    }
+
+    const locId = ledger.player_location_id ?? '';
+    const locations = ledger.locations ?? {};
+    const currentLoc = locations[locId];
+    const locTitle = currentLoc?.name || locId || 'Unknown';
+
+    setText('location-id-badge', locId || '--');
+    setText('location-name', locTitle);
+    setText('location-desc', currentLoc?.description ?? '');
+    setText('stream-location-pill', locTitle);
+
+    const locImg = document.getElementById('location-image');
+    const locCaptionEl = document.getElementById('location-shot-caption');
+    const locSkeleton = document.getElementById('location-image-skeleton');
+    let latestShotUrl =
+      typeof currentLoc?.image_url === 'string' &&
+      currentLoc.image_url.startsWith('/api/image/')
+        ? currentLoc.image_url
+        : '';
+    let latestShotCaption = '';
+    const logList = ledger.narrative_log ?? [];
+    for (let i = logList.length - 1; i >= 0; i--) {
+      const e = logList[i];
+      if (
+        e &&
+        typeof e.image_url === 'string' &&
+        e.image_url.startsWith('/api/image/')
+      ) {
+        latestShotUrl = e.image_url;
+        latestShotCaption =
+          typeof e.shot_caption === 'string' ? e.shot_caption : '';
+        break;
+      }
+    }
+    if (locImg != null && locSkeleton != null) {
+      if (latestShotUrl) {
+        if (locImg.getAttribute('data-src') !== latestShotUrl) {
+          locImg.setAttribute('data-src', latestShotUrl);
+          locImg.src = latestShotUrl;
+        }
+        locImg.alt = latestShotCaption || locTitle + ' establishing shot';
+        locImg.title = 'Click to view full-size Photography Director panel';
+        locImg.onclick = () => {
+          openImageLightbox({
+            src: latestShotUrl,
+            badge: 'PHOTOGRAPHY DIRECTOR PANEL',
+            title: latestShotCaption || locTitle,
+            caption: currentLoc?.description ?? '',
+          });
+        };
+        if (locCaptionEl != null) {
+          if (latestShotCaption) {
+            locCaptionEl.textContent = '🎬 ' + latestShotCaption;
+            locCaptionEl.classList.remove('hidden');
+          } else {
+            locCaptionEl.classList.add('hidden');
+          }
+        }
+        locImg.classList.remove('hidden');
+        locSkeleton.classList.add('hidden');
+      } else if (!locImg.getAttribute('data-src')) {
+        locImg.onclick = null;
+        locImg.classList.add('hidden');
+        if (locCaptionEl != null) {
+          locCaptionEl.classList.add('hidden');
+        }
+        locSkeleton.classList.remove('hidden');
+      }
+    }
+
+    const presentNpcsBox = document.getElementById('present-npcs-list');
+    const allNpcs = ledger.npcs ?? {};
+    const coLocated = Object.values(allNpcs).filter(
+      (npc) => npc != null && npc.location_id === locId,
+    );
+    const playerSubMinds = story?.sub_minds ?? {};
+    const perceptualDomains = new Set([
+      'empathy',
+      'forensics',
+      'accounting',
+      'counter_surveillance',
+      'occult_pattern_matching',
+      'syndicate_reconstruction',
+      'deception',
+      'passion',
+      'predation',
+      'decorum',
+      'cybernetics',
+      'tactical_force',
+    ]);
+    let readerVoiceName = '';
+    for (const sm of Object.values(playerSubMinds)) {
+      if (sm == null || !sm.active || (sm.rank ?? 1) < 2) {
+        continue;
+      }
+      if (
+        perceptualDomains.has(sm.domain ?? '') ||
+        sm.role_archetype === 'analytical' ||
+        sm.role_archetype === 'empathy' ||
+        sm.name === 'Ear to the Ground' ||
+        sm.name === "Copper's Nose" ||
+        sm.name === 'The Book'
+      ) {
+        readerVoiceName = sm.name;
+        break;
+      }
+    }
+    if (presentNpcsBox != null) {
+      presentNpcsBox.replaceChildren();
+      if (coLocated.length === 0) {
+        presentNpcsBox.appendChild(
+          el('span', 'subtle', 'No one else in this room'),
+        );
+      } else {
+        for (const npc of coLocated) {
+          const isNpcResponding = respondingActors.includes(npc.name);
+          const itemWrap = el(
+            'div',
+            isNpcResponding
+              ? 'present-npc-item npc-responding'
+              : 'present-npc-item',
+          );
+          const rowTop = el('div', 'present-npc-row');
+          const portraitUrl =
+            typeof npc.portrait_url === 'string' &&
+            npc.portrait_url.startsWith('/api/image/')
+              ? npc.portrait_url
+              : '';
+          if (portraitUrl) {
+            const avatar = document.createElement('img');
+            avatar.className = 'npc-avatar';
+            avatar.src = portraitUrl;
+            avatar.alt = npc.name || 'NPC';
+            avatar.title = 'Click to enlarge portrait of ' + (npc.name || 'NPC');
+            avatar.addEventListener('click', () => {
+              openImageLightbox({
+                src: portraitUrl,
+                badge: 'CHARACTER PORTRAIT',
+                title: npc.name || 'NPC',
+                caption: npc.role_summary || '',
+              });
+            });
+            rowTop.appendChild(avatar);
+          } else {
+            const initials = String(npc.name || 'NP')
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w) => w[0].toUpperCase())
+              .join('');
+            rowTop.appendChild(
+              el('span', 'npc-avatar-placeholder', initials || 'NP'),
+            );
+          }
+          const btn = createButton(
+            isNpcResponding
+              ? 'chip-btn npc-chip-btn npc-chip-responding'
+              : 'chip-btn npc-chip-btn',
+            '',
+          );
+          btn.appendChild(el('strong', 'npc-chip-name', npc.name || 'NPC'));
+          if (npc.role_summary) {
+            btn.appendChild(el('span', 'npc-chip-role', npc.role_summary));
+          }
+          btn.appendChild(
+            el(
+              'span',
+              isNpcResponding
+                ? 'npc-chip-cta npc-chip-cta-busy'
+                : 'npc-chip-cta',
+              isNpcResponding
+                ? '⏳ Deliberating & composing response…'
+                : 'Click to question →',
+            ),
+          );
+          btn.title = 'Question ' + (npc.name || 'NPC');
+          btn.addEventListener('click', () => {
+            const input = getActionInput();
+            if (input != null) {
+              input.value = 'Ask ' + npc.name + ' about ';
+              input.focus();
+            }
+          });
+          rowTop.appendChild(btn);
+          itemWrap.appendChild(rowTop);
+
+          const npcSubMinds = npc.sub_minds ?? {};
+          const smList = Object.values(npcSubMinds);
+          const hasClashScar = smList.some(
+            (sm) => Array.isArray(sm?.scars) && sm.scars.length > 0,
+          );
+          if (smList.length > 0 && (readerVoiceName !== '' || hasClashScar)) {
+            const winningName = npc.last_winning_voice || '';
+            let domSm = npcSubMinds[winningName];
+            if (domSm == null) {
+              domSm = [...smList].sort(
+                (a, b) => (b?.rank ?? 1) - (a?.rank ?? 1),
+              )[0];
+            }
+            if (domSm != null) {
+              const readBox = el(
+                'div',
+                'npc-perceptual-read' +
+                  (domSm.intrusive ? ' npc-read-intrusive' : ''),
+              );
+              const readHeader = el('div', 'npc-read-header');
+              const viaLabel =
+                readerVoiceName !== ''
+                  ? 'Read (' + readerVoiceName + ')'
+                  : 'Social Read';
+              readHeader.appendChild(
+                el('span', 'npc-read-tag', viaLabel + ': ' + domSm.name),
+              );
+              readHeader.appendChild(
+                el(
+                  'span',
+                  'npc-read-rank',
+                  'Rank ' +
+                    String(domSm.rank ?? 1) +
+                    (domSm.intrusive ? ' • INTRUSIVE' : ''),
+                ),
+              );
+              readBox.appendChild(readHeader);
+
+              const activeOpts = npc.active_voice_options ?? [];
+              const matchingOpt = activeOpts.find(
+                (o) => o?.voice === domSm.name,
+              );
+              const readText =
+                matchingOpt?.perception ||
+                domSm.obsession ||
+                domSm.worldview ||
+                '';
+              if (readText) {
+                readBox.appendChild(el('div', 'npc-read-body', readText));
+              }
+              const scars = domSm.scars ?? [];
+              if (scars.length > 0) {
+                readBox.appendChild(
+                  el('div', 'npc-read-scar', scars[scars.length - 1]),
+                );
+              }
+              itemWrap.appendChild(readBox);
+            }
+          }
+          presentNpcsBox.appendChild(itemWrap);
+        }
+      }
+    }
+
+    const affordancesBox = document.getElementById('affordances-list');
+    const rawAffordances = currentLoc?.affordances ?? [];
+    const cleanProps = rawAffordances.filter(
+      (propText) => !isInternalSpilloverProp(propText),
+    );
+    if (affordancesBox != null) {
+      affordancesBox.replaceChildren();
+      if (cleanProps.length === 0) {
+        affordancesBox.appendChild(el('span', 'subtle', 'None noted'));
+      } else {
+        for (const propText of cleanProps) {
+          const btn = createButton('chip-btn', propText);
+          btn.title = propText;
+          btn.addEventListener('click', () => {
+            const input = getActionInput();
+            if (input != null) {
+              input.value = 'Inspect ' + propText;
+              input.focus();
+            }
+          });
+          affordancesBox.appendChild(btn);
+        }
+      }
+    }
+
+    const exitsBox = document.getElementById('exits-list');
+    const exits = currentLoc?.exits ?? {};
+    const exitKeys = Object.keys(exits);
+    if (exitsBox != null) {
+      exitsBox.replaceChildren();
+      if (exitKeys.length === 0) {
+        exitsBox.appendChild(el('span', 'subtle', 'No visible exits'));
+      } else {
+        for (const dir of exitKeys) {
+          const targetId = exits[dir] ?? '';
+          const targetNode = locations[targetId];
+          const targetTitle = targetNode?.name || targetId;
+          const btn = createButton('exit-btn', dir + ' → ' + targetTitle);
+          btn.addEventListener('click', () => {
+            void submitAction('go ' + dir + ' toward ' + targetTitle);
+          });
+          exitsBox.appendChild(btn);
+        }
+      }
+    }
+
+    setText('scene-tab-badge', String(coLocated.length + cleanProps.length));
+
+    renderNarrativeLog(ledger.narrative_log ?? []);
+    renderTurnLoadingCard({
+      resolvingPlayer,
+      respondingActors,
+      locTitle,
+    });
+    renderEpilogueSlides(story);
+    renderCharacterSheet(story);
+
+    if (
+      !hasPromptedInitialParliament &&
+      story != null &&
+      !story.character_initialized &&
+      (ledger.tick ?? 0) <= 1 &&
+      Object.keys(latestSubMinds).length > 0
+    ) {
+      hasPromptedInitialParliament = true;
+      openParliamentModal();
+    }
+
+    const voicePanel = document.getElementById('voice-options-panel');
+    const voiceGrid = document.getElementById('voice-options-grid');
+    const affinityBar = document.getElementById('voice-affinity-bar');
+    if (voicePanel != null && voiceGrid != null) {
+      const voiceOpts = story?.active_voice_options ?? [];
+      const voiceAffinity = story?.voice_affinity ?? {};
+      const playerVoices = story?.player_voices ?? {};
+      voiceGrid.classList.toggle('turn-busy-dim', isForegroundBusy);
+
+      if (affinityBar != null) {
+        affinityBar.replaceChildren();
+        if (respondingActors.length > 0) {
+          affinityBar.appendChild(
+            el(
+              'span',
+              'voice-affinity-pill voice-busy-pill',
+              '⏳ ' +
+                respondingActors.join(', ') +
+                ' is responding — Sub-Minds will update once they speak…',
+            ),
+          );
+        } else if (resolvingPlayer) {
+          affinityBar.appendChild(
+            el(
+              'span',
+              'voice-affinity-pill voice-busy-pill',
+              '⏳ Adjudicating your move…',
+            ),
+          );
+        }
+        const leveledVoices = Object.keys(playerVoices).filter(
+          (vName) => (voiceAffinity[vName] ?? 1) > 1,
+        );
+        if (leveledVoices.length === 0 && !isForegroundBusy) {
+          affinityBar.appendChild(
+            el('span', 'subtle', 'Click an option to act (or ✎ to edit)'),
+          );
+        } else {
+          for (const vName of leveledVoices) {
+            const lvl = voiceAffinity[vName] ?? 1;
+            const sm = latestSubMinds[vName];
+            const isIntrusive = Boolean(sm?.intrusive || lvl >= 4);
+            const pill = el(
+              'span',
+              'voice-affinity-pill dominant',
+              vName + ' Rank ' + String(lvl) + (isIntrusive ? ' ⚡' : ''),
+            );
+            pill.title = playerVoices[vName] || vName;
+            affinityBar.appendChild(pill);
+          }
+        }
+      }
+
+      voiceGrid.replaceChildren();
+      if (voiceOpts.length === 0) {
+        voicePanel.classList.add('hidden');
+      } else {
+        voicePanel.classList.remove('hidden');
+        for (const opt of voiceOpts) {
+          const vName = opt.voice || 'Sub-Mind';
+          const lvl = opt.affinity ?? voiceAffinity[vName] ?? 1;
+          const sm = latestSubMinds[vName];
+          const isIntrusive = Boolean(opt.intrusive || sm?.intrusive || lvl >= 4);
+          const origin = opt.origin || sm?.origin || 'setting';
+          let cardCls = 'voice-option-card';
+          if (isIntrusive) {
+            cardCls += ' intrusive';
+          }
+          if (origin === 'emergent') {
+            cardCls += ' emergent';
+          }
+          const card = el('div', cardCls);
+
+          const top = el('div', 'voice-option-top');
+          const nameLeft = el(
+            'span',
+            'voice-option-name',
+            vName + ' · Rank ' + String(lvl),
+          );
+          if (isIntrusive) {
+            nameLeft.appendChild(
+              el('span', 'voice-tag-badge voice-tag-intrusive', 'Intrusive'),
+            );
+          } else if (origin === 'emergent') {
+            nameLeft.appendChild(
+              el('span', 'voice-tag-badge voice-tag-emergent', 'Emergent'),
+            );
+          } else if (origin === 'custom') {
+            nameLeft.appendChild(
+              el('span', 'voice-tag-badge voice-tag-custom', 'Custom'),
+            );
+          }
+          top.appendChild(nameLeft);
+          if (opt.role) {
+            top.appendChild(el('span', 'voice-option-role', opt.role));
+          }
+          card.appendChild(top);
+
+          const fullPerception = (opt.perception ?? '').trim();
+          const percEl = el(
+            'div',
+            'voice-option-perception',
+            fullPerception,
+          );
+          percEl.title = fullPerception;
+          card.appendChild(percEl);
+
+          const scarNote = (
+            opt.scar_note ||
+            (sm?.scars && sm.scars.length > 0
+              ? sm.scars[sm.scars.length - 1]
+              : '') ||
+            ''
+          ).trim();
+          if (scarNote) {
+            const scarEl = el(
+              'div',
+              'voice-scar-line',
+              'Scar: ' + scarNote,
+            );
+            scarEl.title = scarNote;
+            card.appendChild(scarEl);
+          }
+
+          const fullAction = (opt.action || 'Act on this instinct').trim();
+          const actionsRow = el('div', 'voice-option-actions');
+          const actBtn = createButton('voice-act-btn', '▶ ' + fullAction);
+          actBtn.title = fullAction;
+          actBtn.addEventListener('click', () => {
+            void submitAction('[' + vName + '] ' + fullAction);
+          });
+
+          const editBtn = createButton('voice-edit-btn', '✎');
+          editBtn.title = 'Edit full action in input bar: ' + fullAction;
+          editBtn.addEventListener('click', () => {
+            const input = getActionInput();
+            if (input != null) {
+              input.value = '[' + vName + '] ' + fullAction;
+              input.focus();
+            }
+          });
+
+          actionsRow.appendChild(actBtn);
+          actionsRow.appendChild(editBtn);
+          card.appendChild(actionsRow);
+          voiceGrid.appendChild(card);
+        }
+      }
+    }
+
+    setText('player-status', 'Status: ' + (ledger.player_status || 'Alert'));
+    const invBox = document.getElementById('inventory-list');
+    const rawInv = ledger.player_inventory ?? [];
+    const uniqueInv = [];
+    for (const item of rawInv) {
+      const cleaned = (item ?? '').trim();
+      if (!cleaned) {
+        continue;
+      }
+      const lower = cleaned.toLowerCase();
+      const duplicate = uniqueInv.some((existing) => {
+        const exLower = existing.toLowerCase();
+        return (
+          exLower === lower || exLower.includes(lower) || lower.includes(exLower)
+        );
+      });
+      if (!duplicate) {
+        uniqueInv.push(cleaned);
+      }
+    }
+    if (invBox != null) {
+      invBox.replaceChildren();
+      if (uniqueInv.length === 0) {
+        invBox.appendChild(el('span', 'subtle', 'Inventory empty'));
+      } else {
+        for (const item of uniqueInv) {
+          invBox.appendChild(el('span', 'badge', item));
+        }
+      }
+    }
+
+    const factionsBox = document.getElementById('factions-list');
+    if (factionsBox != null) {
+      factionsBox.replaceChildren();
+      const factions = story?.factions ?? {};
+      const fIds = Object.keys(factions);
+      if (fIds.length === 0) {
+        factionsBox.appendChild(el('span', 'subtle', 'No factions active'));
+      } else {
+        for (const fid of fIds) {
+          const faction = factions[fid];
+          if (faction == null) {
+            continue;
+          }
+          const disp = (faction.disposition || '').trim();
+          const val = faction.standing_with_player ?? 0;
+          const sign = val > 0 ? '+' + String(val) : String(val);
+          const badgeEl = el(
+            'div',
+            'badge faction-badge',
+            disp
+              ? (faction.name || fid) + ' — ' + disp
+              : (faction.name || fid) + ': ' + sign,
+          );
+          factionsBox.appendChild(badgeEl);
+        }
+      }
+    }
+
+    const truthsBox = document.getElementById('truths-list');
+    if (truthsBox != null) {
+      truthsBox.replaceChildren();
+      const truths = story?.truths ?? {};
+      const clues = story?.clues ?? {};
+      const tIds = Object.keys(truths);
+      let foundTruths = 0;
+      for (const tid of tIds) {
+        const truth = truths[tid];
+        if (truth == null) {
+          continue;
+        }
+        if (truth.discovered) {
+          foundTruths += 1;
+        }
+        const cIds = truth.clue_ids ?? [];
+        const cFound = cIds.filter((cid) => clues[cid]?.discovered).length;
+        const arcKind =
+          truth.arc_kind && truth.arc_kind !== 'revelation'
+            ? '[' + String(truth.arc_kind).replace(/_/g, ' ') + '] '
+            : '';
+        // Undiscovered threads must never surface `statement` text; the
+        // statement is the answer.
+        const mysteryTitle =
+          truth.question || MYSTERY_TITLES[tid] || 'An unresolved thread';
+        const needed = truth.min_clues_to_discover ?? cIds.length;
+        const label = truth.discovered
+          ? '✓ ' + arcKind + (truth.statement ?? mysteryTitle)
+          : arcKind +
+            mysteryTitle +
+            ' (' +
+            String(cFound) +
+            '/' +
+            String(needed) +
+            ' catalysts)';
+        truthsBox.appendChild(el('div', 'graph-item', label));
+      }
+      setText(
+        'truth-count-badge',
+        String(foundTruths) + '/' + String(tIds.length),
+      );
+    }
+
+    const journalBox = document.getElementById('journal-list');
+    if (journalBox != null) {
+      journalBox.replaceChildren();
+      const journal = story?.journal ?? [];
+      if (journal.length === 0) {
+        journalBox.appendChild(el('span', 'subtle', 'No clues recorded yet.'));
+      } else {
+        for (const jText of [...journal.slice(-6)].reverse()) {
+          const cleanNote = jText.replace(/^\[tick\s+\d+\]\s*/i, '');
+          journalBox.appendChild(el('div', 'rumor-item', cleanNote));
+        }
+      }
+    }
+
+    const graphBox = document.getElementById('world-graph-list');
+    const allLocIds = Object.keys(locations);
+    setText('graph-count-badge', String(allLocIds.length) + ' rooms');
+    if (graphBox != null) {
+      graphBox.replaceChildren();
+      for (const id of allLocIds) {
+        const node = locations[id];
+        const statusTag =
+          id === locId
+            ? ' [HERE]'
+            : node?.expanded
+              ? ' [Expanded]'
+              : ' [Frontier Stub]';
+        const item = el('div', 'graph-item', (node?.name || id) + statusTag);
+        graphBox.appendChild(item);
+      }
+    }
+
+    const telBox = document.getElementById('telemetry-grid');
+    if (telBox != null) {
+      telBox.replaceChildren();
+      const playerRes = latency?.player_resolve;
+      const stats = [
+        ['Resolve P50', String(playerRes?.p50_ms ?? 0) + ' ms'],
+        [
+          'Frontier Hit Rate',
+          String(Math.round((telemetry?.frontier_cache_hit_rate ?? 1) * 100)) +
+            '%',
+        ],
+        ['Warm Events', String(telemetry?.warm_events_count ?? 0)],
+        [
+          'Cold -> Hot Cycles',
+          String(telemetry?.hibernations_count ?? 0) +
+            ' / ' +
+            String(telemetry?.rehydrations_count ?? 0),
+        ],
+      ];
+      for (const [label, value] of stats) {
+        const box = el('div', 'stat-box');
+        box.appendChild(el('div', 'stat-label', label));
+        box.appendChild(el('div', 'stat-value', value));
+        telBox.appendChild(box);
+      }
+    }
+
+    const rumorsBox = document.getElementById('rumors-list');
+    if (rumorsBox != null) {
+      rumorsBox.replaceChildren();
+      const rumors = ledger.rumors ?? [];
+      if (rumors.length === 0) {
+        rumorsBox.appendChild(el('span', 'subtle', 'No off-screen rumors yet.'));
+      } else {
+        for (const rText of [...rumors.slice(-6)].reverse()) {
+          rumorsBox.appendChild(el('div', 'rumor-item', rText));
+        }
+      }
+    }
+
+    const npcBox = document.getElementById('npc-roster-list');
+    const npcs = ledger.npcs ?? {};
+    const npcNames = [...Object.keys(npcs)];
+    setText('npc-count-badge', String(npcNames.length) + ' NPCs');
+    npcNames.sort((a, b) => {
+      const tierA = npcs[a]?.tier ?? '';
+      const tierB = npcs[b]?.tier ?? '';
+      const orderA = TIER_ORDER[tierA] ?? 3;
+      const orderB = TIER_ORDER[tierB] ?? 3;
+      return orderA - orderB;
+    });
+
+    if (npcBox != null) {
+      npcBox.replaceChildren();
+      for (const name of npcNames) {
+        const npc = npcs[name];
+        if (npc == null) {
+          continue;
+        }
+        const card = el('div', 'npc-card');
+        const top = el('div', 'npc-top');
+        const nameWithAvatar = el('div', 'npc-name-group');
+        const rosterPortraitUrl =
+          typeof npc.portrait_url === 'string' &&
+          npc.portrait_url.startsWith('/api/image/')
+            ? npc.portrait_url
+            : '';
+        if (rosterPortraitUrl) {
+          const avatar = document.createElement('img');
+          avatar.className = 'npc-avatar npc-avatar-sm';
+          avatar.src = rosterPortraitUrl;
+          avatar.alt = npc.name || 'NPC';
+          avatar.title = 'Click to enlarge portrait of ' + (npc.name || 'NPC');
+          avatar.addEventListener('click', () => {
+            openImageLightbox({
+              src: rosterPortraitUrl,
+              badge: 'CHARACTER PORTRAIT',
+              title: npc.name || 'NPC',
+              caption: npc.role_summary || '',
+            });
+          });
+          nameWithAvatar.appendChild(avatar);
+        }
+        nameWithAvatar.appendChild(el('span', '', npc.name));
+        top.appendChild(nameWithAvatar);
+        const tier = (npc.tier || 'cold').toLowerCase();
+        top.appendChild(el('span', 'tier-tag tier-' + tier, tier));
+        card.appendChild(top);
+        card.appendChild(el('div', 'subtle', npc.role_summary ?? ''));
+        const npcLocNode = locations[npc.location_id];
+        const npcLocName = npcLocNode?.name || npc.location_id;
+        card.appendChild(el('div', '', 'Location: ' + npcLocName));
+        card.appendChild(el('div', '', 'Goal: ' + (npc.goal ?? '')));
+        const memCount = (memories[name] ?? []).length;
+        card.appendChild(
+          el('div', 'subtle', 'Memories retained: ' + String(memCount)),
+        );
+        const npcSubMinds = npc.sub_minds ?? {};
+        const smEntries = Object.values(npcSubMinds);
+        if (smEntries.length > 0) {
+          const councilWrap = el('div', 'npc-subminds-box');
+          const winningVoice = npc.last_winning_voice || '';
+          councilWrap.appendChild(
+            el(
+              'div',
+              'npc-subminds-title',
+              'Inner Parliament' +
+                (winningVoice ? ' (Leading: ' + winningVoice + ')' : ''),
+            ),
+          );
+          for (const sm of smEntries) {
+            if (sm == null) {
+              continue;
+            }
+            const isLead = sm.name === winningVoice;
+            const row = el(
+              'div',
+              'npc-submind-row' + (isLead ? ' npc-submind-leading' : ''),
+            );
+            const rowHead = el('div', 'npc-submind-head');
+            rowHead.appendChild(
+              el(
+                'span',
+                'npc-submind-name',
+                (isLead ? '★ ' : '') + sm.name + ' [' + (sm.domain || '') + ']',
+              ),
+            );
+            rowHead.appendChild(
+              el(
+                'span',
+                'npc-submind-rank',
+                'Rank ' +
+                  String(sm.rank ?? 1) +
+                  (sm.intrusive ? ' • INTRUSIVE' : ''),
+              ),
+            );
+            row.appendChild(rowHead);
+            if (sm.obsession) {
+              row.appendChild(
+                el('div', 'npc-submind-obs', 'Obsession: ' + sm.obsession),
+              );
+            }
+            const scars = sm.scars ?? [];
+            if (scars.length > 0) {
+              row.appendChild(
+                el('div', 'npc-submind-scar', scars[scars.length - 1]),
+              );
+            }
+            councilWrap.appendChild(row);
+          }
+          card.appendChild(councilWrap);
+        }
+        npcBox.appendChild(card);
+      }
+    }
+  }
+
+  function connectEventStream() {
+    const source = new EventSource('/api/events');
+    source.onopen = () => {
+      setText('conn-status', 'Live Stream Active');
+    };
+    source.onmessage = (ev) => {
+      if (typeof ev.data !== 'string') {
+        return;
+      }
+      try {
+        const pkt = JSON.parse(ev.data);
+        if (pkt?.state != null) {
+          renderState(pkt.state);
+        }
+      } catch {
+        // Ignore malformed SSE packet.
+      }
+    };
+    source.onerror = () => {
+      setText('conn-status', 'Reconnecting...');
+    };
+  }
+
+  async function toggleProseMode() {
+    const proseBtn = document.getElementById('prose-mode-btn');
+    const currentMode =
+      proseBtn?.getAttribute('data-mode') === 'literary'
+        ? 'literary'
+        : 'concise';
+    const nextMode = currentMode === 'concise' ? 'literary' : 'concise';
+    try {
+      const response = await fetch('/api/prose_mode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prose_mode: nextMode}),
+      });
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      if (data?.state != null) {
+        renderState(data.state);
+      }
+    } catch {
+      // Ignore network hiccup.
+    }
+  }
+
+  async function loadInitialState() {
+    try {
+      const response = await fetch('/api/state');
+      if (!response.ok) {
+        return;
+      }
+      const state = await response.json();
+      renderState(state);
+    } catch {
+      // Initial state will arrive via SSE if the fetch fails.
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('action-form');
+    if (form != null) {
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const input = getActionInput();
+        if (input == null) {
+          return;
+        }
+        const text = input.value;
+        input.value = '';
+        void submitAction(text);
+      });
+    }
+
+    const resetBtn = document.getElementById('reset-btn');
+    if (resetBtn != null) {
+      resetBtn.addEventListener('click', () => {
+        void resetSimulation();
+      });
+    }
+
+    const proseBtn = document.getElementById('prose-mode-btn');
+    if (proseBtn != null) {
+      proseBtn.addEventListener('click', () => {
+        void toggleProseMode();
+      });
+    }
+
+    const toggleVoicesBtn = document.getElementById('toggle-voices-btn');
+    const voicePanel = document.getElementById('voice-options-panel');
+    if (toggleVoicesBtn != null && voicePanel != null) {
+      toggleVoicesBtn.addEventListener('click', () => {
+        const collapsed = voicePanel.classList.toggle('collapsed');
+        toggleVoicesBtn.textContent = collapsed ? 'Show' : 'Hide';
+      });
+    }
+
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab') ?? '';
+        tabBtns.forEach((b) => {
+          b.classList.toggle('active', b === btn);
+        });
+        document.querySelectorAll('.tab-pane').forEach((pane) => {
+          pane.classList.toggle('active', pane.id === 'tab-' + target);
+        });
+      });
+    });
+
+    const openParliamentIds = [
+      'open-parliament-btn',
+      'mint-voice-quick-btn',
+      'dossier-edit-parliament-btn',
+    ];
+    for (const id of openParliamentIds) {
+      const btn = document.getElementById(id);
+      if (btn != null) {
+        btn.addEventListener('click', () => {
+          openParliamentModal();
+        });
+      }
+    }
+
+    const closeParliamentIds = ['close-parliament-btn', 'cancel-parliament-btn'];
+    for (const id of closeParliamentIds) {
+      const btn = document.getElementById(id);
+      if (btn != null) {
+        btn.addEventListener('click', () => {
+          closeParliamentModal();
+        });
+      }
+    }
+
+    const closeLightboxBtn = document.getElementById('close-lightbox-btn');
+    if (closeLightboxBtn != null) {
+      closeLightboxBtn.addEventListener('click', () => {
+        closeImageLightbox();
+      });
+    }
+
+    const lightboxModal = document.getElementById('image-lightbox-modal');
+    if (lightboxModal != null) {
+      lightboxModal.addEventListener('click', (ev) => {
+        if (ev.target === lightboxModal) {
+          closeImageLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        closeImageLightbox();
+      }
+    });
+
+    const commitBtn = document.getElementById('commit-parliament-btn');
+    if (commitBtn != null) {
+      commitBtn.addEventListener('click', () => {
+        void commitParliament();
+      });
+    }
+
+    const mintBtn = document.getElementById('mint-submit-btn');
+    if (mintBtn != null) {
+      mintBtn.addEventListener('click', () => {
+        void mintCustomVoice();
+      });
+    }
+
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const preset = btn.getAttribute('data-preset') ?? '';
+        if (preset !== '') {
+          applyArchetypePreset(preset);
+        }
+      });
+    });
+
+    const worldSeedBtns = document.querySelectorAll('.world-seed-btn');
+    worldSeedBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const worldPreset = btn.getAttribute('data-world-preset') ?? '';
+        if (worldPreset !== '') {
+          void generateOrSwitchWorld({preset: worldPreset});
+        }
+      });
+    });
+
+    const topWorldSelect = document.getElementById('top-world-select');
+    if (topWorldSelect instanceof HTMLSelectElement) {
+      topWorldSelect.addEventListener('change', () => {
+        const selected = topWorldSelect.value;
+        if (selected === '__custom__') {
+          openParliamentModal();
+        } else if (selected !== '') {
+          void generateOrSwitchWorld({preset: selected});
+        }
+      });
+    }
+
+    const worldGenBtn = document.getElementById('world-generate-btn');
+    if (worldGenBtn != null) {
+      worldGenBtn.addEventListener('click', () => {
+        const titleNode = document.getElementById('world-title-input');
+        const promptNode = document.getElementById('world-prompt-input');
+        const title =
+          titleNode instanceof HTMLInputElement ? titleNode.value.trim() : '';
+        const premise =
+          promptNode instanceof HTMLInputElement ? promptNode.value.trim() : '';
+        if (!premise) {
+          setText(
+            'world-generate-status',
+            'Type an RPG premise prompt first, or click an Instant Seed above.',
+          );
+          return;
+        }
+        void generateOrSwitchWorld({title, premise});
+      });
+    }
+
+    void loadInitialState();
+    connectEventStream();
+  });
+})();
+  </script>
+</body>
+</html>
