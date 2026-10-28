@@ -46,7 +46,8 @@ test('a release is written in the form the World reads', () => {
 test('a people keeps its colour', () => {
   assert.equal(peopleColour('Hill people'), peopleColour('Hill people'));
   assert.notEqual(peopleColour('Hill people'), peopleColour('River people'));
-  assert.match(peopleColour('River people'), /^hsl\(\d+, 65%, 40%\)$/);
+  assert.notEqual(peopleColour('West people'), peopleColour('East people'));
+  assert.match(peopleColour('River people'), /^#[0-9a-f]{6}$/);
 });
 
 test('a question is written in the form the World reads', () => {

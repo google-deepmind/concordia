@@ -17,20 +17,31 @@
 :root {
   --ink: #1f2420;
   --paper: #f6f3ea;
-  --muted: #6b6f68;
+  --muted: #4f534b;  /* 7.1:1 on paper: secondary, still easy to read */
   --line: #d8d2c2;
   --accent: #2d6a4f;
   --danger: #9b2226;
+  /* The census lines, each at least 4.5:1 on paper. */
+  --chart-population: #2d6a4f;
+  --chart-skill_worked: #9c4a12;
+  --chart-tongues: #6a2c91;
+  --chart-peoples: #b0182b;
+  --chart-fields: #8a6500;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --ink: #e8e6df;
     --paper: #1b1d1a;
-    --muted: #a3a69e;
+    --muted: #b4b7ae;  /* 8.4:1 on paper */
     --line: #3a3d37;
     --accent: #74c69d;
     --danger: #e5989b;
+    --chart-population: #74c69d;
+    --chart-skill_worked: #e9a15b;
+    --chart-tongues: #c9a2e0;
+    --chart-peoples: #f28b82;
+    --chart-fields: #e9c46a;
   }
 }
 
@@ -66,6 +77,11 @@ button, select, input, textarea {
   color: var(--ink);
 }
 button { cursor: pointer; }
+/* Nothing is wider than a phone: a long choice wraps its box, not the page. */
+select, input, textarea { max-width: 100%; }
+#fork label { flex: 1 1 100%; }
+#fork select { width: 100%; }
+#fork label#lever-to { flex: 0 1 auto; }
 button.danger { border-color: var(--danger); color: var(--danger); }
 button[type="submit"] { border-color: var(--accent); color: var(--accent); }
 
@@ -78,7 +94,7 @@ canvas {
   touch-action: manipulation;
 }
 
-.hint { color: var(--muted); font-size: 0.9rem; margin: 6px 0; }
+.hint { color: var(--muted); font-size: 0.95rem; margin: 6px 0; }
 a { color: var(--accent); }
 
 #person {
@@ -87,7 +103,7 @@ a { color: var(--accent); }
   padding: 8px 12px;
 }
 #person-customs { padding-left: 18px; }
-#person-kin p { margin: 2px 0; font-size: 0.9rem; }
+#person-kin p { margin: 2px 0; font-size: 0.95rem; }
 button.link {
   min-height: 0;
   padding: 0 2px;
@@ -106,34 +122,37 @@ button.link {
   border-left: 2px solid var(--line);
   padding-left: 6px;
 }
-#lineage details summary { color: var(--muted); font-size: 0.9rem; margin: 6px 0; }
-#lineage-gone-list li { opacity: 0.75; }
+#lineage details summary { color: var(--muted); font-size: 0.95rem; margin: 6px 0; }
+/* Versions that died out: marked by a dashed edge, not by fading the text. */
+#lineage #lineage-gone-list li { border-left-style: dashed; }
 #lineage .lineage-list .meta, #lineage .lineage-list .holders {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 #person-customs li { margin: 4px 0; }
-#person-customs .meta { color: var(--muted); font-size: 0.85rem; }
+#person-customs .meta { color: var(--muted); font-size: 0.95rem; }
 
 #release, #ask, #fork, #note, #fate { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 #release label, #ask label, #fork label, #note label, #fate label {
   display: flex;
   flex-direction: column;
-  font-size: 0.85rem;
+  min-width: 0;  /* A flex item may shrink below its longest choice. */
+  max-width: 100%;
+  font-size: 0.95rem;
 }
 #release label.wide, #ask label.wide, #note label.wide { flex: 1 1 100%; }
 #note textarea { width: 100%; resize: vertical; }
-label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
+label.filter { display: block; margin: 8px 0; font-size: 0.95rem; }
 #entries { list-style: none; padding: 0; }
 #entries li { margin: 6px 0; }
-#entries .meta { color: var(--muted); font-size: 0.8rem; }
+#entries .meta { color: var(--muted); font-size: 0.95rem; }
 #entries li.mine { border-left: 3px solid var(--accent); padding-left: 6px; }
 #release input#says, #ask input#question { width: 100%; }
 #transcripts { padding-left: 18px; }
 #transcripts li { margin: 6px 0; }
-#transcripts .meta { color: var(--muted); font-size: 0.85rem; }
+#transcripts .meta { color: var(--muted); font-size: 0.95rem; }
 
-footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
+footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
 #error, #fork-error, #note-error, #fate-error, #life-error, #anew-error {
   color: var(--danger);
 }
@@ -144,7 +163,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
   padding: 4px 12px 8px;
 }
 #life h2 { margin-top: 6px; }
-#life-status { font-size: 0.9rem; }
+#life-status { font-size: 0.95rem; }
 #life-question { font-weight: 600; }
 #life fieldset {
   border: 1px solid var(--line);
@@ -153,19 +172,19 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
 }
 #life fieldset label { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
 #life fieldset input { min-height: 0; margin: 0; }
-#life fieldset .meta { color: var(--muted); font-size: 0.85rem; }
+#life fieldset .meta { color: var(--muted); font-size: 0.95rem; }
 #life-say { width: 100%; resize: vertical; }
 #life-say-box { display: block; }
 #life-context {
   white-space: pre-wrap;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   max-height: 240px;
   overflow-y: auto;
 }
 
 #releases { list-style: none; padding: 0; }
 #releases li { margin: 8px 0; }
-#releases .meta { color: var(--muted); font-size: 0.85rem; }
+#releases .meta { color: var(--muted); font-size: 0.95rem; }
 #releases canvas { width: 160px; height: 28px; border: none; margin-top: 2px; }
 
 #map-key .swatch, #people-key .swatch {
@@ -176,3 +195,6 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
   border-radius: 2px;
   vertical-align: -0.1em;
 }
+/* The people's key shows dots as the map draws them: round, outlined (a
+   white people shows on light paper). */
+#people-key .swatch { border-radius: 50%; border: 1.5px solid #000; }

@@ -95,14 +95,52 @@ async function api(path, body = null) {
 }
 
 /**
+ * The peoples' colours: none green, blue or brown, so a dot never melts
+ * into the land (the presets' peoples get the first four apart: River red,
+ * Hill amber, West white, East magenta).
+ */
+const PEOPLE_COLOURS = [
+  '#fcbf49', '#f77f00', '#ffffff', '#d62828', '#1a1a1a', '#d81b9a', '#7b2cbf',
+];
+
+/**
  * A colour for a people, the same every time.
  * @param {string} name The people's name.
- * @return {string} An HSL colour.
+ * @return {string} A colour of `PEOPLE_COLOURS`.
  */
 function peopleColour(name) {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return `hsl(${hash % 360}, 65%, 40%)`;
+  return PEOPLE_COLOURS[hash % PEOPLE_COLOURS.length];
+}
+
+/**
+ * Sizes a canvas's pixels to the screen's (sharp on any phone) and returns
+ * its context, drawing in CSS pixels.
+ * @param {!HTMLCanvasElement} canvas The canvas.
+ * @param {number} width Its width in CSS pixels.
+ * @param {number} height Its height in CSS pixels.
+ * @return {!CanvasRenderingContext2D} The context.
+ */
+function crisp(canvas, width, height) {
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return ctx;
+}
+
+/**
+ * A colour the stylesheet sets for the page's theme.
+ * @param {string} name The custom property, e.g. '--chart-population'.
+ * @param {string} fallback The colour if it sets none.
+ * @return {string} The colour.
+ */
+function themeColour(name, fallback) {
+  const colour = getComputedStyle(document.documentElement)
+      .getPropertyValue(name).trim();
+  return colour || fallback;
 }
 
 /**
@@ -114,9 +152,7 @@ function drawMap(world) {
       document.getElementById('map'));
   const width = canvas.clientWidth || 480;
   page.tile = Math.max(4, Math.floor(width / world.cols));
-  canvas.width = world.cols * page.tile;
-  canvas.height = world.rows * page.tile;
-  const ctx = canvas.getContext('2d');
+  const ctx = crisp(canvas, world.cols * page.tile, world.rows * page.tile);
   const most = Math.max(1, ...world.food.flat());
   for (let r = 0; r < world.rows; r++) {
     for (let c = 0; c < world.cols; c++) {
@@ -188,10 +224,17 @@ function drawMap(world) {
     person.x = (person.tile[1] + 0.5 + spread * Math.cos(angle)) * page.tile;
     person.y = (person.tile[0] + 0.5 + spread * Math.sin(angle)) * page.tile;
     ctx.beginPath();
-    ctx.arc(person.x, person.y, person.age < world.grown_age ? page.tile * 0.14 :
-            page.tile * 0.22, 0, 2 * Math.PI);
+    ctx.arc(person.x, person.y,
+        page.tile * (person.age < world.grown_age ? 0.2 : 0.3), 0, 2 * Math.PI);
     ctx.fillStyle = peopleColour(person.descent || 'valley');
     ctx.fill();
+    // A dark ring and a light one: a dot shows on any land, light or dark.
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     if (world.played && person.name === world.played.name) {  // You.
       ctx.beginPath();
       ctx.arc(person.x, person.y, page.tile * 0.4, 0, 2 * Math.PI);
@@ -203,7 +246,7 @@ function drawMap(world) {
     }
   }
   // A place's letter stays readable over anyone standing there.
-  ctx.font = `${Math.floor(page.tile * 0.8)}px system-ui`;
+  ctx.font = `bold ${Math.floor(page.tile * 0.85)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 3;
@@ -253,22 +296,29 @@ function chartSeries(rows, maxLevel) {
 function drawChart(rows, twinRows = []) {
   const canvas = /** @type {!HTMLCanvasElement} */ (
       document.getElementById('chart'));
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const width = canvas.clientWidth || 480;
+  const height = Math.round(width * 0.375);
+  const ctx = crisp(canvas, width, height);
   if (rows.length < 2) return;
   const both = rows.concat(twinRows);
-  const series = chartSeries(both, page.world.max_level);
+  const series = chartSeries(both, page.world.max_level).map((line) => ({
+    ...line, colour: themeColour(`--chart-${line.name}`, line.colour)}));
   const first = rows[0].year;
   const lastYear = Math.max(...both.map((row) => row.year));
+  const labels = 78;  // Room at the right for each line's value and name.
   const x = (year) => 4 + ((year - first) / Math.max(1, lastYear - first)) *
-      (canvas.width - 8);
+      (width - 8 - labels);
+  const y = (value, most) => height - 6 - (value / most) * (height - 14);
   for (const [drawn, dash] of [[rows, []], [twinRows, [5, 4]]]) {
     for (const {colour, value, most} of series) {
       ctx.beginPath();
       drawn.forEach((row, i) => {
-        const y = canvas.height - 4 - (value(row) / most) *
-            (canvas.height - 8);
-        if (i === 0) ctx.moveTo(x(row.year), y); else ctx.lineTo(x(row.year), y);
+        const at = y(value(row), most);
+        if (i === 0) {
+          ctx.moveTo(x(row.year), at);
+        } else {
+          ctx.lineTo(x(row.year), at);
+        }
       });
       ctx.setLineDash(dash);
       ctx.strokeStyle = colour;
@@ -277,17 +327,27 @@ function drawChart(rows, twinRows = []) {
     }
   }
   ctx.setLineDash([]);
+  // Each line's value now, at its end, kept apart so none hides another.
+  const ends = series.map(({name, colour, value, most}) => ({
+    colour, text: `${value(rows[rows.length - 1])} ${CHART_NAMES[name]}`,
+    at: y(value(rows[rows.length - 1]), most)}))
+      .sort((a, b) => a.at - b.at);
+  ends.forEach((end, i) => {
+    if (i) end.at = Math.max(end.at, ends[i - 1].at + 13);
+  });
+  ctx.font = 'bold 12px system-ui';
+  ctx.textBaseline = 'middle';
+  for (const end of ends) {
+    ctx.fillStyle = end.colour;
+    ctx.fillText(end.text, width - labels + 2, Math.min(end.at, height - 6));
+  }
   const last = rows[rows.length - 1];
   document.getElementById('legend').textContent =
-      `Green: people alive (${last.population}). Brown: how skilled their` +
-      ` work is (the mean level of the know-how they work by,` +
-      ` ${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
-      ` Red: peoples, groups who would marry one another` +
-      ` (${last.peoples.peoples}). Gold: fields` +
-      ` sown (${last.fields || 0}).` +
-      ` Years ${yearText(rows[0].year)}–${yearText(last.year)}.` +
-      ' Each line has its own scale: its top is the most it reached in' +
-      ' these years (for skill, the highest level there is).' +
+      `Years ${yearText(rows[0].year)}–${yearText(last.year)}, each line` +
+      ' labelled with its value now. Each has its own scale: its top is the' +
+      ' most it reached in these years. Skill: the mean level of the' +
+      ' know-how people work by (the top is the highest level there is).' +
+      ' Peoples: groups who would marry one another. Fields: fields sown.' +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
       .sort(([, a], [, b]) => b - a)
@@ -424,15 +484,22 @@ function twinFate(twin) {
   return ` · in the twin: held by ${twin.now}`;
 }
 
+/** What each census line counts, as its end is labelled. */
+const CHART_NAMES = {
+  population: 'alive',
+  skill_worked: 'skill',
+  tongues: 'tongues',
+  peoples: 'peoples',
+  fields: 'fields',
+};
+
 /**
  * Draws how many held a release, year by year.
  * @param {!HTMLCanvasElement} canvas A small canvas.
  * @param {!Array<!Array<number>>} holders [year, holders] pairs.
  */
 function drawSpark(canvas, holders) {
-  canvas.width = 160;
-  canvas.height = 28;
-  const ctx = canvas.getContext('2d');
+  const ctx = crisp(canvas, 160, 28);
   if (holders.length < 2) return;
   const most = Math.max(1, ...holders.map(([, n]) => n));
   ctx.beginPath();
@@ -441,9 +508,8 @@ function drawSpark(canvas, holders) {
     const y = 27 - (n / most) * 25;
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = getComputedStyle(document.body)
-      .getPropertyValue('--accent') || '#2d6a4f';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = themeColour('--accent', '#2d6a4f');
+  ctx.lineWidth = 2;
   ctx.stroke();
 }
 
@@ -1203,8 +1269,8 @@ async function showLineage(id, scroll = true) {
  */
 function onMapTap(event) {
   if (!page.world) return;
-  const canvas = event.currentTarget;
-  const scale = canvas.width / canvas.clientWidth;
+  const canvas = event.currentTarget;  // Drawn in CSS pixels, tile by tile.
+  const scale = (page.world.cols * page.tile) / canvas.clientWidth;
   const x = event.offsetX * scale;
   const y = event.offsetY * scale;
   const row = Math.floor(y / page.tile);
