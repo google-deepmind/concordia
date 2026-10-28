@@ -23,6 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+  statusLines,
   goneFromPanel, paceNote,
   peoplesText,
   chartSeries,
@@ -148,6 +149,15 @@ test('a custom let go says what pushed it out, and why', () => {
       '"Sowing wild barley." (a habit about farming) gave way to "We take ' +
       'nothing from another\'s field.": one holds only one of each kind ' +
       'about a thing.');
+});
+
+test('a status is a line a sentence', () => {
+  assert.deepEqual(statusLines('Year 0. Kaka is 29 years old; the land ' +
+      'around holds 10.0 food. Food stored: 8.0 (a year needs 1.0). 2 other ' +
+      'people are within sight.'), ['Year 0.', 'Kaka is 29 years old; the ' +
+      'land around holds 10.0 food.', 'Food stored: 8.0 (a year needs 1.0).',
+  '2 other people are within sight.']);
+  assert.deepEqual(statusLines(''), []);
 });
 
 test('a panel says when its person is no longer alive', () => {

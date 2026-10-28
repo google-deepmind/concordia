@@ -163,7 +163,8 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
   padding: 4px 12px 8px;
 }
 #life h2 { margin-top: 6px; }
-#life-status { font-size: 0.95rem; }
+#life-status { font-size: 0.95rem; list-style: none; padding: 0; }
+#life-status li { margin: 2px 0; }
 #life-question { font-weight: 600; }
 #life fieldset {
   border: 1px solid var(--line);

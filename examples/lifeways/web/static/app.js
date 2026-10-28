@@ -750,6 +750,16 @@ function queuedNote(queued) {
 }
 
 /**
+ * A person's status, a line a sentence (it is one long paragraph).
+ * @param {string} status The status the World gives.
+ * @return {!Array<string>} Its sentences.
+ */
+function statusLines(status) {
+  return status.split(/(?<=[.)])\s+(?=[A-Z0-9])/).map((s) => s.trim())
+      .filter(Boolean);
+}
+
+/**
  * What the ask form says once a question is asked.
  * @param {string} name Who is asked.
  * @param {number} year The year it is asked in.
@@ -1612,7 +1622,12 @@ function drawLife(world) {
   if (key === page.asked) return;
   page.asked = key;
   document.getElementById('life-error').textContent = asked.error || '';
-  document.getElementById('life-status').textContent = played.status || '';
+  document.getElementById('life-status').replaceChildren(
+      ...statusLines(played.status || '').map((line) => {
+        const item = document.createElement('li');
+        item.textContent = line;
+        return item;
+      }));
   document.getElementById('life-question').textContent = lifeQuestion(asked);
   document.getElementById('life-context').textContent =
       lifeMemory(asked.context, played.name);
@@ -2041,6 +2056,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+    statusLines,
     goneFromPanel, paceNote,
     peoplesText,
     chartSeries,
