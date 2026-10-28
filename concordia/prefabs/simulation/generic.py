@@ -232,36 +232,6 @@ class Simulation(simulation_lib.Simulation):
       if hasattr(game_master, "entities"):
         game_master.entities = self.entities
 
-  def remove_entity(self, entity_name: str) -> entity_lib.Entity:
-    """Remove an entity from the simulation, e.g. one that has died.
-
-    The entity takes no further part: an engine running the simulation stops
-    giving it turns (the asynchronous engine ends its loop at its next
-    iteration), and checkpoints no longer include it. Save its state first
-    (`entity.get_state()`) if it is needed later. The entity list is changed
-    in place, so a running engine sees the change.
-
-    Args:
-      entity_name: The name of the entity to remove.
-
-    Returns:
-      The removed entity.
-
-    Raises:
-      KeyError: If the simulation has no entity of that name.
-    """
-    entity = next((e for e in self.entities if e.name == entity_name), None)
-    if entity is None:
-      raise KeyError(f"No entity named {entity_name} in the simulation.")
-    self.entities.remove(entity)
-    self._entity_to_prefab_config.pop(entity_name, None)
-
-    # Update game masters to be aware of the departure
-    for game_master in self.game_masters:
-      if hasattr(game_master, "entities"):
-        game_master.entities = self.entities
-    return entity
-
   def play(
       self,
       premise: str | None = None,

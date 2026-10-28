@@ -17,6 +17,7 @@
 import functools
 import json
 import threading
+import time
 from typing import override
 from unittest import mock
 
@@ -346,7 +347,7 @@ class AsynchronousTest(absltest.TestCase):
 
     def step_callback(data):
       if data.acting_entity == _ENTITY_NAMES[0] and newcomer not in entities:
-        entities.append(newcomer)  # As Simulation.add_entity does.
+        entities.append(newcomer)  # As a PlayerRoster does when one joins.
 
     env.run_loop(
         game_masters=[gm],
@@ -368,7 +369,7 @@ class AsynchronousTest(absltest.TestCase):
 
     def step_callback(data):
       if data.acting_entity == leaving.name and leaving in entities:
-        entities.remove(leaving)  # As Simulation.remove_entity does.
+        entities.remove(leaving)  # As a PlayerRoster does when one leaves.
 
     env.run_loop(
         game_masters=[gm],
@@ -398,13 +399,83 @@ class AsynchronousTest(absltest.TestCase):
         entities=entities,
         max_steps=4,
         step_callback=step_callback,
-        checkpoint_callback=checkpoints.append,
+        checkpoint_callback=lambda step: checkpoints.append(
+            (step, threading.current_thread().name)
+        ),
     )
 
     self.assertEqual(first._act_count, 1)
     self.assertEqual(second._act_count, 4)
-    self.assertEqual(checkpoints, sorted(set(checkpoints)))  # Each step once.
-    self.assertEqual(checkpoints[-1], 4)
+    steps = [step for step, _ in checkpoints]
+    self.assertEqual(steps, sorted(set(steps)))  # Rising, each step once.
+    self.assertEqual(checkpoints[0][1], f'entity_loop_{first.name}')
+    self.assertEqual(checkpoints[-1][1], f'entity_loop_{second.name}')
+    self.assertGreaterEqual(len(checkpoints), 4)
+
+  def test_without_joining_or_leaving_the_first_entity_checkpoints(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+
+    class SlowEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        time.sleep(0.01)
+        return super().act(action_spec)
+
+    slow, fast = SlowEntity(name=_ENTITY_NAMES[0]), MockEntity(_ENTITY_NAMES[1])
+    checkpoints = []
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=[slow, fast],
+        max_steps=5,
+        checkpoint_callback=lambda step: checkpoints.append(
+            (step, threading.current_thread().name)
+        ),
+    )
+
+    self.assertEqual(
+        checkpoints, [(i, f'entity_loop_{slow.name}') for i in range(1, 6)]
+    )
+
+  def test_the_thread_of_an_entity_that_leaves_is_released(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+    staying, leaving = (MockEntity(name=n) for n in _ENTITY_NAMES)
+    entities = [staying, leaving]
+    threads = {}
+    released = []
+
+    def step_callback(data):
+      if data.acting_entity == leaving.name and leaving in entities:
+        threads['leaving'] = threading.current_thread()
+        entities.remove(leaving)
+      if data.acting_entity == staying.name and data.step == 1:
+        deadline = time.monotonic() + 5  # Until the other has left.
+        while 'leaving' not in threads and time.monotonic() < deadline:
+          time.sleep(0.01)
+      if data.acting_entity == staying.name and data.step == 20:
+        deadline = time.monotonic() + 5
+        while threads['leaving'].is_alive() and time.monotonic() < deadline:
+          time.sleep(0.01)
+        released.append(not threads['leaving'].is_alive())
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=20,
+        step_callback=step_callback,
+    )
+
+    self.assertEqual(released, [True])  # While the run went on.
 
   def test_an_error_in_one_loop_stops_the_run(self):
     env = asynchronous.Asynchronous(sleep_time=0.0)
@@ -425,7 +496,6 @@ class AsynchronousTest(absltest.TestCase):
 
     with self.assertRaisesRegex(RuntimeError, 'broken entity'):
       env.run_loop(game_masters=[gm], entities=entities, max_steps=1000)
-
 
   def test_log_entries_stream_in_batches_during_the_run(self):
     env = asynchronous.Asynchronous(sleep_time=0.0, log_batch_size=2)
