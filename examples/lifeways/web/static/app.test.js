@@ -179,7 +179,8 @@ test('the notebook filters what the person wrote, moves and changes', () => {
   assert.deepEqual(kinds('mine'), ['hypothesis', 'observation', 'note']);
   assert.deepEqual(kinds('moves'), ['move', 'world']);
   assert.deepEqual(kinds('events'), ['event']);
-  assert.equal(entryMeta({year: 40, kind: 'world'}), 'Year 40 · the World');
+  assert.equal(entryMeta({year: 40, kind: 'world'}),
+      'Year 40 · what came of it');
   assert.equal(entryMeta({year: 3, kind: 'hypothesis'}),
       'Year 3 · hypothesis');
 });

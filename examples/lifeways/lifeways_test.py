@@ -280,7 +280,15 @@ class SandboxTest(parameterized.TestCase):
     )
     run.play()
 
-    self.assertEqual(run.peoples(), {'peoples': 2, 'sizes': [6, 6]})
+    self.assertEqual(
+        run.peoples(),
+        {
+            'peoples': 2,
+            'sizes': [6, 6],
+            'descents': ['River people', 'River people'],
+            'grown': 12,
+        },
+    )
 
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}

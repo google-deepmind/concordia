@@ -661,6 +661,39 @@ class TreesTest(absltest.TestCase):
 
 class NotebookTest(absltest.TestCase):
 
+  def test_the_notebook_notes_the_valleys_own_great_changes(self):
+    session = session_lib.Session(years_per_second=40)
+    try:
+      world = session.run.world()
+      session._note_valley(1, 50)  # The first year sets what is compared.
+      for year, living in ((2, 45), (3, 29), (4, 25)):
+        session._note_valley(year, living)
+      session._descents = {*session._descents, 'Ghost people'}
+      built = world.places.found('shrine', (3, 4), 'Kaka', 4)
+      world.places.found('library', (5, 6), world_lib.EXPERIMENTER, 4)
+      session._note_valley(5, 25)
+      built.used = -1000  # Unused for long: a ruin.
+      session._note_valley(6, 25)
+
+      noted = [e['text'] for e in session.notebook()]
+      self.assertEqual(
+          noted,
+          [
+              'The valley has fallen from 50 people (year 1) to 29.',
+              (
+                  'The last of the Ghost people has died: nobody of that'
+                  ' descent is left.'
+              ),
+              f'Kaka built a shrine at {world_lib.where((3, 4))}.',
+              (
+                  f'The shrine at {world_lib.where((3, 4))} stood unused for'
+                  ' years and is now a ruin; what its shelf holds will crumble.'
+              ),
+          ],
+      )
+    finally:
+      session.close()
+
   def test_the_notebook_notes_lasting_changes_not_flicker(self):
     session = session_lib.Session(years_per_second=40)
     try:
@@ -715,7 +748,8 @@ class NotebookTest(absltest.TestCase):
           _wait(
               lambda: any(
                   e['kind'] == session_lib.EVENT
-                  and 'the most widely held for the first time' in e['text']
+                  and 'the most widely held of all, for the first time'
+                  in e['text']
                   for e in session.notebook()
               )
           )

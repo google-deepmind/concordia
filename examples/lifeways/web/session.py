@@ -107,6 +107,10 @@ MOVE, WORLD, EVENT = 'move', 'world', 'event'
 NOTEBOOK_KEPT = 1000
 # Fewer living than this is noted.
 FEW_LEFT = 10
+# The valley's fall the notebook notes: to this share of its most since the
+# last fall noted, and by at least this many people.
+FALL_TO = 0.6
+FALL_BY = 10
 # The person's latest releases the page follows, and the years of each it
 # sends.
 RELEASES_FOLLOWED = 12
@@ -664,6 +668,13 @@ class Session:
     self._year = 0
     # The customs that have been the most widely held (noted once each).
     self._tops: set[str] = set()
+    # What the notebook compares year to year (`_note_valley`), unknown
+    # until the first year it sees: the places standing (not ruins), by id,
+    # with their kind and tile; the descents of the living; and the most
+    # living since the valley last fell, with its year.
+    self._standing: dict[str, tuple[str, tuple[int, int]]] | None = None
+    self._descents: set[str] | None = None
+    self._peak: tuple[int, int] | None = None
     # The person's releases, followed year by year (`_follow_releases`).
     self._releases: list[dict[str, Any]] = []
     self._thread: threading.Thread | None = None
@@ -1219,6 +1230,7 @@ class Session:
       self._write(EVENT, 'Nobody is left in the valley.', closed)
     elif living < FEW_LEFT <= lived:
       self._write(EVENT, f'Only {living} people are left.', closed)
+    self._note_valley(closed, living)
     top = row['held'].get('top') or []
     if top and top[0][0] not in self._tops:
       custom_id, share = top[0]
@@ -1231,10 +1243,70 @@ class Session:
       )
       self._write(
           EVENT,
-          'A custom is the most widely held for the first time'
+          'A custom is now the most widely held of all, for the first time'
           f' ({round(100 * share)}% of the living hold it): "{text}"',
           closed,
       )
+
+  def _note_valley(self, closed: int, living: int) -> None:
+    """Notes the valley's own great changes (in the World GM's lock).
+
+    A fall of its people (to `FALL_TO` of the most since the last fall, by
+    `FALL_BY` or more); the last of a descent dying; a place its people
+    built, and one that fell to ruin. The Experimenter's own foundings are
+    its moves, noted as such. Measurement only: it reads the World.
+
+    Args:
+      closed: The year just closed.
+      living: How many live.
+    """
+    world = self.run.world()
+    peak = self._peak
+    if peak is None or living > peak[0]:
+      self._peak = (living, closed)
+    elif living <= FALL_TO * peak[0] and peak[0] - living >= FALL_BY:
+      self._write(
+          EVENT,
+          f'The valley has fallen from {peak[0]} people (year'
+          f' {peak[1]:,}) to {living}.',
+          closed,
+      )
+      self._peak = (living, closed)
+    descents = {world.people[name].descent for name in world.living()}
+    if self._descents is not None:
+      for descent in sorted(self._descents - descents - {''}):
+        self._write(
+            EVENT,
+            f'The last of the {descent} has died: nobody of that descent is'
+            ' left.',
+            closed,
+        )
+    self._descents = descents
+    places = {place.id: place for place in world.places.all()}
+    standing = {
+        i: (place.kind, place.tile)
+        for i, place in places.items()
+        if not world.places.ruined(place, closed)
+    }
+    if self._standing is not None:
+      for i, (kind, tile) in standing.items():
+        if i not in self._standing and (
+            places[i].founder != world_lib.EXPERIMENTER
+        ):
+          self._write(
+              EVENT,
+              f'{places[i].founder} built a {kind} at {world_lib.where(tile)}.',
+              closed,
+          )
+      for i, (kind, tile) in self._standing.items():
+        if i not in standing and i in places:  # Not closed: a ruin.
+          self._write(
+              EVENT,
+              f'The {kind} at {world_lib.where(tile)} stood unused for years'
+              ' and is now a ruin; what its shelf holds will crumble.',
+              closed,
+          )
+    self._standing = standing
 
   def note(self, kind: str, text: str) -> dict[str, Any]:
     """Writes the person's entry in the notebook, dated this year.

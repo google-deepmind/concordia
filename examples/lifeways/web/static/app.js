@@ -531,7 +531,8 @@ function entryShown(entry, filter) {
  * @return {string} E.g. 'Year 40 · hypothesis'.
  */
 function entryMeta(entry) {
-  const kind = {move: 'your move', world: 'the World', event: 'the valley'};
+  const kind = {move: 'your move', world: 'what came of it',
+    event: 'the valley'};
   return `Year ${entry.year} · ${kind[entry.kind] || entry.kind}`;
 }
 
