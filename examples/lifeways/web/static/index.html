@@ -88,12 +88,14 @@ limitations under the License.
     <p id="at-note" class="hint" aria-live="polite"></p>
     <p id="map-key" class="hint"></p>
     <p id="people-key" class="hint"></p>
-    <p class="hint">Tap a person to see their customs. A dot is a person,
-      coloured by the people they descend from (above); small dots are
-      children. Golden furrows are fields; squares are places (L library,
-      S school, ✦ shrine, C court);<span id="key-you" hidden> a dashed white ring is
-      you;</span> a dashed amber outline is a disaster of the last twenty
-      years.</p>
+    <ul class="hint key-list">
+      <li>A dot is a person, coloured by descent (above); small dots are
+        children. Tap one to see their customs.</li>
+      <li>Squares are places: L library, S school, ✦ shrine, C court.</li>
+      <li>Golden furrows are fields; a dashed amber outline is a disaster of
+        the last twenty years.</li>
+      <li id="key-you" hidden>The dashed white ring is you.</li>
+    </ul>
   </section>
 
   <section id="person" hidden aria-label="A person">
@@ -102,9 +104,9 @@ limitations under the License.
     <h3>Family</h3>
     <div id="person-kin"></div>
     <h3>Their customs</h3>
-    <p class="hint">The ways this person lives by, and how they came by each.
-      Words get lost as customs are copied, so some read oddly. Tap "how it
-      has changed" to see the versions of a custom and who holds them.</p>
+    <p class="hint">The ways this person lives by, and how each came to them.
+      Copying loses words, so some read oddly; "how it has changed" shows a
+      custom's versions.</p>
     <ul id="person-customs"></ul>
     <div id="person-let-go-box" hidden>
       <h3>Let go to make room</h3>
@@ -127,10 +129,9 @@ limitations under the License.
     <p class="hint"><span id="lineage-asof"></span>
       <button id="lineage-update" type="button" class="link" hidden>Show it
         as of now</button></p>
-    <p class="hint">Customs change as people copy them from one another: a
-      copy may lose a word, regain one, or stress the custom with "always".
-      Each change is a new version, and versions compete to be held. Every
-      version here arose that way unless it says otherwise.</p>
+    <p class="hint">A copy may lose a word, regain one, or add "always": each
+      change is a new version, and versions compete to be held. Every version
+      here arose that way unless it says otherwise.</p>
     <h3>Held now</h3>
     <p id="lineage-held-none" class="hint" hidden>Nobody holds any version
       of this custom now.</p>
@@ -156,18 +157,20 @@ limitations under the License.
 
   <section id="designer" aria-label="The custom designer">
     <h2>Release a custom</h2>
-    <p class="hint">You never edit a mind: a custom you release is left as a
-      text on a shelf, or sung to those near a place, and each who hears it
-      may take it up, or not. Tap the map where people are to choose the
-      place.</p>
+    <p class="hint">You never edit a mind. A song reaches those near the
+      ring; a text waits on a library shelf. Each who meets it may take it
+      up, or not. Tap the map to choose the place.</p>
     <details class="hint"><summary>What tends to spread?</summary>
-      <p>In test valleys whose people played by simple rules, each song was
-        heard by 2 to 7 people. A habit of gathering food, or a rule of
-        sharing, sung that way was held by 25 to 55 people at its height and
-        lived on in every valley: people act on such ways in their everyday
-        work, where others see them. A belief or a value sung the same way
-        reached at most 5 and mostly died out. Know-how spreads only if it
-        is better than what people already know, so give it a high level.</p>
+      <ul>
+        <li>Ways people act on where others see them (a habit of gathering
+          food, a rule of sharing): sung once, held by 25 to 55 at their
+          height, and they lived on.</li>
+        <li>A belief or a value: reached at most 5, and mostly died out.</li>
+        <li>Know-how: taken up only if better than what people know, so
+          give it a high level.</li>
+      </ul>
+      <p>(Test valleys with simple-rule minds; each song was heard by 2 to
+        7.)</p>
     </details>
     <form id="release">
       <label>What kind <select id="kind"></select></label>
@@ -249,10 +252,9 @@ limitations under the License.
 
   <section id="notebook" aria-label="The notebook">
     <h2>Notebook</h2>
-    <p class="hint">Your hypotheses and observations, your moves and what came
-      of them, and what changed in the valley, year by year. The valley has
-      its own fires, raids and plagues, and its people build places and
-      leave them to ruin; all of it is noted here.
+    <p class="hint">Your notes, your moves and what came of them, and what the
+      valley did by itself (fires, raids, places built and left to ruin),
+      year by year.
       <a href="notebook.md" download="lifeways-notebook.md">Keep a copy</a>
       (a text file).</p>
     <form id="note">

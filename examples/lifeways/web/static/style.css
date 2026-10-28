@@ -198,3 +198,6 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
 /* The people's key shows dots as the map draws them: round, outlined (a
    white people shows on light paper). */
 #people-key .swatch { border-radius: 50%; border: 1.5px solid #000; }
+.key-list { padding-left: 18px; }
+.key-list li, details.hint li { margin: 3px 0; }
+details.hint ul { padding-left: 18px; margin: 6px 0; }
