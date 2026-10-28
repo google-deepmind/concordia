@@ -965,7 +965,8 @@ function kinName(kin) {
 function variantNote(variant, where) {
   const n = variant.holders.length;
   const year = variant.year.toLocaleString('en');
-  const parts = [];
+  const level = (variant.params || {}).level;
+  const parts = variant.kind === 'skill' && level ? [`level ${level}`] : [];
   if (where === 'gone') {
     parts.push(`arose in year ${year}`);
   } else if (where === 'kept') {
@@ -1589,12 +1590,12 @@ function drawPeopleKey(world) {
     counts.set(descent, (counts.get(descent) || 0) + 1);
   }
   key.replaceChildren(counts.size ? 'By descent:' : '');
-  for (const [descent, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+  [...counts].sort((a, b) => b[1] - a[1]).forEach(([descent, n], i) => {
     const swatch = document.createElement('span');
     swatch.className = 'swatch';
     swatch.style.background = peopleColour(descent);
-    key.append(swatch, `the ${descent} (${n})`);
-  }
+    key.append(i ? ', ' : ' ', swatch, `the ${descent} (${n})`);
+  });
   document.getElementById('key-you').hidden = !world.played;
 }
 

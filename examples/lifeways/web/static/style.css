@@ -168,7 +168,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
 #releases .meta { color: var(--muted); font-size: 0.85rem; }
 #releases canvas { width: 160px; height: 28px; border: none; margin-top: 2px; }
 
-#map-key .swatch {
+#map-key .swatch, #people-key .swatch {
   display: inline-block;
   width: 0.9em;
   height: 0.9em;

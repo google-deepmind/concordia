@@ -544,6 +544,11 @@ class TwinInputTest(absltest.TestCase):
       twin(self._asked(10))
 
 
+def _words(variant):
+  """A version's words, and its level of know-how (another level, another)."""
+  return variant['text'], variant['params'].get('level')
+
+
 class TreesTest(absltest.TestCase):
 
   @classmethod
@@ -604,10 +609,10 @@ class TreesTest(absltest.TestCase):
         self.assertNotIn(variant['id'], shown)
       # The same words are listed once: a dead version that repeats a held,
       # kept or later dead one gives that one its year (`again`).
-      dead = [v['text'] for v in lineage['gone']]
+      dead = [_words(v) for v in lineage['gone']]
       self.assertLen(set(dead), len(dead))
       self.assertEmpty(
-          set(dead) & {v['text'] for v in lineage['held'] + lineage['kept']}
+          set(dead) & {_words(v) for v in lineage['held'] + lineage['kept']}
       )
       for variant in lineage['held'] + lineage['kept'] + lineage['gone']:
         self.assertLessEqual(

@@ -1737,25 +1737,30 @@ class Session:
         (v for v in variants if v['holders']), key=lambda v: -len(v['holders'])
     )
     kept_only = [v for v in variants if v['living'] and not v['holders']]
+
     # A copy's error can undo another's, so the same words can arise again
     # as a new version. A dead version with the words of one that lives, or
     # of a later dead one, is not listed again: its year goes with that one
     # (`again`), and a dead one in the tree says its words came back.
-    living_texts = {v['text'] for v in variants if v['living']}
+    # The same words at another level of know-how are another version.
+    def words(variant: Mapping[str, Any]) -> tuple[str, Any]:
+      return variant['text'], variant['params'].get('level')
+
+    living_words = {words(v) for v in variants if v['living']}
     for variant in variants:
-      if not variant['living'] and variant['text'] in living_texts:
+      if not variant['living'] and words(variant) in living_words:
         variant['returned'] = True
-    first: dict[str, dict[str, Any]] = {}
+    first: dict[tuple[str, Any], dict[str, Any]] = {}
     for variant in held + kept_only:
-      first.setdefault(variant['text'], variant)
+      first.setdefault(words(variant), variant)
     gone = []
     for variant in sorted(
         (v for v in variants if v['id'] not in shown),
         key=lambda v: -int(v['year']),
     ):
-      same = first.get(variant['text'])
+      same = first.get(words(variant))
       if same is None:
-        first[variant['text']] = variant
+        first[words(variant)] = variant
         gone.append(variant)
       elif len(same.setdefault('again', [])) < AGAIN_KEPT:
         same['again'].append(variant['year'])

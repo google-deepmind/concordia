@@ -187,6 +187,8 @@ test('a variant says tersely who holds it and when it arose', () => {
       'arose in year 28,607 · the same words arose again in years 22, 107');
   assert.equal(variantNote({...variant, origin: 'founder'}, 'held'),
       'held by 1 person · since year 9 · brought by the first settlers');
+  assert.equal(variantNote({...variant, kind: 'skill', params: {level: 3}},
+      'held'), 'level 3 · held by 1 person · since year 9');
 });
 
 test('the notebook filters what the person wrote, moves and changes', () => {
