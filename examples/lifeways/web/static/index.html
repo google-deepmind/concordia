@@ -181,7 +181,8 @@ limitations under the License.
         <span class="hint">People take up know-how only if its level is
           higher than that of what they already know.</span>
       </label>
-      <label>At <input id="at" inputmode="numeric" size="6"
+      <label>At (row, column; tap the map to change)
+        <input id="at" inputmode="numeric" size="6"
         placeholder="tap the map"></label>
       <label class="wide">It says
         <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
@@ -204,6 +205,7 @@ limitations under the License.
       <label>What <select id="fate-kind"></select></label>
       <button type="submit">Send it next year</button>
     </form>
+    <p id="fate-queued" class="hint"></p>
     <p id="fate-error" class="hint" role="alert"></p>
   </section>
 
@@ -221,7 +223,8 @@ limitations under the License.
       graph draws the twin dashed.</p>
     <form id="fork">
       <label>Lever <select id="lever"></select></label>
-      <label>To <input id="lever-value" inputmode="decimal" size="6"></label>
+      <label id="lever-to">To <input id="lever-value" inputmode="decimal"
+        size="6"></label>
       <button type="submit">Fork</button>
       <button id="unfork" type="button" hidden>Let the twin go</button>
     </form>

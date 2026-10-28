@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askedNote, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
+  answerText, askedNote, askMove, cameBy, queuedNote, goneFromPanel, paceNote,
+  peoplesText,
   chartSeries,
   crowdedSpot, customKind,
   domainsFor, goneNote,
@@ -76,7 +77,8 @@ test('the page says what a twin is and where it is', () => {
 test('the fork form offers each lever, then each channel to go without', () => {
   assert.deepEqual(
       leverChoices({levers: {richness: [0.05, 1, 0.2]}, channels: ['story']}),
-      [['richness', 'How rich the land is (0.05–1; now 0.2)'],
+      [['richness',
+        'How rich the land is (from 0.05, least, to 1, most; now 0.2)'],
         ['without story', 'Without stories']]);
 });
 
@@ -122,6 +124,15 @@ test('an ask says when and where its answer comes', () => {
   assert.equal(askedNote('Solu', 122, true), 'Asked in year 122. Solu ' +
       'answers when the year turns (press Play: the world is paused); the ' +
       'answer shows under Interviews.');
+});
+
+test('moves waiting say one happens a year', () => {
+  assert.equal(queuedNote([]), '');
+  assert.equal(queuedNote(['send a fire at 1,1']),
+      'Next year: Send a fire at row 1, column 1.');
+  assert.equal(queuedNote(['send a fire at 1,1', 'bring migrants at 2,2',
+    'stop the world']), 'Next year: Send a fire at row 1, column 1. Then, ' +
+      'one a year: Bring newcomers to row 2, column 2; End this world.');
 });
 
 test('a panel says when its person is no longer alive', () => {
@@ -263,10 +274,15 @@ test('the ring says the chance that someone takes a song up', () => {
   const world = {rows: 16, cols: 24, song_uptake: 0.25, reach: [[0, 0, 3]]};
   assert.equal(reachNote(world, [0, 0]), 'The white ring on the map (row 0,' +
       ' column 0) is where your next release goes: 3 people would hear a' +
-      ' song here; the chance at least one takes it up is 58%.');
+      ' song here now; the chance at least one takes it up is 58%. People' +
+      ' move, so this can change by next year.');
   assert.equal(reachNote(world, [8, 12]), 'The white ring on the map (row' +
       ' 8, column 12) is where your next release goes: nobody would hear a' +
-      ' song here.');
+      ' song here now.');
+  assert.equal(reachNote(world, [0, 0], 'text'), 'The white ring on the map' +
+      ' (row 0, column 0) is where your next release goes: a text is left' +
+      ' on a library\'s shelf here (a new library if none stands near), for' +
+      ' whoever comes to read it.');
 });
 
 test('what the page has already is never appended twice', () => {

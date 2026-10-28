@@ -273,6 +273,8 @@ function drawChart(rows, twinRows = []) {
       ` (${last.peoples.peoples}). Gold: fields` +
       ` sown (${last.fields || 0}).` +
       ` Years ${yearText(rows[0].year)}–${yearText(last.year)}.` +
+      ' Each line has its own scale: its top is the most it reached in' +
+      ' these years (for skill, the highest level there is).' +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
       .sort(([, a], [, b]) => b - a)
@@ -360,8 +362,8 @@ function twinNote(twin) {
 function leverChoices(world) {
   return Object.entries(world.levers)
       .map(([lever, [low, high, now]]) =>
-        [lever,
-          `${LEVER_WORDS[lever] || lever} (${low}–${high}; now ${now})`])
+        [lever, `${LEVER_WORDS[lever] || lever} (from ${low}, least, to ` +
+          `${high}, most; now ${now})`])
       .concat(world.channels.map((channel) =>
         [`without ${channel}`,
           `Without ${CHANNEL_WORDS[channel] || channel}`]));
@@ -446,9 +448,15 @@ function drawReleases(world) {
         const meta = document.createElement('div');
         meta.className = 'meta';
         meta.textContent = releaseStatus(release);
-        const spark = document.createElement('canvas');
-        drawSpark(spark, release.holders);
-        item.append(text, meta, spark);
+        item.append(text, meta);
+        if (release.holders.length > 1) {
+          const label = document.createElement('div');
+          label.className = 'meta';
+          label.textContent = 'How many held it, year by year:';
+          const spark = document.createElement('canvas');
+          drawSpark(spark, release.holders);
+          item.append(label, spark);
+        }
         return item;
       }));
 }
@@ -483,16 +491,22 @@ function crowdedSpot(world) {
  * chance that at least one of them takes it up.
  * @param {!Object} world The state.
  * @param {!Array<number>} at [row, col].
+ * @param {string=} how 'song' or 'text'.
  * @return {string}
  */
-function reachNote(world, at) {
-  const n = withinReach(world, at);
+function reachNote(world, at, how = 'song') {
   const head = `The white ring on the map (row ${at[0]}, column ${at[1]}) ` +
       'is where your next release goes: ';
-  if (!n) return `${head}nobody would hear a song here.`;
+  if (how === 'text') {
+    return `${head}a text is left on a library's shelf here (a new ` +
+        'library if none stands near), for whoever comes to read it.';
+  }
+  const n = withinReach(world, at);
+  if (!n) return `${head}nobody would hear a song here now.`;
   const someone = Math.round(100 * (1 - (1 - world.song_uptake) ** n));
   return `${head}${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
-      `here; the chance at least one takes it up is ${someone}%.`;
+      `here now; the chance at least one takes it up is ${someone}%. ` +
+      'People move, so this can change by next year.';
 }
 
 /**
@@ -505,7 +519,8 @@ function drawAt(world) {
     note.textContent = '';
     return;
   }
-  note.textContent = reachNote(world, page.at) + (page.atChosen ? '' :
+  note.textContent = reachNote(world, page.at,
+      document.getElementById('how').value) + (page.atChosen ? '' :
       ' (Where the most would hear, until you tap the map.)');
 }
 
@@ -643,6 +658,19 @@ function drawTranscripts(world) {
 }
 
 /**
+ * Your moves waiting: one happens each year, in the order made.
+ * @param {!Array<string>} queued The moves, as the World reads them.
+ * @return {string} E.g. 'Next year: Send a fire at row 1, column 1. Then,
+ *     one a year: Bring newcomers to row 2, column 2.', or ''.
+ */
+function queuedNote(queued) {
+  if (!queued.length) return '';
+  const [next, ...then] = queued.map(moveWords);
+  return `Next year: ${next}.` +
+      (then.length ? ` Then, one a year: ${then.join('; ')}.` : '');
+}
+
+/**
  * What the ask form says once a question is asked.
  * @param {string} name Who is asked.
  * @param {number} year The year it is asked in.
@@ -671,7 +699,7 @@ async function showPerson(name) {
   const age = page.world.year - person.born;
   document.getElementById('person-body').textContent =
       `${age} years old, born of the ${person.descent || 'valley'}; food ` +
-      `${person.food}.`;
+      `stored ${person.food} (a year's eating is 1).`;
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
   const list = document.getElementById('person-customs');
@@ -842,7 +870,8 @@ function customKind(custom) {
     what = params.form === 'known' ? 'a rule others expect of them' :
         'a rule they keep as their own';
   } else if (custom.kind === 'skill' && params.level) {
-    what = `know-how, level ${params.level}`;
+    const most = page.world && page.world.max_level;
+    what = `know-how, level ${params.level}` + (most ? ` of ${most}` : '');
   } else if (custom.kind === 'marriage' && params.within) {
     what += params.within === 'tongue' ?
         ', only one who speaks as they do' : ', only within their own people';
@@ -1220,8 +1249,9 @@ async function refreshOnce() {
     document.getElementById('stop').hidden = !world.running;
     document.getElementById('play').textContent =
         world.pace.paused ? 'Play' : 'Pause';
-    document.getElementById('queued').textContent = world.pace.queued.length ?
-        `Next year: ${world.pace.queued.map(moveWords).join('; ')}` : '';
+    for (const id of ['queued', 'fate-queued']) {
+      document.getElementById(id).textContent = queuedNote(world.pace.queued);
+    }
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
@@ -1701,6 +1731,15 @@ async function start() {
   presetNote();
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
+  const leverTo = () => {  // A channel goes without; it takes no value.
+    document.getElementById('lever-to').hidden =
+        document.getElementById('lever').value.startsWith('without ');
+  };
+  leverTo();
+  document.getElementById('lever').addEventListener('change', leverTo);
+  document.getElementById('how').addEventListener('change', () => {
+    if (page.world) drawAt(page.world);
+  });
   const build = await api('api/build');
   document.getElementById('build').textContent =
       `Lifeways, build ${build.commit || '?'} (the code's version)`;
@@ -1873,7 +1912,7 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askedNote, askMove, cameBy, goneFromPanel, paceNote,
+    answerText, askedNote, askMove, cameBy, queuedNote, goneFromPanel, paceNote,
     peoplesText,
     chartSeries,
     crowdedSpot, customKind,
