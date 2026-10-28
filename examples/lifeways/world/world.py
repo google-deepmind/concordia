@@ -1247,11 +1247,21 @@ class World:
     person = self.people[name]
     partner = person.partner or 'no partner'
     kids = ', '.join(c for c in person.children if c in self.people)
+    # What one who may move can see of better land (it moves within `roam`).
+    roam = int(self.settings.get('roam', 1))
+    best = self.land.best_near(person.tile, roam)
+    better = (
+        f' Within {roam} step{"" if roam == 1 else "s"}, the land around'
+        f' {where(best)} holds'
+        f' {self.land.around_food(best):.1f} food.'
+        if person.age(self.year) >= ADULT_AGE and best != person.tile
+        else ''
+    )
     return (
         f'Year {self.year}. {name} is {person.age(self.year)} years old and'
         f' lives on {self.land.kind(person.tile)} land at'
         f' {person.tile[0]},{person.tile[1]}; the land around holds'
-        f' {self.land.around_food(person.tile):.1f} food. Food stored:'
+        f' {self.land.around_food(person.tile):.1f} food.{better} Food stored:'
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'

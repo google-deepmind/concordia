@@ -522,6 +522,22 @@ class TransmissionTest(absltest.TestCase):
     self.assertEqual(self.world.people['Ada'].partner, 'Bo')
     self.assertEmpty(sorted(self.world.courting))
 
+  def test_the_grown_see_where_better_land_lies(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Bo', 8, (5, 5))
+    land = self.world.land
+    land.food[:] = 0.1
+    land.food[5, 7] = 9.0  # Beside the tile a step east (`roam` is 1).
+    best = land.best_near((5, 5), 1)
+
+    self.assertNotEqual(best, (5, 5))
+    self.assertIn(
+        f'Within 1 step, the land around {world_lib.where(best)} holds'
+        f' {land.around_food(best):.1f} food.',
+        self.world.status('Ada'),
+    )
+    self.assertNotIn('Within', self.world.status('Bo'))  # A child stays.
+
   def test_two_who_court_each_other_by_name_pair(self):
     self._person('Ada', 20, (5, 5))
     self._person('Bo', 20, (5, 6)).sex = 'm'
