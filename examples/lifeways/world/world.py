@@ -2256,6 +2256,11 @@ class World:
   ) -> dict[str, Any]:
     """The year in numbers, from what the GM saw (never from minds)."""
     ages = [p.age(self.year) for p in self.people.values()]
+    barren = [
+        name
+        for name, (m, enacted) in sorted(did.items())
+        if m == SOW and not self._level(enacted, culture_lib.FARMING)
+    ]
     return {
         'year': self.year,
         'population': len(self.people),
@@ -2280,6 +2285,13 @@ class World:
             for name, (m, _) in sorted(did.items())
             if not m
         ][:UNREAD_KEPT],
+        # Sowings that grew nothing (no farming know-how named), and the
+        # first answers of them.
+        'barren': len(barren),
+        'barren_answers': [
+            ' '.join(answers.get(name, '').split())[:UNREAD_LENGTH]
+            for name in barren[:UNREAD_KEPT]
+        ],
         'breaches': len(self.breaches),
         'libraries': sum(
             1

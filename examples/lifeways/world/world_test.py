@@ -1755,6 +1755,22 @@ class FarmingTest(_PlaceTest):
 
     self.assertNotIn(world_lib.SPARE, self.world.moves('Bo'))
 
+  def test_the_census_counts_sowings_that_named_no_know_how(self):
+    norm = self.world.culture.add(
+        'norm', culture_lib.FARMING, "We take nothing from another's field."
+    ).id
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing, norm])
+    self._person('Bo', 30, tile, given=[self.sowing, norm])
+
+    self._year(
+        Ada=f'{world_lib.SOW} {self.sowing}', Bo=f'Bo sows a field ({norm}).'
+    )
+
+    census = self.world.history[-1]
+    self.assertEqual((census['sown'], census['barren']), (1, 1))
+    self.assertEqual(census['barren_answers'], [f'Bo sows a field ({norm}).'])
+
   def test_sparing_is_seen_unless_the_world_says_it_is_not(self):
     norm = self.world.culture.add(
         'norm', culture_lib.FARMING, "We take nothing from another's field."

@@ -39,7 +39,7 @@ The run writes these files to `--out_dir`:
 
 | File | Contents |
 |---|---|
-| `census.jsonl` | a row a year: the world's census (population, births, deaths, moves, how many moves named a custom (`cited`), the first answers that named no move (`unread`), offers by channel, variants, the skill people work by) and, under `held`, what the living hold (read from their entities) |
+| `census.jsonl` | a row a year: the world's census (population, births, deaths, moves, how many moves named a custom (`cited`), the first answers that named no move (`unread`), sowings that grew nothing for naming no know-how (`barren`, with the first answers), offers by channel, variants, the skill people work by) and, under `held`, what the living hold (read from their entities) |
 | `dead.jsonl` | each person who died: their name and their entity's final state |
 | `customs.jsonl` | each variant of a custom once nobody living holds it, with its parent: the long record of culture |
 | `summary.json` | the run's totals, with memory use and seconds per year (`--soak`) |
