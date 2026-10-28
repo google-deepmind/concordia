@@ -58,6 +58,8 @@ const page = {
   lineage: null,
   /** The year the lineage shows (it is redrawn only when asked). */
   lineageYear: -1,
+  /** @type {!Array<!Array<number>>} [ms, year] seen while running. */
+  paceSeen: [],
   /** @type {?string} The played person's question shown, if any. */
   asked: null,
   /** @type {?Array<number>} The place chosen for a release: [row, col]. */
@@ -689,6 +691,28 @@ function followYear(world) {
 }
 
 /**
+ * The pace the world keeps, when it is short of the pace asked: a valley
+ * runs only as fast as its people answer, and a twin shares the machine.
+ * @param {!Array<!Array<number>>} seen [ms, year] seen while running, at
+ *     least ten seconds of them.
+ * @param {number} asked The years a second asked for.
+ * @param {boolean} twin Whether a twin runs beside it.
+ * @return {string} E.g. 'running at about 0.4 a second: as fast as this
+ *     valley can go now (a twin beside it halves that)', or ''.
+ */
+function paceNote(seen, asked, twin) {
+  if (seen.length < 2) return '';
+  const [ms0, year0] = seen[0];
+  const [ms1, year1] = seen[seen.length - 1];
+  if (ms1 - ms0 < 10000) return '';
+  const rate = (year1 - year0) / ((ms1 - ms0) / 1000);
+  if (rate >= 0.8 * asked) return '';
+  const shown = rate < 1 ? rate.toFixed(1) : String(Math.round(rate));
+  return `running at about ${shown} a second: as fast as this valley can ` +
+      'go now' + (twin ? ' (a twin beside it halves that)' : '');
+}
+
+/**
  * What the person's panel says once its person has died.
  * @param {string} name The person.
  * @param {number} shown The year the panel last showed them alive.
@@ -1153,6 +1177,11 @@ async function refreshOnce() {
     const world = await api('api/state');
     page.world = world;
     followYear(world);
+    if (world.pace.paused || !world.running) page.paceSeen = [];
+    else page.paceSeen = [...page.paceSeen, [Date.now(), world.year]];
+    page.paceSeen = page.paceSeen.filter(([ms]) => Date.now() - ms < 20000);
+    document.getElementById('pace-real').textContent = paceNote(
+        page.paceSeen, world.pace.years_per_second, Boolean(world.twin));
     document.getElementById('year').textContent =
         `${worldName(world.scenario)}, year ${yearText(world.year)}: ` +
         `${world.people.length} people alive` +
@@ -1495,7 +1524,7 @@ function moveWords(move) {
   }
   m = move.match(/^ask ([^:]+): (.+)$/);
   if (m) return `Ask ${m[1]}: “${m[2]}”`;
-  if (move === 'stop the world') return 'Stop the world';
+  if (move === 'stop the world') return 'End this world';
   return move;
 }
 
@@ -1646,10 +1675,11 @@ async function start() {
     refresh();
   });
   document.getElementById('speed').addEventListener('change', async (event) => {
+    page.paceSeen = [];
     await api('api/pace', {years_per_second: Number(event.target.value)});
   });
   document.getElementById('stop').addEventListener('click', async () => {
-    if (confirm('Stop the world for good?')) await api('api/stop', {});
+    if (confirm('End this world for good?')) await api('api/stop', {});
   });
   document.getElementById('anew').addEventListener('click', async () => {
     const scenario = document.getElementById('preset').value;
@@ -1784,7 +1814,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askMove, cameBy, goneFromPanel, peoplesText, chartSeries,
+    answerText, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
+    chartSeries,
     crowdedSpot, customKind,
     domainsFor, kinName, entryText, moveWords, worldName, yearText,
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,

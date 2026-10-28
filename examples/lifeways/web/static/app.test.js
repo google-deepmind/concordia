@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askMove, cameBy, goneFromPanel, peoplesText, chartSeries,
+  answerText, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
+  chartSeries,
   crowdedSpot, customKind,
   domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
@@ -101,6 +102,18 @@ test('the peoples say whom they count, and are named', () => {
       'none until grown.');
   assert.equal(peoplesText({peoples: 0, sizes: [], grown: 0}, 3),
       'None of the 3 alive is grown, so no peoples.');
+});
+
+test('the pace says when the valley cannot keep the pace asked', () => {
+  const seen = [[0, 100], [5000, 102], [20000, 108]];
+  assert.equal(paceNote(seen, 10, false), 'running at about 0.4 a second: ' +
+      'as fast as this valley can go now');
+  assert.equal(paceNote(seen, 10, true), 'running at about 0.4 a second: ' +
+      'as fast as this valley can go now (a twin beside it halves that)');
+  assert.equal(paceNote(seen, 0.25, false), '');  // It keeps up.
+  assert.equal(paceNote([[0, 1], [5000, 2]], 10, false), '');  // Too soon.
+  assert.equal(paceNote([[0, 0], [10000, 30]], 10, false),
+      'running at about 3 a second: as fast as this valley can go now');
 });
 
 test('a panel says when its person is no longer alive', () => {
@@ -447,7 +460,7 @@ test('moves read as a person would say them', () => {
   assert.equal(moveWords('close the shrine at 3,4'),
       'Close the shrine at row 3, column 4');
   assert.equal(moveWords('ask Kaka: Why?'), 'Ask Kaka: “Why?”');
-  assert.equal(moveWords('stop the world'), 'Stop the world');
+  assert.equal(moveWords('stop the world'), 'End this world');
   assert.equal(entryText({kind: 'move',
     text: 'You queue a move: send a fire at 1,1'}),
   'Your move for next year: Send a fire at row 1, column 1');
