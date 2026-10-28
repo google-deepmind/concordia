@@ -40,6 +40,10 @@ _LABEL = re.compile(r'(?:Question|Exercise): ')
 _CUSTOM = re.compile(r'\(([a-z]+)\) \[(c\d+)\]: ([^\n]*)')
 _EXPECTED = re.compile(r'others expect of us \(([a-z]+)\) \[(c\d+)\]')
 _SIGHT = re.compile(r'(\d+) other people are within sight')
+_ASKED = re.compile(r'The Experimenter asks [^:]+: "(.*)"')
+_WORD = re.compile(r'[a-z]{4,}')
+_SPEECH = frozenset({'spea', 'tong', 'word', 'lang', 'talk'})  # _stems
+_LEVEL = re.compile(r' \(level \d+\)$')
 _TEND = re.compile(r'\btend\b', re.IGNORECASE)
 _DESCENT = re.compile(r'is of the ([^.]+)\.')
 _SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
@@ -47,6 +51,40 @@ _SUITOR = re.compile(
     r'(\w+) \((courting you, )?(speaks as you do|speaks strangely),'
     r' of the ([^)]*)\)'
 )
+
+
+def _bearing_on(
+    question: str, customs: Sequence[tuple[str, str, str]], most: int = 3
+) -> list[str]:
+  """The customs' texts an interview answer names: those nearest the question.
+
+  The customs that share the most words with what was asked (in their text
+  or domain; a word by its first four letters, so "years" is "year" and
+  "sharing" "share"), the rest in the order the prompt gives them; a way of
+  speaking only if speech is asked about; without the level of know-how.
+
+  Args:
+    question: The question as the prompt puts it.
+    customs: (domain, id, text) of each custom in the prompt.
+    most: How many to name.
+
+  Returns:
+    The texts.
+  """
+  asked = _ASKED.search(question)
+  words = _stems(asked.group(1) if asked else question)
+  speech = bool(words & _SPEECH)
+  scored = [
+      (-len(words & _stems(f'{domain} {text}')), i, text)
+      for i, (domain, _, text) in enumerate(customs)
+      if speech or domain != culture_lib.LANGUAGE
+  ]
+  return [_LEVEL.sub('', text) for _, _, text in sorted(scored)[:most]]
+
+
+def _stems(text: str) -> set[str]:
+  """The words of four letters or more in a text, by their first four."""
+  return {word[:4] for word in _WORD.findall(text.lower())}
 
 
 def _stable(text: str) -> float:
@@ -74,7 +112,7 @@ class MockModel(language_model.LanguageModel):
     question = _LABEL.split(prompt)[-1]
     customs = _CUSTOM.findall(prompt)
     if 'The Experimenter asks' in question:
-      said = [text for _, _, text in customs][:3]
+      said = _bearing_on(question, customs)
       said = 'We live by these: ' + ' '.join(said) if said else 'I do not know.'
       # It continues what the prompt begins: after the person's name, or
       # (a person restored from a save made before the stock prefix) none.

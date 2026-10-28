@@ -530,6 +530,32 @@ class MockMindTest(absltest.TestCase):
         'We live by these: We share our food.',
     )
 
+  def test_it_answers_with_the_customs_nearest_the_question(self):
+    context = '\n'.join([
+        '(language) [c1]: The River tongue: ka ri to.',
+        '(kinship) [c2]: We marry only our own people.',
+        '(food) [c3]: Snaring hares on the hillsides. (level 3)',
+        '(sharing) [c4]: We share our food with the hungry.',
+        '(food) [c5]: In lean years, gather before anything else.',
+    ])
+
+    def answer(question):
+      return _ask_mock(
+          context,
+          gm_components.INTERVIEW_QUESTION.format(
+              name='Kaka', question=question
+          ),
+      )
+
+    self.assertEqual(
+        answer('Why not give food in a lean year?'),
+        'says: "We live by these: In lean years, gather before anything'
+        ' else. Snaring hares on the hillsides. We share our food with the'
+        ' hungry."',
+    )
+    self.assertIn('The River tongue', answer('How do you speak?'))
+    self.assertNotIn('River tongue', answer('Why?'))
+
   def test_a_custom_of_tending_has_a_sower_sow_on_little_food(self):
     moves = [world_lib.GATHER, world_lib.REST, world_lib.SOW]
     sowing = (culture_lib.FARMING, 'c1', scenarios.SOWING['text'])

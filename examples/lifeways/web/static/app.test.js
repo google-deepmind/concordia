@@ -22,7 +22,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
+  answerText, askedNote, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
   chartSeries,
   crowdedSpot, customKind,
   domainsFor, goneNote,
@@ -114,6 +114,14 @@ test('the pace says when the valley cannot keep the pace asked', () => {
   assert.equal(paceNote([[0, 1], [5000, 2]], 10, false), '');  // Too soon.
   assert.equal(paceNote([[0, 0], [10000, 30]], 10, false),
       'running at about 3 a second: as fast as this valley can go now');
+});
+
+test('an ask says when and where its answer comes', () => {
+  assert.equal(askedNote('Solu', 122, false), 'Asked in year 122. Solu ' +
+      'answers when the year turns; the answer shows under Interviews.');
+  assert.equal(askedNote('Solu', 122, true), 'Asked in year 122. Solu ' +
+      'answers when the year turns (press Play: the world is paused); the ' +
+      'answer shows under Interviews.');
 });
 
 test('a panel says when its person is no longer alive', () => {

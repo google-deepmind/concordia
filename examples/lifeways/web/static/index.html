@@ -112,6 +112,7 @@ limitations under the License.
       </label>
       <button type="submit">Ask next year</button>
     </form>
+    <p id="ask-note" class="hint" aria-live="polite"></p>
     <button id="person-close" type="button">Close</button>
   </section>
 
@@ -231,7 +232,9 @@ limitations under the License.
   <section id="interviews" aria-label="Interviews">
     <h2>Interviews</h2>
     <p class="hint">Tap a person and ask them something; they answer next
-      year.</p>
+      year.<span id="mock-answers" hidden> People here think by simple rules,
+      so they answer by naming the customs they live by that bear most on
+      your question.</span></p>
     <ul id="transcripts"></ul>
   </section>
 

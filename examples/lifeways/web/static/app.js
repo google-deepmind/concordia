@@ -614,23 +614,45 @@ function askMove(name, question) {
  * @param {!Object} world The server's state.
  */
 function drawTranscripts(world) {
-  const pending = Object.entries(world.interviews).map(([name, question]) => {
+  const line = (text) => {
     const item = document.createElement('li');
-    item.textContent = `${name} is asked: "${question}" (answers this year)`;
+    item.textContent = text;
     return item;
-  });
+  };
+  const queued = world.pace.queued
+      .map((move) => move.match(/^ask ([^:]+): (.+)$/))
+      .filter(Boolean)
+      .map(([, name, question]) =>
+        line(`${name} will be asked next year: "${question}"`));
+  const pending = Object.entries(world.interviews).map(([name, question]) =>
+    line(`${name} is asked: "${question}" (answers this year)`));
   const answered = [...world.transcripts].reverse().map((transcript) => {
     const item = document.createElement('li');
-    item.textContent = answerText(transcript);
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `${transcript.name}, year ${transcript.year}, asked` +
-        ` "${transcript.question}"`;
-    item.append(meta);
+    meta.textContent = `${transcript.name}, year ${transcript.year}, was ` +
+        `asked "${transcript.question}":`;
+    const answer = document.createElement('div');
+    answer.textContent = answerText(transcript);
+    item.append(meta, answer);
     return item;
   });
   document.getElementById('transcripts').replaceChildren(
-      ...pending, ...answered);
+      ...queued, ...pending, ...answered);
+  document.getElementById('mock-answers').hidden = world.minds !== 'mock';
+}
+
+/**
+ * What the ask form says once a question is asked.
+ * @param {string} name Who is asked.
+ * @param {number} year The year it is asked in.
+ * @param {boolean} paused Whether the world is paused.
+ * @return {string} The note.
+ */
+function askedNote(name, year, paused) {
+  return `Asked in year ${yearText(year)}. ${name} answers when the year ` +
+      'turns' + (paused ? ' (press Play: the world is paused)' : '') +
+      '; the answer shows under Interviews.';
 }
 
 /**
@@ -638,6 +660,9 @@ function drawTranscripts(world) {
  * @param {string} name The person's name.
  */
 async function showPerson(name) {
+  if (name !== page.person) {
+    document.getElementById('ask-note').textContent = '';
+  }
   const [person, kin] = await Promise.all([
     api(`api/person?name=${encodeURIComponent(name)}`),
     api(`api/kin?name=${encodeURIComponent(name)}`),
@@ -1757,9 +1782,16 @@ async function start() {
   document.getElementById('ask').addEventListener('submit', async (event) => {
     event.preventDefault();
     const question = document.getElementById('question').value.trim();
-    if (!question || !page.person) return;
+    const note = document.getElementById('ask-note');
+    if (!page.person) return;
+    if (!question) {
+      note.textContent = 'Write a question first.';
+      return;
+    }
     await api('api/move', {move: askMove(page.person, question)});
     document.getElementById('question').value = '';
+    note.textContent = askedNote(page.person, page.world.year,
+        page.world.pace.paused);
     refresh();
   });
   document.getElementById('release').addEventListener('submit', async (event) => {
@@ -1841,7 +1873,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askMove, cameBy, goneFromPanel, paceNote, peoplesText,
+    answerText, askedNote, askMove, cameBy, goneFromPanel, paceNote,
+    peoplesText,
     chartSeries,
     crowdedSpot, customKind,
     domainsFor, kinName, entryText, moveWords, worldName, yearText,
