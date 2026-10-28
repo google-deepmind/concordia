@@ -209,6 +209,33 @@ mostly died out, though births and teaching can carry any kind (why they
 fare worse is not settled). Know-how is taken up only if it is better than
 what one knows.
 
+### A property norm, read by two kinds of mind
+
+First Farmers, 6 founders, 24 years; the norm "We take nothing from
+another's field." held by every founder, against none. MOCK minds over 20
+seeds; live minds (Ollama `llama3.2:3b`, the stock framing and answer
+prefix) over seeds 0-2 (build 272aa666):
+
+| Minds | Where the norm sits | "sow a field" | fields grown | sowings that grew nothing | spared others' fields |
+|---|---|---|---|---|---|
+| MOCK | none / farming | 15.3 / 16.0 a run | | | 0 / 4.3 a run |
+| live | none | 88 | 73 | 17% | 20 |
+| live | farming | 72 | 32 | 56% | 11 |
+| live | authority | 87 | 62 | 29% | 44 |
+
+- The rule-following mock does what the norm says: it spares others'
+  fields and sows as before.
+- Live minds holding the norm in the farming domain try to sow about as
+  often, but their sowings grow nothing more than half the time. A
+  sowing makes a field only if the answer names the farming know-how;
+  those answers name the norm and the food know-how instead (the census
+  keeps them: `barren_answers`).
+- The same norm in another domain (`authority`) barely hurts sowing and
+  doubles sparing.
+- So what a custom does depends on the minds that read it, and on where
+  it sits among their customs. Over seeds 0-4 the farming-domain norm
+  cut the fields grown in all five seeds (130 against 69).
+
 ### The experiment tool
 
 ```bash
