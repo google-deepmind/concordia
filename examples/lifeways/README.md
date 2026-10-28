@@ -232,6 +232,11 @@ prefix) over seeds 0-2 (build 272aa666):
   keeps them: `barren_answers`).
 - The same norm in another domain (`authority`) barely hurts sowing and
   doubles sparing.
+- It is the naming, not the holding. The Learner takes up and drops
+  customs by the same rule for both minds, about as many hold the farming
+  know-how in both live arms, and the mock sows as before. Live minds
+  that sow name the custom about fields that sits beside the know-how,
+  not the know-how.
 - So what a custom does depends on the minds that read it, and on where
   it sits among their customs. Over seeds 0-4 the farming-domain norm
   cut the fields grown in all five seeds (130 against 69).
