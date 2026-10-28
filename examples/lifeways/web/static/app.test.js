@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind,
+  answerText, askMove, cameBy, goneFromPanel, peoplesText, chartSeries,
+  crowdedSpot, customKind,
   domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
   leverChoices, moreNote,
@@ -85,6 +86,26 @@ test('a custom says how it came and from whom', () => {
   assert.equal(cameBy({via: 'birth', from: 'Mara'}), 'inherited it from Mara');
   assert.equal(cameBy({via: 'upbringing', from: 'Ada'}),
       'was taught it as a child by Ada');
+});
+
+test('the peoples say whom they count, and are named', () => {
+  assert.equal(peoplesText({peoples: 2, sizes: [26, 17],
+    descents: ['Hill people', 'River people'], grown: 43}, 63),
+  'Of the 63 alive, 43 are grown; they form 2 peoples (groups whose ' +
+      'marriage rules let them marry one another): 26 mostly of the Hill ' +
+      'people, 17 mostly of the River people. Children belong to none ' +
+      'until grown.');
+  assert.equal(peoplesText({peoples: 1, sizes: [9]}, 12),
+      'Of the 12 alive, 9 are grown; they form one people (groups whose ' +
+      'marriage rules let them marry one another): 9. Children belong to ' +
+      'none until grown.');
+  assert.equal(peoplesText({peoples: 0, sizes: [], grown: 0}, 3),
+      'None of the 3 alive is grown, so no peoples.');
+});
+
+test('a panel says when its person is no longer alive', () => {
+  assert.equal(goneFromPanel('Solu', 122, 1137), 'Solu is no longer alive ' +
+      '(year 1,137). Below is how they were in year 122.');
 });
 
 test('the dead are named with their years, the forgotten as such', () => {

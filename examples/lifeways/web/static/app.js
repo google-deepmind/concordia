@@ -52,6 +52,12 @@ const page = {
   entries: [],
   entrySince: 0,
   /** @type {?string} The person shown, if any. */ person: null,
+  /** The year the person's panel shows (it follows the world's). */
+  personYear: -1,
+  /** @type {?string} The lineage shown (a variant's id), if any. */
+  lineage: null,
+  /** The year the lineage shows (it is redrawn only when asked). */
+  lineageYear: -1,
   /** @type {?string} The played person's question shown, if any. */
   asked: null,
   /** @type {?Array<number>} The place chosen for a release: [row, col]. */
@@ -261,7 +267,8 @@ function drawChart(rows, twinRows = []) {
       `Green: people alive (${last.population}). Brown: how skilled their` +
       ` work is (the mean level of the know-how they work by,` +
       ` ${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
-      ` Red: peoples, by descent (${last.peoples.peoples}). Gold: fields` +
+      ` Red: peoples, groups who would marry one another` +
+      ` (${last.peoples.peoples}). Gold: fields` +
       ` sown (${last.fields || 0}).` +
       ` Years ${yearText(rows[0].year)}–${yearText(last.year)}.` +
       (twinRows.length ? ' Dashed: the twin.' : '');
@@ -270,8 +277,30 @@ function drawChart(rows, twinRows = []) {
       .map(([channel, n]) => `${HELD_BY[channel] || channel} ${n}`)
       .join(', ');
   document.getElementById('channels').textContent =
-      `How the living came by the customs they hold: ${channels}. The ` +
-      `peoples' sizes: ${last.peoples.sizes.join(', ') || 'none'}.`;
+      `How the living came by the customs they hold: ${channels}. ` +
+      peoplesText(last.peoples, last.population);
+}
+
+/**
+ * The peoples in words: who is counted, and each named by its descent.
+ * @param {!Object} peoples The census's peoples: `peoples`, `sizes`, and
+ *     (since cycle 37) `descents` and `grown`.
+ * @param {number} alive How many are alive.
+ * @return {string} E.g. 'Of the 63 alive, 43 are grown; they form 2
+ *     peoples (groups whose marriage rules let them marry one another):
+ *     26 mostly of the Hill people, 17 mostly of the River people.
+ *     Children belong to none until grown.'
+ */
+function peoplesText(peoples, alive) {
+  const grown = peoples.grown ?? peoples.sizes.reduce((a, b) => a + b, 0);
+  if (!grown) return `None of the ${alive} alive is grown, so no peoples.`;
+  const each = peoples.sizes.map((n, i) => peoples.descents ?
+    `${n} mostly of the ${peoples.descents[i] || 'valley'}` : `${n}`);
+  return `Of the ${alive} alive, ${grown} ${grown === 1 ? 'is' : 'are'} ` +
+      `grown; they form ${peoples.peoples === 1 ? 'one people' :
+        `${peoples.peoples} peoples`} (groups whose marriage rules let them ` +
+      `marry one another): ${each.join(', ')}. Children belong to none ` +
+      'until grown.';
 }
 
 /**
@@ -635,6 +664,40 @@ async function showPerson(name) {
   }));
   document.getElementById('person').hidden = false;
   page.person = person.name;
+  page.personYear = page.world.year;
+}
+
+/**
+ * Keeps the open panels true to the year: the person's is redrawn each
+ * year, and says when the person is no longer alive; the lineage's (whose
+ * folds a redraw would close) offers to show it as of now.
+ * @param {!Object} world The world's state.
+ */
+function followYear(world) {
+  if (page.person && !document.getElementById('person').hidden &&
+      page.personYear !== world.year && page.personYear >= 0) {
+    if (world.people.some((p) => p.name === page.person)) {
+      showPerson(page.person).catch(() => {});
+    } else {
+      document.getElementById('person-body').textContent =
+          goneFromPanel(page.person, page.personYear, world.year);
+      page.personYear = -1;  // Shown as gone; nothing more to follow.
+    }
+  }
+  document.getElementById('lineage-update').hidden =
+      !page.lineage || page.lineageYear >= world.year;
+}
+
+/**
+ * What the person's panel says once its person has died.
+ * @param {string} name The person.
+ * @param {number} shown The year the panel last showed them alive.
+ * @param {number} year The world's year.
+ * @return {string} The line.
+ */
+function goneFromPanel(name, shown, year) {
+  return `${name} is no longer alive (year ${yearText(year)}). ` +
+      `Below is how they were in year ${yearText(shown)}.`;
 }
 
 /** The family the inspector shows: [key in the kin reply, label]. */
@@ -934,9 +997,15 @@ function kinRow(label, kin) {
 /**
  * Shows a custom's lineage: its variants, who holds each and from whom.
  * @param {string} id A variant's id.
+ * @param {boolean=} scroll Whether to bring the panel into view.
  */
-async function showLineage(id) {
+async function showLineage(id, scroll = true) {
   const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
+  page.lineage = id;
+  page.lineageYear = page.world.year;
+  document.getElementById('lineage-asof').textContent =
+      `As of year ${yearText(page.world.year)}.`;
+  document.getElementById('lineage-update').hidden = true;
   document.getElementById('lineage-title').textContent =
       `How a custom has changed: “${lineage.text}”`;
   const item = (variant, where) => {
@@ -990,7 +1059,7 @@ async function showLineage(id) {
   document.getElementById('lineage-older').hidden = !lineage.lost_parent;
   const panel = document.getElementById('lineage');
   panel.hidden = false;
-  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+  if (scroll) panel.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 /**
@@ -1083,6 +1152,7 @@ async function refreshOnce() {
   try {
     const world = await api('api/state');
     page.world = world;
+    followYear(world);
     document.getElementById('year').textContent =
         `${worldName(world.scenario)}, year ${yearText(world.year)}: ` +
         `${world.people.length} people alive` +
@@ -1566,6 +1636,10 @@ async function start() {
   });
   document.getElementById('lineage-close').addEventListener('click', () => {
     document.getElementById('lineage').hidden = true;
+    page.lineage = null;
+  });
+  document.getElementById('lineage-update').addEventListener('click', () => {
+    if (page.lineage) showLineage(page.lineage, false);
   });
   document.getElementById('play').addEventListener('click', async () => {
     await api('api/pace', {paused: !page.world.pace.paused});
@@ -1710,7 +1784,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind,
+    answerText, askMove, cameBy, goneFromPanel, peoplesText, chartSeries,
+    crowdedSpot, customKind,
     domainsFor, kinName, entryText, moveWords, worldName, yearText,
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,
     appendNew, entryMeta, entryShown,

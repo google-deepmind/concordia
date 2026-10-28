@@ -455,7 +455,9 @@ class Run:
     where `world()` may be read.
 
     Returns:
-      How many peoples there are, and their sizes, largest first.
+      How many peoples there are; their sizes, largest first, and the descent
+      most in each holds (`descents`, for a name); and how many are grown
+      (the children belong to none yet).
     """
     world = self.world()
     grown = [
@@ -490,10 +492,20 @@ class Run:
             rules[b], heard, same
         ):
           root[find(a)] = find(b)
-    sizes = collections.Counter(find(name) for name in grown)
+    clusters: dict[str, list[str]] = collections.defaultdict(list)
+    for name in grown:
+      clusters[find(name)].append(name)
+    ordered = sorted(clusters.values(), key=len, reverse=True)
     return {
-        'peoples': len(sizes),
-        'sizes': sorted(sizes.values(), reverse=True),
+        'peoples': len(ordered),
+        'sizes': [len(members) for members in ordered],
+        'descents': [
+            collections.Counter(
+                world.people[name].descent for name in members
+            ).most_common(1)[0][0]
+            for members in ordered
+        ],
+        'grown': len(grown),
     }
 
   def play(

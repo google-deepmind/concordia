@@ -335,9 +335,13 @@ class PresetTest(absltest.TestCase):
 
     run.play()
 
-    self.assertEqual(run.peoples()['peoples'], 2)
+    peoples = run.peoples()
+    self.assertEqual(peoples['peoples'], 2)
     descents = {p.descent for p in run.world().people.values()}
     self.assertEqual(descents, {'West people', 'East people'})
+    # Each is named by its members' descent; the grown are all counted.
+    self.assertCountEqual(peoples['descents'], descents)
+    self.assertEqual(sum(peoples['sizes']), peoples['grown'])
 
   def test_in_bridged_valleys_one_founder_a_side_bridges_the_peoples(self):
     settings = scenarios.settings('bridged_valleys', max_years=1)
