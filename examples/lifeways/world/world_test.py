@@ -1870,6 +1870,7 @@ class FarmingTest(_PlaceTest):
 
     census = self.world.history[-1]
     self.assertEqual((census['sown'], census['barren']), (1, 1))
+    self.assertEqual(census['barren_names'], ['Bo'])
     self.assertEqual(census['barren_answers'], [f'Bo sows a field ({norm}).'])
 
   def test_sparing_is_seen_unless_the_world_says_it_is_not(self):

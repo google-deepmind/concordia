@@ -2440,6 +2440,7 @@ class World:
         # Sowings that grew nothing (no farming know-how named), and the
         # first answers of them.
         'barren': len(barren),
+        'barren_names': barren,
         'barren_answers': [
             ' '.join(answers.get(name, '').split())[:UNREAD_LENGTH]
             for name in barren[:UNREAD_KEPT]

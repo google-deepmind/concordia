@@ -422,11 +422,43 @@ class Run:
       world keeps none), `held` (`customs_census`) and `peoples`.
     """
     world = self.world()
+    row = dict(world.history[-1]) if world.history else {'year': year - 1}
+    if row.get('barren_names'):
+      # Whether those whose sowing grew nothing still hold farming know-how
+      # (they named something else) or no longer do (measurement only).
+      row['barren_knowing'] = sum(
+          self.holds(name, culture_lib.SKILL, culture_lib.FARMING)
+          for name in row['barren_names']
+      )
     return {
-        **(world.history[-1] if world.history else {'year': year - 1}),
+        **row,
         'held': self.customs_census(),
         'peoples': self.peoples(),
     }
+
+  def holds(self, name: str, kind: str, domain: str) -> bool:
+    """Whether a living person holds a custom of a kind and domain.
+
+    Measurement only: read from the person's entity, which the World GM
+    never reads. Call it where `world()` may be read.
+
+    Args:
+      name: The person.
+      kind: The custom's kind (e.g. `culture.SKILL`).
+      domain: Its domain (e.g. `culture.FARMING`).
+
+    Returns:
+      True if the person lives and holds one.
+    """
+    for entity in list(self.sim.entities):
+      if entity.name == name:
+        return any(
+            isinstance(c, culture.Custom)
+            and c.kind == kind
+            and c.domain == domain
+            for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
+        )
+    return False
 
   def held_counts(self) -> collections.Counter[str]:
     """How many of the living hold each custom, read from their Learners.

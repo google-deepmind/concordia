@@ -369,6 +369,23 @@ class PresetTest(absltest.TestCase):
 
     self.assertEqual(run.peoples()['peoples'], 1)
 
+  def test_the_harness_reads_who_holds_know_how(self):
+    settings = scenarios.settings('first_farmers', founders=6, max_years=1)
+    run = simulation.build_simulation(settings)
+    founders = [f['params'] for f in scenarios.founders(settings)]
+
+    self.assertEqual(
+        {f['name']: run.holds(f['name'], 'skill', 'farming') for f in founders},
+        {
+            f['name']: any(
+                c['kind'] == 'skill' and c['domain'] == 'farming'
+                for c in f['customs']
+            )
+            for f in founders
+        },
+    )
+    self.assertFalse(run.holds('Nobody', 'skill', 'farming'))
+
   def test_first_farmers_sow_and_their_know_how_spreads(self):
     settings = scenarios.settings('first_farmers', max_years=30)
     founders = scenarios.founders(settings)
