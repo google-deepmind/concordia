@@ -1389,7 +1389,10 @@ class Session:
     if not self.running:
       raise RuntimeError('The world is not playing.')
     if self.input.settings()['paused']:
-      raise RuntimeError("The world is paused: a twin forks at a year's close.")
+      raise RuntimeError(
+          "the world is paused, and a twin forks at a year's close: press"
+          ' Play, then Fork.'
+      )
     with self._saving:
       self._fork, self._fork_wanted = None, True
       self._saving.wait_for(lambda: self._fork is not None, timeout)

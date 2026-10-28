@@ -202,6 +202,19 @@ function drawMap(world) {
       ctx.setLineDash([]);
     }
   }
+  // A place's letter stays readable over anyone standing there.
+  ctx.font = `${Math.floor(page.tile * 0.8)}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.fillStyle = '#222';
+  for (const place of world.places) {
+    const [r, c] = place.tile;
+    const glyph = PLACE_GLYPHS[place.kind] || '?';
+    ctx.strokeText(glyph, (c + 0.5) * page.tile, (r + 0.5) * page.tile);
+    ctx.fillText(glyph, (c + 0.5) * page.tile, (r + 0.5) * page.tile);
+  }
 }
 
 /**
@@ -799,6 +812,17 @@ function cameBy(custom) {
       [`came by ${custom.via}`, `came by ${custom.via} from`];
   return custom.from ? `${withWhom} ${custom.from}` : alone;
 }
+
+/** An example of what a released custom of each kind might say. */
+const EXAMPLE_SAYS = {
+  norm: 'We give the first fish to the river.',
+  value: 'We do not forget a debt.',
+  belief: 'Storms come when the shrine is neglected.',
+  skill: 'Smoking fish over green alder.',
+  habit: 'In lean years, gather before anything else.',
+  marriage: 'We marry only our own people.',
+  bias: 'Learn from the eldest.',
+};
 
 /** What each kind of custom is, in words. */
 const KIND_WORDS = {
@@ -1710,7 +1734,14 @@ async function start() {
   fill('domain', domainsFor(world, document.getElementById('kind').value));
   document.getElementById('kind').addEventListener('change', (event) => {
     const kind = event.target.value;
+    const domain = document.getElementById('domain');
+    const about = domain.value;  // Kept if the new kind can be about it.
     fill('domain', domainsFor(page.world || world, kind));
+    if ([...domain.options].some((option) => option.value === about)) {
+      domain.value = about;
+    }
+    document.getElementById('says').placeholder =
+        EXAMPLE_SAYS[kind] || EXAMPLE_SAYS.norm;
     document.getElementById('within-box').hidden = kind !== 'marriage';
     document.getElementById('level-box').hidden = kind !== 'skill';
   });
@@ -1857,14 +1888,14 @@ async function start() {
     const said = document.getElementById('fork-error');
     said.textContent = '';
     if (name !== 'without' && (value === '' || !Number.isFinite(channel))) {
-      said.textContent = 'No twin: give the lever a value, a number.';
+      said.textContent = 'Not forked: give the lever a value, a number.';
       return;
     }
     document.getElementById('twin').textContent = 'Forking at the year\'s end…';
     try {
       await api('api/twin', {lever: name, value: channel});
     } catch (error) {
-      said.textContent = `No twin: ${error.message}`;
+      said.textContent = `Not forked: ${error.message}`;
     }
     refresh();
   });
