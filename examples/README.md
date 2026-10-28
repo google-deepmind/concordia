@@ -107,6 +107,16 @@ add a row to the relevant table below as part of your pull request.
 :                                                                   : events, polling  :                                                :
 :                                                                   : masks, and       :                                                :
 :                                                                   : timers.          :                                                :
+| [adventure](adventure/)                                           | Open-world       | `python -m examples.adventure.run --use_mock`  |
+:                                                                   : interactive      : (play\: `python -m examples.adventure.run      :
+:                                                                   : fiction on the   : --mode=server`; see its README)                :
+:                                                                   : asynchronous     :                                                :
+:                                                                   : engine with      :                                                :
+:                                                                   : Hot/Warm/Cold    :                                                :
+:                                                                   : NPC tiers, a     :                                                :
+:                                                                   : zero-LLM story   :                                                :
+:                                                                   : director, and a  :                                                :
+:                                                                   : browser UI.      :                                                :
 
 ## Games
 
