@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
+  answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind,
+  domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
   leverChoices, moreNote,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,

@@ -19,7 +19,8 @@ what the person observed of its body and place, and from what its customs
 say (their texts are in the prompt, with their ids). Customs therefore change
 what a mock person does, just as they change a model's answer. The same
 prompt always gets the same answer. Like a model, it continues the answer the
-stock act component begins with the person's name ("Ada " + 'says: "..."').
+stock act component begins with the person's name ("Ada " + 'says: "..."'),
+or answers alone where the prompt begins none.
 """
 
 from collections.abc import Collection, Mapping, Sequence
@@ -75,7 +76,9 @@ class MockModel(language_model.LanguageModel):
     if 'The Experimenter asks' in question:
       said = [text for _, _, text in customs][:3]
       said = 'We live by these: ' + ' '.join(said) if said else 'I do not know.'
-      return f'says: "{said}"'  # After the person's name.
+      # It continues what the prompt begins: after the person's name, or
+      # (a person restored from a save made before the stock prefix) none.
+      return said if prompt.endswith('Answer: ') else f'says: "{said}"'
     if world_lib.PASS_ON in question and 'Which of' in question:
       return ' '.join([world_lib.PASS_ON, *(cid for _, cid, _ in customs)])
     moves = _MOVES.findall(question)

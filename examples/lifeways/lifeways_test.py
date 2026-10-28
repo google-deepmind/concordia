@@ -39,6 +39,7 @@ from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
 from concordia.components.agent import human_act_component
 from concordia.components.game_master import make_observation
+from concordia.document import interactive_document
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 from concordia.typing import entity as entity_lib
@@ -473,19 +474,49 @@ class ModelTest(absltest.TestCase):
         simulation.make_model('together_ai:deepseek-ai/DeepSeek-V3')
 
 
+def _ask_mock(context, question, answer_prefix='Kaka '):
+  """The mock's answer, asked as the stock `ConcatActComponent` asks."""
+  prompt = interactive_document.InteractiveDocument(
+      mock_language_model.MockModel()
+  )
+  prompt.statement(context + '\n')
+  return prompt.open_question(
+      question,
+      max_tokens=2200,
+      answer_prefix=answer_prefix,
+      terminators=(),
+      question_label='Exercise',
+  )
+
+
 def _mind(food, customs, moves):
   """What the mock mind answers, given its food, customs and moves."""
-  return mock_language_model.MockModel().sample_text(
+  return _ask_mock(
       '\n'.join([
           *(f'({domain}) [{cid}]: {text}' for domain, cid, text in customs),
           f'Food stored: {food}',
-          'Question: What do you do?',
-          *(f'- {move}' for move in moves),
-      ])
+      ]),
+      '\n'.join(['What do you do?', *(f'- {move}' for move in moves)]),
   )
 
 
 class MockMindTest(absltest.TestCase):
+
+  def test_it_continues_what_the_prompt_begins(self):
+    context = '(norm) [c1]: We share our food.'
+    question = gm_components.INTERVIEW_QUESTION.format(
+        name='Kaka', question='Why?'
+    )
+
+    self.assertEqual(
+        _ask_mock(context, question),
+        'says: "We live by these: We share our food."',
+    )
+    # A person restored from a save made before the stock prefix:
+    self.assertEqual(
+        _ask_mock(context, question, answer_prefix=''),
+        'We live by these: We share our food.',
+    )
 
   def test_a_custom_of_tending_has_a_sower_sow_on_little_food(self):
     moves = [world_lib.GATHER, world_lib.REST, world_lib.SOW]

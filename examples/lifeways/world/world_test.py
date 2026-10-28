@@ -106,7 +106,11 @@ _READINGS = (
     ),
     ('Ada', 'As her mother taught her, Ada gathers food.', ''),
     ('Kaka', 'Well rested, Kaka gathers food.', ''),
-    ('Kaka', 'Kaka, no longer looking for a partner, gathers food.', ''),
+    (
+        'Kaka',
+        'Kaka, no longer looking for a partner, gathers food.',
+        'gather food',
+    ),
     ('Kaka', 'Kaka interests Lira.', ''),
     ('Kaka', 'Kaka displays her basket.', ''),
     ('Kaka', 'Kaka says she has no partner.', ''),
@@ -274,6 +278,28 @@ _READINGS = (
     ('Kaka', 'Right now she gathers food.', ''),  # not 'gather food'
     ('Kaka', 'For now, she rests.', ''),  # not 'rest'
     ('Kaka', 'Just now she gathered food.', ''),  # not 'gather food'
+    # A mind's answer begins with its name (the stock act component's
+    # "Answer: Kaka "); an aside or a word such as "now" may follow it
+    # (audit 15):
+    (
+        'Kaka',
+        'Kaka now gathers food, and she has a child to feed.',
+        'gather food',
+    ),
+    ('Kaka', 'Kaka then gathers food, and she rests.', 'gather food'),
+    ('Kaka', 'Kaka now gathers food.', 'gather food'),
+    ('Kaka', 'Kaka, having a child to feed, gathers food.', 'gather food'),
+    ('Kaka', 'Kaka, this year, sows a field.', 'sow a field'),
+    ('Kaka', 'Kaka is gathering food.', 'gather food'),
+    ('Kaka', 'Kaka will be gathering food.', 'gather food'),
+    ('Kaka', 'Kaka now has a child, so she gathers food.', 'gather food'),
+    ('Kaka', 'Kaka sows a field (c11).', 'sow a field'),
+    ('Kaka', 'Kaka: gather food', 'gather food'),
+    ('Kaka', 'Kaka chooses to rest.', 'rest'),
+    ('Kaka', 'Kaka, who has a child to feed, gathers food.', ''),
+    # Known limits (audit 15): a clause of the name's own before the move
+    # ("Kaka has a child to feed, so she gathers food" reads 'have a
+    # child'; "Kaka says she gathers food" reads nothing).
 )
 _READING_MOVES = (
     'gather food',

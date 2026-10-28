@@ -187,7 +187,9 @@ settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
 
 ### What spreads when released
 
-MOCK Sandbox, 6 seeds. In each, the Experimenter sang a custom in year 14
+MOCK Sandbox, 6 seeds, build ee4a3a5f (every MOCK run has differed since a
+person's answer began with their name, f0eb8b80). In each, the Experimenter
+sang a custom in year 14
 where most would hear it, and the release was followed to year 85 as the
 page follows it (`Session.releases`). A short harness over the page's
 session made the table; it is not part of this example.
@@ -408,8 +410,9 @@ Sandbox, about 40 (20-60), with hardly anyone arriving.
 
 **Interviews.** The Experimenter may ask a person a question (`ask <name>:
 <question>`). The next year the GM puts it to the person before its move,
-and the answer, in the person's own words, goes into the world's
-transcripts (and to the Experimenter, and to the page).
+and the answer goes into the world's transcripts (and to the Experimenter, and
+to the page): a mind's tells what the person says ("Kaka says: ..."), a
+player's is in their own words.
 
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'

@@ -160,7 +160,6 @@ class Person(prefab_lib.Prefab):
         else concat_act_component.ConcatActComponent(
             model=model,
             component_order=order,
-            randomize_choices=False,
         )
     )
     entity = entity_agent_with_logging.EntityAgentWithLogging(

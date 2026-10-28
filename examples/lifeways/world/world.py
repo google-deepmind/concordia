@@ -2446,15 +2446,23 @@ _SUBORDINATORS = (
 )
 
 
+# Words that may stand between the subject and its verb ("Kaka now ...").
+_AFTER_SUBJECT = (
+    r'now|then|also|still|again|once more|(?:this|next|the next) year'
+)
+
+
 def _clause_start(name: str) -> re.Pattern[str]:
   """Where a move said in another form may stand, for one answering.
 
   Where a clause begins (after the start, a full stop, colon or semicolon,
   ", so", ", and" or "yes,"), then "this year" or the like, then its
   subject: the one answering (by name, or I, she, he, they, we), after a
-  word such as "old" but never "since" or "while", then an id in brackets,
-  then "will", then "spends the year" ("Kaka spends the year gathering
-  food").
+  word such as "old" but never "since" or "while"; after the subject, an
+  aside that is not a relative clause ("Kaka, old now,") and a word such as
+  "now" or "this year" (a mind's answer begins with its name: "Kaka now
+  gathers food"); then an id in brackets, then "will", "is" or "will be",
+  then "spends the year" ("Kaka spends the year gathering food").
 
   Args:
     name: The one answering ('' if not known: a pronoun only).
@@ -2466,8 +2474,10 @@ def _clause_start(name: str) -> re.Pattern[str]:
   return re.compile(
       r'(?:^|[.!?:;]\s*|,\s+(?:so|and)\s+|\byes,\s+)'
       r'(?:(?:(?:this|next|the next) year|(?P<now>now)),?\s+)?'
-      rf"(?:(?P<pre>(?!(?:{_SUBORDINATORS})\b)[a-z']+\s+)?(?P<who>{who})\s+)?"
-      r'(?:[(\[]c\d+(?:,\s*c\d+)*[)\]]\s+)?(?:will\s+)?'
+      rf"(?:(?P<pre>(?!(?:{_SUBORDINATORS})\b)[a-z']+\s+)?(?P<who>{who})"
+      r'(?:,(?!\s*(?:who|whom|whose|which)\b)[^,.!?:;]+,)?\s+'
+      rf'(?:(?P<then>{_AFTER_SUBJECT}),?\s+)?)?'
+      r'(?:[(\[]c\d+(?:,\s*c\d+)*[)\]]\s+)?(?:(?:will|is|will be)\s+)?'
       r'(?:(?:spends?|will spend) (?:the|this) year(?: \d+)?\s+)?$'
   )
 
@@ -2547,7 +2557,8 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
   starts = _clause_start(name)
   # A phrase that only sets the scene for the answerer's clause after it
   # ("Having a child to feed, Kaka gathers food"; "Now she has a child,
-  # Kaka ..."): its verb is not the move. Such a phrase opens with "now", or
+  # Kaka ..."; "Kaka now has a child, so she ..."): its verb is not the
+  # move. Such a phrase opens with "now" (before or after its subject), or
   # with a form in -ing and no subject. The clause after it is the
   # answerer's ("..., so she gathers food", "..., Kaka says she rests"), not
   # an aside ("..., she says,") nor a purpose ("..., so she can ...").
@@ -2571,8 +2582,10 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
           start = starts.search(answer[: match.start()])
           if not start:
             continue
-          sets_the_scene = start.group('now') or (
-              not start.group('who') and said.split(' ')[0].endswith('ing')
+          sets_the_scene = (
+              start.group('now')
+              or start.group('then') == 'now'  # "Kaka now has a child, so"
+              or (not start.group('who') and said.split(' ')[0].endswith('ing'))
           )
           if sets_the_scene and subject_after.search(answer[match.end() :]):
             continue

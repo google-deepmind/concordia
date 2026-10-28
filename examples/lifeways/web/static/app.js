@@ -1684,8 +1684,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
-    entryText, moveWords, worldName, yearText,
+    answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind,
+    domainsFor, kinName, entryText, moveWords, worldName, yearText,
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,
     appendNew, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
