@@ -757,8 +757,7 @@ function letGoText(record) {
   const what = `${KIND_WORDS[record.kind] || record.kind} about ` +
       record.domain;
   const why = {
-    locus: `one holds only one ${KIND_WORDS[record.kind] || record.kind} ` +
-        `about ${record.domain}`,
+    locus: 'one holds only one of each kind about a thing',
     domain: `two about ${record.domain} are the most one holds`,
     capacity: 'one holds only so many customs in all',
   }[record.why] || record.why;

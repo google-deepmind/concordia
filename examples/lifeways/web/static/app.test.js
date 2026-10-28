@@ -143,9 +143,10 @@ test('a custom let go says what pushed it out, and why', () => {
   assert.equal(letGoText(record), '"Sowing wild barley." (know-how about ' +
       'farming) gave way to "We take nothing from another\'s field.": two ' +
       'about farming are the most one holds.');
-  assert.equal(letGoText({...record, why: 'locus'}), '"Sowing wild ' +
-      'barley." (know-how about farming) gave way to "We take nothing from ' +
-      'another\'s field.": one holds only one know-how about farming.');
+  assert.equal(letGoText({...record, kind: 'habit', why: 'locus'}),
+      '"Sowing wild barley." (a habit about farming) gave way to "We take ' +
+      'nothing from another\'s field.": one holds only one of each kind ' +
+      'about a thing.');
 });
 
 test('a panel says when its person is no longer alive', () => {
