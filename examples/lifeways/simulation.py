@@ -194,16 +194,6 @@ _quiet = _Quiet()
 MOCK = 'mock'
 
 
-# What a local (Ollama) model is told before every prompt: nothing. The
-# contrib model's default ("Continue the user's sentences...") makes a small
-# model narrate rather than choose: asked a skilled sower's question 24
-# times, llama3.2:3b sowed 0 times with it, 3 with a plain "answer the
-# question", and 17 with nothing, while those who could not sow gathered
-# food every time. A person's mind is its prompt; the model is told
-# nothing more.
-OLLAMA_SYSTEM = ''
-
-
 def make_model(
     spec: str = MOCK,
 ) -> tuple[
@@ -213,9 +203,8 @@ def make_model(
 
   Args:
     spec: `mock`, or `<api>:<model>` for live minds through the contrib
-      model setup (e.g. `ollama:llama3.2:3b`; an Ollama model is told
-      nothing before each prompt, `OLLAMA_SYSTEM`). Together's key is read
-      from the environment (`TOGETHER_API_KEY`), never from an argument.
+      model setup (e.g. `ollama:llama3.2:3b`). Together's key is read from
+      the environment (`TOGETHER_API_KEY`), never from an argument.
 
   Returns:
     The model (None: the deterministic mock) and its call counter.
@@ -234,16 +223,9 @@ def make_model(
     )
     if not key:
       raise ValueError('No Together key in the environment.')
-  if api == 'ollama':
-    # The contrib model with no system message of its own (`OLLAMA_SYSTEM`);
-    # its client is optional, so it is imported only here.
-    from concordia.contrib.language_models.ollama import ollama_model  # pylint: disable=g-import-not-at-top,import-outside-toplevel
-
-    model = ollama_model.OllamaLanguageModel(name, system_message=OLLAMA_SYSTEM)
-  else:
-    model = language_models.language_model_setup(
-        api_type=api, model_name=name, api_key=key
-    )
+  model = language_models.language_model_setup(
+      api_type=api, model_name=name, api_key=key
+  )
   counts = profiler.ProfilerContext()
   counts.enable()
   return (
