@@ -262,7 +262,10 @@ Customs are added and removed while a person lives (`EntityAgent.add_component`
 `component_factory`.
 
 A person acts through the stock `ConcatActComponent`, or a person's
-`HumanActComponent`, or a rule (`act_component_factory`). The `Learner` takes up
+`HumanActComponent`, or a rule (`act_component_factory`). The stock component
+asks the model through an `InteractiveDocument` and begins the answer with the
+person's name ("Answer: Kaka "), the sentence Concordia's models are framed to
+continue; the World reads the move in it. The `Learner` takes up
 the customs offered in observations, by the person's own learning biases:
 - each further person seen doing the same is another chance to take it up;
 - a kind of custom in a domain is a locus, like a plasmid's incompatibility
