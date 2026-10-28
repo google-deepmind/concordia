@@ -47,8 +47,10 @@ PASS_ON_QUESTION = (
     ' {name} pass on to the child? Answer "pass on" and the ids of the'
     ' customs, e.g. "pass on c3 c7".'
 )
+# The stock act component begins the answer with the person's name, so the
+# question asks what the person says: "Kagun says ...", not "Kagun Yes, I".
 INTERVIEW_QUESTION = (
-    'The Experimenter asks {name}: "{question}" What does {name} answer?'
+    'The Experimenter asks {name}: "{question}" What does {name} say?'
 )
 # No example answer (small models copy it), and the move asked for exactly
 # as written (small models paraphrase it, and a paraphrase names no move).
