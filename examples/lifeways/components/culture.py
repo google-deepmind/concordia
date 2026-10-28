@@ -39,6 +39,10 @@ import numpy as np
 Rule = Callable[[entity_lib.ActionSpec, Mapping[str, str]], str]
 
 COMPONENT_PREFIX = 'custom '
+# How many of the customs a Learner let go it remembers (the latest).
+LET_GO_KEPT = 5
+# Why a custom was let go to make room for another.
+SAME_LOCUS, DOMAIN_FULL, CAPACITY_FULL = 'locus', 'domain', 'capacity'
 
 _LABELS = {
     culture_lib.NORM: 'A custom of ours',
@@ -188,6 +192,9 @@ class Learner(entity_component.ContextComponent):
     # What the person holds, oldest first (including customs whose components
     # join when the current call ends): id -> kind, domain, level, channel.
     self._held: dict[str, dict[str, Any]] = {}
+    # The customs it let go to make room, latest last (`LET_GO_KEPT`): what
+    # each was, what it made room for, and why (`SAME_LOCUS`, ...).
+    self._let_go: list[dict[str, str]] = []
 
   def inherit(
       self, spec: Mapping[str, Any], via: str = culture_lib.BIRTH
@@ -300,22 +307,39 @@ class Learner(entity_component.ContextComponent):
       return False  # What is one's own is not displaced by what is expected.
     same = [c for c, held in self._held.items() if held['domain'] == domain]
     if locus:
-      victim = locus[0]
+      victim, why = locus[0], SAME_LOCUS
     elif len(same) >= self._per_domain:
-      victim = same[0]
+      victim, why = same[0], DOMAIN_FULL
     elif len(self._held) >= self._capacity:
-      victim = next(iter(self._held))
+      victim, why = next(iter(self._held)), CAPACITY_FULL
     else:
       return True
+    dropped = entity.get_all_context_components().get(component_name(victim))
+    self._let_go.append({
+        'id': victim,
+        'kind': self._held[victim]['kind'],
+        'domain': self._held[victim]['domain'],
+        'text': dropped.spec['text'] if isinstance(dropped, Custom) else '',
+        'for': str(spec.get('id', '')),
+        'for_text': str(spec.get('text', '')),
+        'why': why,
+    })
+    del self._let_go[:-LET_GO_KEPT]
     entity.remove_component(component_name(victim))
     del self._held[victim]
     return True
+
+  def let_go(self) -> list[dict[str, str]]:
+    """The customs let go to make room, latest last (measurement, display)."""
+    with self._lock:
+      return [dict(record) for record in self._let_go]
 
   @override
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
       return {
           'held': [{'id': c, **held} for c, held in self._held.items()],
+          'let_go': [dict(record) for record in self._let_go],
       }
 
   @override
@@ -333,6 +357,10 @@ class Learner(entity_component.ContextComponent):
           }
           for held in data.get('held', ())
       }
+      self._let_go = [  # Saves before cycle 36 kept none.
+          {str(k): str(v) for k, v in dict(record).items()}
+          for record in data.get('let_go', ())
+      ][-LET_GO_KEPT:]
 
 
 class RuleAct(entity_component.ActingComponent):

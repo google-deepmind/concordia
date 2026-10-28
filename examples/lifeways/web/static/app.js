@@ -732,9 +732,38 @@ async function showPerson(name) {
     item.append(meta);
     return item;
   }));
+  const letGo = person.let_go || [];
+  document.getElementById('person-let-go-box').hidden = !letGo.length;
+  document.getElementById('person-let-go').replaceChildren(
+      ...[...letGo].reverse().map((record) => {
+        const item = document.createElement('li');
+        item.textContent = letGoText(record);
+        return item;
+      }));
   document.getElementById('person').hidden = false;
   page.person = person.name;
   page.personYear = page.world.year;
+}
+
+/**
+ * A custom a person let go, and why, in words.
+ * @param {!Object} record {text, kind, domain, for_text, why} (`why`:
+ *     'locus', 'domain' or 'capacity').
+ * @return {string} E.g. '"Sowing wild barley." (know-how about farming) gave
+ *     way to "We take nothing from another's field.": two about farming
+ *     are the most one holds.'
+ */
+function letGoText(record) {
+  const what = `${KIND_WORDS[record.kind] || record.kind} about ` +
+      record.domain;
+  const why = {
+    locus: `one holds only one ${KIND_WORDS[record.kind] || record.kind} ` +
+        `about ${record.domain}`,
+    domain: `two about ${record.domain} are the most one holds`,
+    capacity: 'one holds only so many customs in all',
+  }[record.why] || record.why;
+  return `"${record.text}" (${what}) gave way to "${record.for_text}": ` +
+      `${why}.`;
 }
 
 /**
@@ -1946,7 +1975,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askedNote, askMove, cameBy, queuedNote, goneFromPanel, paceNote,
+    answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+    goneFromPanel, paceNote,
     peoplesText,
     chartSeries,
     crowdedSpot, customKind,

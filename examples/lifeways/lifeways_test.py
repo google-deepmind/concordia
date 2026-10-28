@@ -946,6 +946,21 @@ class LearnerTest(absltest.TestCase):
     )
 
     self.assertEqual(sorted(self._customs(entity)), ['c2', 'c3'])
+    # It remembers what it let go, for what and why; a save keeps it.
+    learner = entity.get_component(person_lib.LEARNER, type_=culture.Learner)
+    (record,) = learner.let_go()
+    self.assertEqual(
+        {k: record[k] for k in ('id', 'kind', 'for', 'why')},
+        {'id': 'c1', 'kind': 'norm', 'for': 'c3', 'why': culture.DOMAIN_FULL},
+    )
+    restored = self._person(per_domain=2)
+    restored.set_state(json.loads(json.dumps(entity.get_state())))
+    self.assertEqual(
+        restored.get_component(
+            person_lib.LEARNER, type_=culture.Learner
+        ).let_go(),
+        [record],
+    )
 
   def test_only_a_better_skill_replaces_the_one_held(self):
     entity = self._person(

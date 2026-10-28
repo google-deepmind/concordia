@@ -1649,6 +1649,7 @@ class Session:
         'children': body.get('children', []),
         'descent': body.get('descent', ''),
         'customs': sorted(customs, key=lambda c: (c['domain'], c['kind'])),
+        'let_go': learner.let_go(),
     }
 
   def lineage(self, custom_id: str) -> dict[str, Any] | None:

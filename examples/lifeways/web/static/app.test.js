@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askedNote, askMove, cameBy, queuedNote, goneFromPanel, paceNote,
+  answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+  goneFromPanel, paceNote,
   peoplesText,
   chartSeries,
   crowdedSpot, customKind,
@@ -133,6 +134,18 @@ test('moves waiting say one happens a year', () => {
   assert.equal(queuedNote(['send a fire at 1,1', 'bring migrants at 2,2',
     'stop the world']), 'Next year: Send a fire at row 1, column 1. Then, ' +
       'one a year: Bring newcomers to row 2, column 2; End this world.');
+});
+
+test('a custom let go says what pushed it out, and why', () => {
+  const record = {text: 'Sowing wild barley.', kind: 'skill',
+    domain: 'farming', for_text: 'We take nothing from another\'s field.',
+    why: 'domain'};
+  assert.equal(letGoText(record), '"Sowing wild barley." (know-how about ' +
+      'farming) gave way to "We take nothing from another\'s field.": two ' +
+      'about farming are the most one holds.');
+  assert.equal(letGoText({...record, why: 'locus'}), '"Sowing wild ' +
+      'barley." (know-how about farming) gave way to "We take nothing from ' +
+      'another\'s field.": one holds only one know-how about farming.');
 });
 
 test('a panel says when its person is no longer alive', () => {
