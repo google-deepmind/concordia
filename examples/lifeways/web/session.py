@@ -1079,10 +1079,11 @@ class Session:
           release['died'] = closed
           died.append(dict(release))
     for release in died:  # The notebook takes the lock itself.
+      held = f' (at most {release["peak"]} held it)' if release['peak'] else ''
       self._write(
           EVENT,
-          f'Your release "{release["text"]}" died out (at most'
-          f' {release["peak"]} held it): {why_died(release)}.',
+          f'Your release "{release["text"]}" died out{held}:'
+          f' {why_died(release)}.',
           closed,
       )
 

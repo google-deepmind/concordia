@@ -1463,7 +1463,7 @@ class ReleaseTest(_PlaceTest):
     self._year(Experimenter='close the school at 4,5')  # A step away.
     self.assertEmpty(self.world.places.near((4, 4), 5, places_lib.SCHOOL))
     self.assertIn(
-        'The school at row 4, column 4 is closed; 1 customs it held are gone',
+        'The school at row 4, column 4 is closed; 1 custom it held is gone',
         self.world.history[-1]['reports'][0],
     )
 

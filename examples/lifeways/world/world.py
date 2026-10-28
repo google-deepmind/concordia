@@ -635,7 +635,7 @@ class World:
         self._report(f'A {kind} stands within {spacing} steps of {at}.')
         return
       self.places.found(kind, tile, EXPERIMENTER, self.year)
-      self._report(f'A {kind} is founded at {at}; it stands empty.')
+      self._report(f'A {kind} is founded at {at}; its shelf is empty yet.')
       return
     near = self.places.near(tile, 1, kind)
     if not near:
@@ -643,9 +643,11 @@ class World:
       return
     place = near[0]
     self.places.close(place)
+    n = len(place.shelf)
     self._report(
         f'The {kind} at {where(place.tile)} is closed;'
-        f' {len(place.shelf)} customs it held are gone with it.'
+        f' {n} {"custom" if n == 1 else "customs"} it held'
+        f' {"is" if n == 1 else "are"} gone with it.'
     )
 
   def _send(self, answer: str) -> list[str]:

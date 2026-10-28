@@ -870,8 +870,7 @@ class ReleasesTest(absltest.TestCase):
         (0, unheard['year'], 0),
     )
     self.assertIn(
-        'Your release "Unheard." died out (at most 0 held it): nobody was'
-        ' within hearing.',
+        'Your release "Unheard." died out: nobody was within hearing.',
         [e['text'] for e in session.notebook()],
     )
     restored = session_lib.Session(save_path=path)

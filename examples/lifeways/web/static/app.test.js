@@ -124,7 +124,7 @@ test('a panel says when its person is no longer alive', () => {
 test('the dead are named with their years, the forgotten as such', () => {
   assert.equal(kinName({name: 'Ada', living: true, known: true}), 'Ada');
   assert.equal(kinName({name: 'Tone', living: false, known: true, born: -4,
-    died: 63}), 'Tone (died 63, aged 67)');
+    died: 63}), 'Tone (died in year 63, aged 67)');
   assert.equal(kinName({name: 'Elor', living: false, known: false}),
       'Elor (forgotten)');
 });
@@ -459,7 +459,7 @@ test('moves read as a person would say them', () => {
   assert.equal(moveWords('bring migrants at 3,4'),
       'Bring newcomers to row 3, column 4');
   assert.equal(moveWords('close the shrine at 3,4'),
-      'Close the shrine at row 3, column 4');
+      'Close the shrine nearest row 3, column 4');
   assert.equal(moveWords('ask Kaka: Why?'), 'Ask Kaka: “Why?”');
   assert.equal(moveWords('stop the world'), 'End this world');
   assert.equal(entryText({kind: 'move',

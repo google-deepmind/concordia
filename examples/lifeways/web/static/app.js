@@ -645,14 +645,15 @@ async function showPerson(name) {
   document.getElementById('person-name').textContent = person.name;
   const age = page.world.year - person.born;
   document.getElementById('person-body').textContent =
-      `${age} years old, of the ${person.descent || 'valley'}; food ` +
+      `${age} years old, born of the ${person.descent || 'valley'}; food ` +
       `${person.food}.`;
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
   const list = document.getElementById('person-customs');
   list.replaceChildren(...person.customs.map((custom) => {
     const item = document.createElement('li');
-    item.textContent = custom.text;
+    item.textContent = custom.text +
+        (custom.kind === 'dialect' ? ' (a few of its words)' : '');
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = `${customKind(custom)} · ${name} ${cameBy(custom)} · `;
@@ -870,7 +871,8 @@ const LEARNED_BY = {
 function kinName(kin) {
   if (kin.living) return kin.name;
   if (!kin.known) return `${kin.name} (forgotten)`;
-  return `${kin.name} (died ${kin.died}, aged ${kin.died - kin.born})`;
+  return `${kin.name} (died in year ${kin.died}, aged ` +
+      `${kin.died - kin.born})`;
 }
 
 /**
@@ -1043,7 +1045,8 @@ async function showLineage(id, scroll = true) {
     if (variant.id === id) text.style.fontWeight = '600';
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = variantNote(variant, where);
+    meta.textContent = variantNote(variant, where) +
+        (variant.id === id ? ' · the version you opened' : '');
     li.append(text, meta);
     if (variant.holders.length && where === 'held') {
       const who = document.createElement('details');
@@ -1204,6 +1207,7 @@ async function refreshOnce() {
       document.getElementById('at').value = page.at ? page.at.join(',') : '';
     }
     drawMap(world);
+    drawPeopleKey(world);
     drawAt(world);
     drawLife(world);
     drawTranscripts(world);
@@ -1494,6 +1498,28 @@ function drawMapKey(kinds) {
 }
 
 /**
+ * The key to the people's colours: each descent among the living, most
+ * first, with how many; and whether the map marks you.
+ * @param {!Object} world The state.
+ */
+function drawPeopleKey(world) {
+  const key = document.getElementById('people-key');
+  const counts = new Map();
+  for (const person of world.people) {
+    const descent = person.descent || 'valley';
+    counts.set(descent, (counts.get(descent) || 0) + 1);
+  }
+  key.replaceChildren(counts.size ? 'By descent:' : '');
+  for (const [descent, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = peopleColour(descent);
+    key.append(swatch, `the ${descent} (${n})`);
+  }
+  document.getElementById('key-you').hidden = !world.played;
+}
+
+/**
  * A move, in words: the page's moves are written in the form the World
  * reads ("release norm kinship as a song at 8,9: ..."); the page shows them
  * as a person would say them.
@@ -1520,8 +1546,8 @@ function moveWords(move) {
   if (m) return `Bring newcomers to ${at(m[1], m[2])}`;
   m = move.match(/^(found|close) (?:a|the) (\w+) at (\d+),(\d+)$/);
   if (m) {
-    return `${m[1] === 'found' ? 'Found a' : 'Close the'} ${m[2]} at ` +
-        at(m[3], m[4]);
+    return `${m[1] === 'found' ? 'Found a' : 'Close the'} ${m[2]} ` +
+        `${m[1] === 'found' ? 'at' : 'nearest'} ${at(m[3], m[4])}`;
   }
   m = move.match(/^ask ([^:]+): (.+)$/);
   if (m) return `Ask ${m[1]}: “${m[2]}”`;
@@ -1652,7 +1678,7 @@ async function start() {
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
   document.getElementById('build').textContent =
-      `version ${build.commit || '?'}`;
+      `Lifeways, build ${build.commit || '?'} (the code's version)`;
   document.getElementById('map').addEventListener('click', onMapTap);
   document.getElementById('at').addEventListener('change', (event) => {
     const at = event.target.value.split(',').map((n) => parseInt(n, 10));
