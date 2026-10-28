@@ -22,7 +22,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
+  answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
   leverChoices, moreNote,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
@@ -422,6 +422,12 @@ test('moves read as a person would say them', () => {
     text: 'You queue a move: send a fire at 1,1'}),
   'Your move for next year: Send a fire at row 1, column 1');
   assert.equal(entryText({kind: 'world', text: 'A fire.'}), 'A fire.');
+  assert.equal(answerText({name: 'Kaka', answer: 'Kaka says: "We sow."'}),
+      'Kaka says: "We sow."');
+  assert.equal(answerText({name: 'Kaka', answer: 'I would rather not say.'}),
+      '"I would rather not say."');
+  assert.equal(answerText({name: 'Kaka', answer: 'Kakaru sows.'}),
+      '"Kakaru sows."');
   assert.equal(entryText({kind: 'move',
     text: 'You fork a twin in year 40: seed_bank 0.3.'}),
   'You fork a twin in year 40: how fast bare land greens again set to 0.3.');

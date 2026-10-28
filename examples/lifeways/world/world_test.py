@@ -976,6 +976,26 @@ class TransmissionTest(absltest.TestCase):
         restored.history[-1]['reports'],
     )
 
+  def test_a_minds_answer_is_reported_as_it_tells_it(self):
+    self._person('Ada', 30, (5, 5))
+    self.world.actions = {
+        'Ada': 'rest',
+        world_lib.EXPERIMENTER: 'ask Ada: Why do you share?',
+    }
+    self.world.close_year()
+    self.world.record_action('Ada', 'Ada says: "Because the old taught us."')
+    self.world.record_action(world_lib.EXPERIMENTER, 'watch')
+    self.world.record_action('Ada', 'gather food')
+    self.world.close_year()
+
+    self.assertIn(
+        'Asked "Why do you share?", Ada says: "Because the old taught us."',
+        self.world.history[-1]['reports'],
+    )
+    self.assertTrue(world_lib.said_by('Ada', ' Ada gathers food.'))
+    self.assertFalse(world_lib.said_by('Ada', 'Adam gathers food.'))
+    self.assertFalse(world_lib.said_by('Ada', 'I gather food.'))
+
   def test_a_late_answer_does_nothing_and_never_answers_an_interview(self):
     self._person('Ada', 30, (5, 5))
     self.world.mark_asked('Ada', world_lib.MOVES)

@@ -245,7 +245,11 @@ class SandboxTest(parameterized.TestCase):
         (transcript['year'], transcript['name'], transcript['question']),
         (2, name, 'What do you live by?'),
     )
-    self.assertStartsWith(transcript['answer'], 'We live by these:')
+    self.assertStartsWith(transcript['answer'], f'{name} says: "We live by')
+    self.assertIn(
+        f'Asked "What do you live by?", {name} says: "We live by',
+        ' '.join(r for y in run.world().history for r in y['reports']),
+    )
 
   def test_peoples_are_those_whose_marriage_rules_allow_each_other(self):
     def tongue(words):

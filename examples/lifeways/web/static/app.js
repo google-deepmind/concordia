@@ -589,7 +589,7 @@ function drawTranscripts(world) {
   });
   const answered = [...world.transcripts].reverse().map((transcript) => {
     const item = document.createElement('li');
-    item.textContent = `"${transcript.answer}"`;
+    item.textContent = answerText(transcript);
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = `${transcript.name}, year ${transcript.year}, asked` +
@@ -1404,6 +1404,18 @@ function moveWords(move) {
 }
 
 /**
+ * An interview answer as the page shows it: a mind's answer tells what the
+ * person says ("Kaka says: ..."), so it stands as written; a player's own
+ * words are quoted.
+ * @param {!Object} transcript The answer, with who gave it (`name`).
+ * @return {string} Its text.
+ */
+function answerText(transcript) {
+  const answer = transcript.answer.trim();
+  return answer.startsWith(`${transcript.name} `) ? answer : `"${answer}"`;
+}
+
+/**
  * A notebook entry's text as the page shows it: a move or a twin in words,
  * the World's and the valley's entries with any place of an old save in
  * words (`OLD_PLACES`), and the person's own notes as written.
@@ -1669,7 +1681,7 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
+    answerText, askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
     entryText, moveWords, worldName, yearText,
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,
     appendNew, entryMeta, entryShown,

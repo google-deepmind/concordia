@@ -18,7 +18,9 @@ The person's customs are components of its own entity, added from its params
 at birth (those its parents passed on) and later by its Learner. Who plays the
 person is its acting component: a model through the stock
 `ConcatActComponent` by default, or the factory in `act_component_factory`
-(a person's `HumanActComponent`, a rule).
+(a person's `HumanActComponent`, a rule). The stock component's answer
+begins with the person's name, a sentence for the model to continue, as
+Concordia's models are framed to do.
 """
 
 from collections.abc import Mapping
@@ -158,7 +160,6 @@ class Person(prefab_lib.Prefab):
         else concat_act_component.ConcatActComponent(
             model=model,
             component_order=order,
-            prefix_entity_name=False,
             randomize_choices=False,
         )
     )

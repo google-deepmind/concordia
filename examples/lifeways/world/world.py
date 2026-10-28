@@ -905,7 +905,10 @@ class World:
         'answer': answer,
     })
     del self.transcripts[:-TRANSCRIPTS_KEPT]
-    self._report(f'{name}, asked "{question}", says: "{answer}"')
+    if said_by(name, answer):  # A mind's answer begins with its name.
+      self._report(f'Asked "{question}", {answer}')
+    else:
+      self._report(f'{name}, asked "{question}", says: "{answer}"')
 
   def year_complete(self) -> bool:
     return all(name in self.actions for name in self.participants())
@@ -2495,6 +2498,22 @@ def _forms(move: str, past: bool) -> set[str]:
   else:
     forms = forms[2:] if past else forms[:2]
   return {f'{form} {rest}' if rest else form for form in forms} - {move}
+
+
+def said_by(name: str, answer: str) -> bool:
+  """Whether an answer tells what its answerer does or says ("Ada says...").
+
+  A model's answer through the stock act component begins with the
+  answerer's name; a player's answer is in their own words.
+
+  Args:
+    name: Who answered.
+    answer: The answer.
+
+  Returns:
+    True if the answer begins with the name as a word.
+  """
+  return re.match(re.escape(name) + r'(?![\w-])', answer.strip()) is not None
 
 
 def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
