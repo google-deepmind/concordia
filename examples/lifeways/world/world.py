@@ -89,6 +89,10 @@ MOVES = 'move'
 ASK_FORM = 'ask <name>: <question>'
 _ASK = re.compile(r'^ask (?P<name>[A-Za-z]+): (?P<question>.+)$')
 TRANSCRIPTS_KEPT = 50
+# Answers that named no move, kept a year in the census (the first few, cut
+# short): what the reader missed, from live minds.
+UNREAD_KEPT = 3
+UNREAD_LENGTH = 200
 # The Experimenter's: release a custom it designed into the world.
 RELEASE = 'release'
 RELEASE_FORM = (
@@ -1303,6 +1307,7 @@ class World:
             births=len(births),
             arrivals=len(arrived),
             deaths=len(deaths),
+            answers=self.actions,
             did=did,
             worked=worked,
             created=self.culture.created() - created,
@@ -2239,6 +2244,7 @@ class World:
       births: int,
       arrivals: int,
       deaths: int,
+      answers: Mapping[str, str],
       did: Mapping[str, tuple[str, list[str]]],
       worked: Sequence[int],
       created: int,
@@ -2263,6 +2269,13 @@ class World:
                 ).items()
             )
         ),
+        # Moves that named a custom the GM once gave the mover (enacted).
+        'cited': sum(1 for m, enacted in did.values() if m and enacted),
+        'unread': [
+            ' '.join(answers.get(name, '').split())[:UNREAD_LENGTH]
+            for name, (m, _) in sorted(did.items())
+            if not m
+        ][:UNREAD_KEPT],
         'breaches': len(self.breaches),
         'libraries': sum(
             1

@@ -1002,6 +1002,24 @@ class TransmissionTest(absltest.TestCase):
         restored.history[-1]['reports'],
     )
 
+  def test_the_census_keeps_what_it_could_not_read_and_counts_citing(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Bo', 30, (5, 6))
+    self._person('Cy', 30, (6, 5))
+    self.world.actions = {
+        'Ada': f'Ada gathers food, as {self.skill} teaches.',
+        'Bo': 'gather food',
+        'Cy': 'Cy  ponders the\nsky. ' + 'Long. ' * 60,
+        world_lib.EXPERIMENTER: 'watch',
+    }
+    self.world.close_year()
+
+    census = self.world.history[-1]
+    self.assertEqual(census['cited'], 1)
+    (unread,) = census['unread']
+    self.assertStartsWith(unread, 'Cy ponders the sky. Long.')
+    self.assertLen(unread, world_lib.UNREAD_LENGTH)
+
   def test_a_minds_answer_is_reported_as_it_tells_it(self):
     self._person('Ada', 30, (5, 5))
     self.world.actions = {
