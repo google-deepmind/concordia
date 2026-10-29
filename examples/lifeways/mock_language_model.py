@@ -46,6 +46,7 @@ _WORD = re.compile(r'[a-z]{4,}')
 _SPEECH = frozenset({'spea', 'tong', 'word', 'lang', 'talk'})  # _stems
 _LEVEL = re.compile(r' \(level \d+\)$')
 _TEND = re.compile(r'\btend\b', re.IGNORECASE)
+_SKILLED = re.compile(r'\(level [2-9]\)$')  # Know-how worth paying for.
 _DESCENT = re.compile(r'is of the ([^.]+)\.')
 _SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
 _SUITOR = re.compile(
@@ -235,6 +236,17 @@ def _choose(
   lean = seasons[-1] == 'lean' if seasons else food < 4.0
   if food < 2.5 or ('lean' in texts and lean):
     return follow(world_lib.GATHER, culture_lib.FOOD)
+  # Know-how of some worth sells when stores run low; one with food to
+  # spare who knows no farming buys (the know-how a market is for).
+  skilled = [cid for _, cid, text in customs if _SKILLED.search(text)]
+  farms = any(
+      domain == culture_lib.FARMING and _LEVEL.search(text)
+      for domain, _, text in customs
+  )
+  if world_lib.SELL in moves and skilled and food < 4.0 and draw < 0.5:
+    return ' '.join([world_lib.SELL, *skilled])
+  if world_lib.BUY in moves and not farms and food >= 4.0 and draw < 0.5:
+    return world_lib.BUY
   farming = [cid for domain, cid, _ in customs if domain == culture_lib.FARMING]
   # A custom of tending calls for sowing every year one can spare the food.
   # A mind reads its customs by what they say, whatever their kind.
@@ -284,6 +296,9 @@ def _choose(
   if world_lib.BUILD_COURT in moves and sharing and food >= 6.0:
     if 0.15 <= draw < 0.25:
       return ' '.join([world_lib.BUILD_COURT, *sharing])
+  # A market is built on draws of its own.
+  if world_lib.BUILD_MARKET in moves and food >= 6.0 and 0.25 <= draw < 0.3:
+    return world_lib.BUILD_MARKET
   if reading and food >= 3.0:
     if world_lib.FOUND_LIBRARY in moves and food >= 6.0 and draw < 0.3:
       return ' '.join([world_lib.FOUND_LIBRARY, *reading, *others])

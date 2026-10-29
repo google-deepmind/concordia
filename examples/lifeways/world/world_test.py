@@ -1476,6 +1476,83 @@ class CourtTest(_PlaceTest):
     self.assertLen(self.world.places.near((4, 4), 0, places_lib.COURT), 1)
 
 
+class MarketTest(_PlaceTest):
+
+  def setUp(self):
+    super().setUp()
+    self.world.market = {
+        'cost': 3.0,
+        'spacing': 6,
+        'reach': 3,
+        'price': 1.0,
+        'per_seller': 1,
+    }
+    culture = self.world.culture
+    self.farm = culture.add('skill', 'farming', 'Sow barley.', {'level': 3}).id
+    self.fish = culture.add('skill', 'food', 'Smoke fish.', {'level': 2}).id
+
+  def test_an_adult_builds_a_market(self):
+    self._person('Ada', 40, (5, 5))
+    self.assertIn(world_lib.BUILD_MARKET, self.world.moves('Ada'))
+    self.assertNotIn(world_lib.SELL, self.world.moves('Ada'))  # No market.
+
+    self._year(Ada=world_lib.BUILD_MARKET)
+
+    (market,) = self.world.places.near((5, 5), 1, places_lib.MARKET)
+    self.assertEqual(market.founder, 'Ada')
+    self.assertNotIn(world_lib.BUILD_MARKET, self.world.moves('Ada'))
+    self.assertEqual(self.world.history[-1]['markets'], 1)
+
+  def test_buyers_pay_the_best_seller_and_are_offered_its_know_how(self):
+    self.world.places.found(places_lib.MARKET, (5, 5), 'Ada', 0)
+    self._person('Ada', 40, (5, 5), given=[self.farm, self.fish])
+    self._person('Bo', 40, (5, 6), given=[self.fish])
+    self._person('Cy', 40, (5, 7))
+    self._person('Dee', 40, (6, 5))
+    self._person('Kid', 10, (5, 5), given=[self.farm])
+    self.assertIn(world_lib.SELL, self.world.moves('Ada'))
+    self.assertIn(world_lib.BUY, self.world.moves('Cy'))
+    self.assertNotIn(world_lib.SELL, self.world.moves('Cy'))  # Knows nothing.
+    self.assertNotIn(world_lib.SELL, self.world.moves('Kid'))  # Not grown.
+    food = {n: p.food for n, p in self.world.people.items()}
+
+    self._year(
+        Ada=f'{world_lib.SELL} {self.farm} {self.fish}',
+        Bo=f'{world_lib.SELL} {self.fish}',
+        Cy=world_lib.BUY,
+        Dee=world_lib.BUY,
+        Kid='play',
+    )
+
+    # Ada (farming, level 3) teaches one a year: Cy, first by name; Dee
+    # pays Bo.
+    self.assertEqual(
+        self._offers('Cy'),
+        sorted([(self.farm, 'market', 'Ada'), (self.fish, 'market', 'Ada')]),
+    )
+    self.assertEqual(self._offers('Dee'), [(self.fish, 'market', 'Bo')])
+    self.assertIn('Cy pays Ada 1 food for know-how.', self.world.queued['Ada'])
+    self.assertEqual(self.world.history[-1]['sold'], 2)
+    paid = (self.world.people['Ada'].food - food['Ada']) - (
+        self.world.people['Cy'].food - food['Cy']
+    )
+    self.assertAlmostEqual(paid, 2.0, delta=0.5)  # 1.0 each way, and eating.
+    (market,) = self.world.places.near((5, 5), 1, places_lib.MARKET)
+    self.assertEqual(market.shelf, [self.farm, self.fish])
+
+  def test_a_buyer_with_no_seller_keeps_its_food(self):
+    self.world.places.found(places_lib.MARKET, (5, 5), 'Ada', 0)
+    self._person('Cy', 40, (5, 7))
+
+    self._year(Cy=world_lib.BUY)
+
+    self.assertIn(
+        'Nobody at the market had know-how to sell you.',
+        self.world.queued['Cy'],
+    )
+    self.assertEqual(self.world.history[-1]['sold'], 0)
+
+
 class SchoolTest(_PlaceTest):
 
   def test_a_school_teaches_any_child_nearby_for_a_term(self):

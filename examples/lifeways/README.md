@@ -474,6 +474,16 @@ gives each of the needy it passed over some food (`fine`). One is judged at
 most once a year. Where shaming is one neighbour's word, a court is the
 valley's: it reaches all who stand near, and it takes food.
 
+**Markets.** An adult may `build a market` (the `market` setting). Within
+its reach the grown may `sell know-how at the market`, naming skills the
+World gave them, or `buy know-how at the market` with food to spare. As the
+year closes, buyers (in name order) pay the most skilled seller there with
+room (`per_seller` a year) `price` food, and are offered the skills it named
+(the `market` channel; a learner takes a skill only if it is better than
+its own). The market keeps the know-how last sold there; a buyer who finds
+no seller keeps its food. Know-how passes for food, not kinship: the census
+counts sales (`sold`) and standing markets (`markets`).
+
 **Stories and sermons.** An elder may `tell a story` of the customs it
 names to all within sight: the `story` channel retells with many errors, so
 stories breed variants. Anyone may `preach` one custom to all within sight:

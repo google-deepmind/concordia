@@ -75,6 +75,7 @@ DEFAULT_UPTAKE = {
     culture_lib.SCHOOL: 0.7,
     culture_lib.RITE: 0.4,
     culture_lib.PREACHING: 0.2,
+    culture_lib.MARKET: 0.8,  # Know-how paid for, as an apprentice's.
     culture_lib.RELEASE: 0.25,
     culture_lib.SANCTION: 0.3,
     culture_lib.PRACTICE: 0.4,

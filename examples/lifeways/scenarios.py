@@ -88,6 +88,17 @@ SANDBOX: Mapping[str, Any] = {
     # seen hoarding within `reach` of it, and one judged gives each of the
     # needy it passed over up to `fine` food.
     'court': {'cost': 3.0, 'spacing': 6, 'reach': 3, 'fine': 1.0},
+    # Markets: building one costs `cost` food; they stand `spacing` apart.
+    # Within `reach` of one, the grown may sell the know-how they were given
+    # or buy it: a buyer pays `price` food to the best seller there, who
+    # teaches at most `per_seller` a year (the `market` channel).
+    'market': {
+        'cost': 3.0,
+        'spacing': 6,
+        'reach': 3,
+        'price': 1.0,
+        'per_seller': 2,
+    },
     # Disasters: each year one strikes with this chance, of one of these
     # kinds, at a place drawn from the seed, within `radius` steps (about one
     # a century; the Experimenter may send more).

@@ -129,6 +129,7 @@ SCHOOL = 'school'
 RITE = 'rite'
 STORY = 'story'
 PREACHING = 'preaching'
+MARKET = 'market'
 RELEASE = 'release'
 
 # The highest level a skill reaches.

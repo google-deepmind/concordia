@@ -37,7 +37,8 @@ const TERRAIN_COLOURS = {
 const DISASTER_COLOUR = '#ffb703';
 
 /** Glyphs of places, by kind. */
-const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦', court: 'C'};
+const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦', court: 'C',
+  market: 'M'};
 
 /** The page's state. */
 const page = {
@@ -650,6 +651,7 @@ function drawMap(world) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';  // A sharp letter's outline grows no spikes.
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.fillStyle = '#222';
   for (const place of world.places) {
@@ -1594,7 +1596,7 @@ function recentDisasters(rows, year) {
 }
 
 /** What the Experimenter may found or close. */
-const INSTITUTIONS = ['library', 'school', 'shrine', 'court'];
+const INSTITUTIONS = ['library', 'school', 'shrine', 'court', 'market'];
 
 /**
  * The choices of "Shape the valley": disasters, migrants, institutions.
@@ -2044,6 +2046,7 @@ const CHANNEL_WORDS = {
   birth: 'customs given at birth',
   observation: 'learning by watching others',
   practice: 'learning by practice',
+  market: 'buying know-how at markets',
   preaching: 'preaching',
   reading: 'reading',
   release: 'your releases',
@@ -2062,6 +2065,7 @@ const HELD_BY = {
   observation: 'saw them done',
   practice: 'by practice',
   preaching: 'heard them preached',
+  market: 'bought them at markets',
   reading: 'read them',
   release: 'from your releases',
   rite: 'at rites',
@@ -2127,6 +2131,7 @@ const LEARNED_BY = {
   rite: ['learned it at a rite', 'learned it at a rite led by'],
   story: ['heard it in a story', 'heard it in a story from'],
   preaching: ['heard it preached', 'heard it preached by'],
+  market: ['bought it at a market', 'bought it at a market from'],
   release: ['had it from your release', 'had it from your release, via'],
 };
 
@@ -2448,6 +2453,8 @@ const PLACE_HOLDS = {
       'yet.'],
   court: ['Its law: the rules it last judged by', 'It has judged nobody ' +
       'yet.'],
+  market: ['The know-how last sold there', 'Nobody has sold know-how ' +
+      'here yet.'],
 };
 
 /**

@@ -71,6 +71,9 @@ TEACH_AT_SCHOOL = 'teach at the school'
 GO_TO_SCHOOL = 'go to school'
 BUILD_SHRINE = 'build a shrine'
 BUILD_COURT = 'build a court'
+BUILD_MARKET = 'build a market'
+SELL = 'sell know-how at the market'
+BUY = 'buy know-how at the market'
 JUDGE = (  # ... a name: one seen keeping full stores while others starved.
     'judge'
 )
@@ -160,12 +163,12 @@ BRING = 'bring migrants'
 FOUND_PLACE = 'found'
 CLOSE_PLACE = 'close'
 INSTITUTION_FORMS = (
-    'found a <library, school, shrine or court> at <row>,<col>',
-    'close the <library, school, shrine or court> at <row>,<col>',
+    'found a <library, school, shrine, court or market> at <row>,<col>',
+    'close the <library, school, shrine, court or market> at <row>,<col>',
 )
 _INSTITUTION = re.compile(
     r'^(?P<act>found|close) (?:a|the)'
-    r' (?P<kind>library|school|shrine|court) at'
+    r' (?P<kind>library|school|shrine|court|market) at'
     r' (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
 )
 MIGRANTS_FORM = 'bring migrants at <row>,<col>'
@@ -215,7 +218,9 @@ DEAD_KEPT = 500
 # - story: an elder's story reaches all within sight, each retelling a
 #   paraphrase (often a new variant);
 # - preaching: a preacher's one custom reaches all within sight; learners
-#   take up preached beliefs and values more readily than other kinds.
+#   take up preached beliefs and values more readily than other kinds;
+# - market: a buyer at a market is offered the know-how the seller it paid
+#   named.
 # A channel's `form` is the form a norm comes in by it: what children are
 # raised in, what one practises and what one is shamed for breaking may
 # become one's own (internalized); what one sees others keep is known
@@ -244,6 +249,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     culture_lib.RITE: {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
     culture_lib.STORY: {'mutation': 0.2},
     culture_lib.PREACHING: {'mutation': 0.05},
+    culture_lib.MARKET: {'mutation': 0.02},
     culture_lib.RELEASE: {'mutation': 0.0},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
@@ -415,6 +421,11 @@ class World:
     # one judged gives each of the needy it passed over.
     court = settings.get('court')
     self.court: dict[str, Any] | None = None if court is None else dict(court)
+    # Markets, if the setting allows them (`scenarios.SANDBOX`'s `market`).
+    market = settings.get('market')
+    self.market: dict[str, Any] | None = (
+        None if market is None else dict(market)
+    )
     library = self.library or {}
     self.places = places_lib.Places(
         int(settings.get('rows', 16)),
@@ -467,6 +478,8 @@ class World:
     self._judged: set[str] = set()
     # Fields passed on at death this year (the census's).
     self._inherited = 0
+    # Know-how sold at markets this year (the census's).
+    self._sold = 0
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
@@ -674,6 +687,7 @@ class World:
           places_lib.SCHOOL: self.school,
           places_lib.SHRINE: self.shrine,
           places_lib.COURT: self.court,
+          places_lib.MARKET: self.market,
       }[kind]
       if setting is None:
         self._report(f'This world has no {kind}s.')
@@ -1024,6 +1038,7 @@ class World:
         *self._school_moves(person),
         *self._shrine_moves(person),
         *self._court_moves(person),
+        *self._market_moves(person),
     ]
     if (
         self.farming
@@ -1143,6 +1158,141 @@ class World:
     ) and person.food >= float(self.court.get('cost', 3.0)):
       found.append(BUILD_COURT)
     return found
+
+  def _market_moves(self, person: Person) -> list[str]:
+    """Selling know-how and buying it near a market; building one.
+
+    Only the grown trade or build. One sells only what the GM gave it (a
+    skill), and buys only with food to spare.
+
+    Args:
+      person: Who is asked.
+
+    Returns:
+      The moves (none in a world without markets).
+    """
+    if (
+        self.market is None
+        or culture_lib.MARKET not in self.channels
+        or person.age(self.year) < ADULT_AGE
+    ):
+      return []
+    reach = int(self.market.get('reach', 3))
+    price = float(self.market.get('price', 1.0))
+    found = []
+    if self._markets_near(person, reach):
+      if any(
+          c in self.culture and self.culture.get(c).kind == culture_lib.SKILL
+          for c in person.given
+      ):
+        found.append(SELL)
+      if person.food >= price + 1.0:
+        found.append(BUY)
+    if not self.places.near(
+        person.tile, int(self.market.get('spacing', 6)), places_lib.MARKET
+    ) and person.food >= float(self.market.get('cost', 3.0)):
+      found.append(BUILD_MARKET)
+    return found
+
+  def _markets_near(self, person: Person, reach: int) -> list[places_lib.Place]:
+    """The standing markets within `reach` of a person, nearest first."""
+    return [
+        p
+        for p in self.places.near(person.tile, reach, places_lib.MARKET)
+        if not self.places.ruined(p, self.year)
+    ]
+
+  def _trade(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """Builds markets; buyers pay sellers there for know-how.
+
+    At each market, those who came to sell (naming skills the GM gave them)
+    teach, the most skilled first and each at most `per_seller` a year;
+    those who came to buy, in name order, pay the first seller with room
+    `price` food and are offered the skills it named (the `market`
+    channel). The market keeps the know-how last sold there. A buyer who
+    finds no seller keeps its food.
+
+    Args:
+      did: This year's moves.
+    """
+    if self.market is None or culture_lib.MARKET not in self.channels:
+      return
+    reach = int(self.market.get('reach', 3))
+    price = float(self.market.get('price', 1.0))
+    per_seller = int(self.market.get('per_seller', 2))
+    for name, (move, _) in sorted(did.items()):
+      person = self.people.get(name)
+      if move != BUILD_MARKET or person is None:
+        continue
+      cost = float(self.market.get('cost', 3.0))
+      if person.food < cost or self.places.near(
+          person.tile, int(self.market.get('spacing', 6)), places_lib.MARKET
+      ):
+        continue
+      person.food -= cost
+      place = self.places.found(
+          places_lib.MARKET, person.tile, person.name, self.year
+      )
+      for told in (person.name, *self._in_sight(person)):
+        self._tell(
+            told, f'{person.name} builds a market at {where(place.tile)}.'
+        )
+    came: dict[str, tuple[places_lib.Place, str, list[str]]] = {}
+    for name, (move, enacted) in sorted(did.items()):
+      person = self.people.get(name)
+      if move not in (SELL, BUY) or person is None:
+        continue
+      markets = self._markets_near(person, reach)
+      skills = [
+          c
+          for c in enacted
+          if c in self.culture and self.culture.get(c).kind == culture_lib.SKILL
+      ]
+      if markets and (move == BUY or skills):
+        came[name] = (markets[0], move, skills)
+    for market in {place.id: place for place, _, _ in came.values()}.values():
+      here = {n: v for n, v in came.items() if v[0].id == market.id}
+
+      def best(seller: str) -> int:
+        return max(
+            int(self.culture.get(c).params.get('level', 1))
+            for c in here[seller][2]
+        )
+
+      sellers = sorted(
+          (n for n, (_, move, _) in here.items() if move == SELL),
+          key=lambda n: (-best(n), n),
+      )
+      taught: collections.Counter[str] = collections.Counter()
+      sold: list[str] = []
+      for buyer in sorted(n for n, (_, move, _) in here.items() if move == BUY):
+        seller = next(
+            (s for s in sellers if s != buyer and taught[s] < per_seller), None
+        )
+        person = self.people[buyer]
+        if seller is None:
+          self._tell(buyer, 'Nobody at the market had know-how to sell you.')
+          continue
+        if person.food < price:
+          self._tell(buyer, 'You had too little food left to buy know-how.')
+          continue
+        person.food -= price
+        self.people[seller].food += price
+        taught[seller] += 1
+        self._sold += 1
+        skills = here[seller][2]
+        sold.extend(skills)
+        scene = f'{buyer} buys know-how from {seller} at the market'
+        for custom_id in skills:
+          self._offer(buyer, seller, custom_id, culture_lib.MARKET, scene)
+        self._tell(
+            seller, f'{buyer} pays {seller} {price:g} food for know-how.'
+        )
+      if here:
+        if sold:
+          self.places.keep(market, sellers[0], sold, self.year)
+        else:
+          self.places.use(market, self.year)
 
   def _before_court(self, person: Person) -> dict[str, places_lib.Place]:
     """Those seen hoarding last year within reach of a court near a person.
@@ -1404,6 +1554,7 @@ class World:
     self._sown = 0
     self._judged = set()
     self._inherited = 0
+    self._sold = 0
     self._shares = 0
     self._fed = set()
     self._releases = []
@@ -1433,6 +1584,7 @@ class World:
     self._institution(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
+    self._trade(did)
     self._schools(did)
     self._rites(did)
     self._transmit(did)
@@ -2718,6 +2870,7 @@ class World:
         'fed': len(self._fed),
         'judged': len(self._judged),
         'inherited': self._inherited,
+        'sold': self._sold,
         'libraries': sum(
             1
             for p in self.places.all()
@@ -2748,6 +2901,12 @@ class World:
             1
             for p in self.places.all()
             if p.kind == places_lib.COURT
+            and not self.places.ruined(p, self.year)
+        ),
+        'markets': sum(
+            1
+            for p in self.places.all()
+            if p.kind == places_lib.MARKET
             and not self.places.ruined(p, self.year)
         ),
         'offers': dict(sorted(self._offers.items())),
