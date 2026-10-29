@@ -23,8 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-  fairnessSeries, kinLayout, peoplesSeries, prevalenceSeries, previewText,
-  spreadLabels, treeLayout,
+  fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
+  prevalenceSeries, previewText, spreadLabels, treeLayout,
   wordChange,
   letGoText, mapText,
   tileText,
@@ -326,6 +326,33 @@ test('fairness lines: inequality on 0 to 1, the rest on their own', () => {
   assert.deepEqual(lines.map((l) => [l.name, l.most]),
       [['gini', 1], ['shares', 6], ['breaches', 1], ['judged', 1]]);
   assert.equal(lines[0].value(rows[1]), 0);  // Older rows lack the field.
+});
+
+test('norms kept: shares over ten years, by form and sight', () => {
+  const rows = [
+    {year: 1},  // Older rows lack the measure.
+    {year: 2, norms_kept: {own_seen: [1, 4], own_unseen: [2, 2],
+      known_seen: [1, 1], known_unseen: [0, 3]}},
+    {year: 12, norms_kept: {own_seen: [3, 4], own_unseen: [0, 0],
+      known_seen: [0, 0], known_unseen: [0, 1200]}},
+  ];
+  const lines = keptSeries(rows);
+  assert.deepEqual(lines.map((l) => l.label), ['own, seen', 'own, unseen',
+    'expected, seen', 'expected, unseen']);
+  assert.equal(lines[0].value(rows[0]), null);
+  assert.equal(lines[0].value(rows[1]), 0.25);
+  assert.equal(lines[0].value(rows[2]), 0.75);  // Year 2 is ten years past.
+  assert.equal(lines[1].value(rows[2]), null);  // None held in those years.
+  assert.equal(lines[0].format(0.25), '25%');
+  assert.equal(keptText(rows), 'Years 2–12. Unseen: own norms, 100% kept ' +
+      '(2 of 2); expected, 0% kept (0 of 1,203). Seen: own, 50% kept (4 of ' +
+      '8); expected, 100% kept (1 of 1).');
+  assert.equal(keptText([{year: 1}, {year: 2, norms_kept: {
+    own_seen: [0, 0], own_unseen: [0, 0], known_seen: [0, 0],
+    known_unseen: [0, 0]}}]), '');
+  assert.equal(keptText([{year: 3, norms_kept: {own_seen: [1, 2]}}]),
+      'Years 3–3. Unseen: own norms, none held; expected, none held. ' +
+      'Seen: own, 50% kept (1 of 2); expected, none held.');
 });
 
 test('labels at the same height spread up from the bottom', () => {

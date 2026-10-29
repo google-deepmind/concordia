@@ -1056,6 +1056,30 @@ class TransmissionTest(absltest.TestCase):
     self.assertStartsWith(unread, 'Cy ponders the sky. Long.')
     self.assertLen(unread, world_lib.UNREAD_LENGTH)
 
+  def test_the_world_notes_who_was_seen_and_the_norms_deeds_named(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Bo', 30, (5, 6))
+    self._person('Cy', 30, (5, 10))  # Beyond sight (2) of everyone.
+    self._person('Dee', 30, (9, 5))
+    self.assertIn(world_lib.PREACH, self.world.moves('Dee'))
+    self.world.actions = {
+        'Ada': f'gather food, by {self.skill} and {self.norm}',
+        'Bo': 'Bo ponders the sky.',  # Not read: no deed.
+        'Cy': f'gather food by {self.norm}',
+        'Dee': f'{world_lib.PREACH} {self.norm}',  # Speech, not a deed.
+        world_lib.EXPERIMENTER: 'watch',
+    }
+    self.world.close_year()
+
+    # Ada was seen (by Bo); Cy was not. Only norms count, and only deeds.
+    self.assertEqual(
+        self.world.norm_acts,
+        {'Ada': [True, self.norm], 'Cy': [False, self.norm]},
+    )
+    restored = world_lib.World({'seed': 0, 'founders': 0})
+    restored.set_state(self.world.get_state())
+    self.assertEqual(restored.norm_acts, self.world.norm_acts)
+
   def test_a_minds_answer_is_reported_as_it_tells_it(self):
     self._person('Ada', 30, (5, 5))
     self.world.actions = {

@@ -875,6 +875,12 @@ function drawChart(rows, twinRows = []) {
           `${line.format(now)} hold "${line.text}"`);
         return item;
       }));
+  const kept = keptText(rows);
+  document.getElementById('kept-box').hidden = !kept;
+  if (kept) {
+    drawLines('kept', rows, [], keptSeries(rows));
+    document.getElementById('kept-text').textContent = kept;
+  }
   const peoples = peoplesSeries(rows);
   document.getElementById('peoples-chart-box').hidden = !peoples.length;
   if (peoples.length) drawLines('peoples-chart', rows, [], peoples);
@@ -1049,6 +1055,70 @@ function fairnessSeries(rows) {
     line('breaches', '#9c4a12', (row) => row.breaches || 0),
     line('judged', '#6a2c91', (row) => row.judged || 0),
   ];
+}
+
+/** The norms a deed may keep: by form (own, expected) and sight. */
+const KEPT = [
+  ['own_seen', 'own, seen', '#2d6a4f'],
+  ['own_unseen', 'own, unseen', '#1f6f8b'],
+  ['known_seen', 'expected, seen', '#9c4a12'],
+  ['known_unseen', 'expected, unseen', '#6a2c91'],
+];
+
+/** How many years each point of "Norms kept" counts. */
+const KEPT_YEARS = 10;
+
+/**
+ * The lines of "Norms kept": of the norms people held when they did a
+ * deed, the share the deed named, by form and by whether anyone saw; each
+ * point counts the ten years up to it (null where none was held).
+ * @param {!Array<!Object>} rows The census rows (`norms_kept`; older rows
+ *     lack it).
+ * @return {!Array<!Object>} Lines for `drawLines`.
+ */
+function keptSeries(rows) {
+  return KEPT.map(([name, label, colour]) => {
+    const share = new Map();
+    rows.forEach((row, i) => {
+      let kept = 0;
+      let held = 0;
+      for (const past of rows.slice(0, i + 1)) {
+        if (past.year <= row.year - KEPT_YEARS) continue;
+        const [k, n] = (past.norms_kept || {})[name] || [0, 0];
+        kept += k;
+        held += n;
+      }
+      share.set(row, held ? kept / held : null);
+    });
+    return {name, label, colour, most: 1,
+      format: (v) => `${Math.round(v * 100)}%`,
+      value: (row) => share.get(row) ?? null};
+  });
+}
+
+/**
+ * "Norms kept" in words, over the years shown: how often own and expected
+ * norms were kept, unseen and seen.
+ * @param {!Array<!Object>} rows The census rows.
+ * @return {string} The sentence ('' if no one held a norm in them).
+ */
+function keptText(rows) {
+  const sums = Object.fromEntries(KEPT.map(([name]) => [name,
+    rows.reduce(([k, n], row) => {
+      const [a, b] = (row.norms_kept || {})[name] || [0, 0];
+      return [k + a, n + b];
+    }, [0, 0])]));
+  if (!Object.values(sums).some(([, n]) => n)) return '';
+  const part = (name) => {
+    const [k, n] = sums[name];
+    return n ? `${Math.round((100 * k) / n)}% kept (` +
+        `${k.toLocaleString('en')} of ${n.toLocaleString('en')})` : 'none held';
+  };
+  const first = rows.find((row) => row.norms_kept) || rows[0];
+  return `Years ${yearText(first.year)}–` +
+      `${yearText(rows[rows.length - 1].year)}. Unseen: own norms, ` +
+      `${part('own_unseen')}; expected, ${part('known_unseen')}. Seen: own, ` +
+      `${part('own_seen')}; expected, ${part('known_seen')}.`;
 }
 
 /**
@@ -3057,8 +3127,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-    fairnessSeries, kinLayout, peoplesSeries, prevalenceSeries, previewText,
-    spreadLabels, treeLayout,
+    fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
+    prevalenceSeries, previewText, spreadLabels, treeLayout,
     wordChange,
     letGoText, mapText,
     tileText,

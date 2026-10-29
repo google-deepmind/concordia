@@ -447,6 +447,11 @@ class World:
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
+    # Last year's deeds (`WITNESSED`; not teaching, telling or passing on):
+    # by each who did one, whether anyone was within sight as it chose (as
+    # its status said), and the norms its deed named (a measure's: how often
+    # norms are kept, seen and unseen).
+    self.norm_acts: dict[str, list[Any]] = {}
     # Questions the Experimenter put, by person, to answer this year; and
     # the answers given (the latest few).
     self.interviews: dict[str, str] = {}
@@ -1358,10 +1363,15 @@ class World:
     self._fed = set()
     self._releases = []
     self._disasters = []
-    # The moves each was offered, as the year began.
+    # The moves each was offered, as the year began, and who could be seen.
     allowed = {
         name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
         for name in self.actions
+    }
+    seen = {
+        name
+        for name in self.actions
+        if name in self.people and self._in_sight(self.people[name])
     }
     births = self._births()
     self._pair_partners(allowed)
@@ -1389,6 +1399,18 @@ class World:
     deaths += self._disaster()
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
+    self.norm_acts = {
+        name: [
+            name in seen,
+            *(
+                c
+                for c in enacted
+                if self.culture.get(c).kind == culture_lib.NORM
+            ),
+        ]
+        for name, (m, enacted) in sorted(did.items())
+        if _move_kind(m) in WITNESSED
+    }
     # Untended fields go wild whether or not anyone may sow now.
     self.land.fallow(
         self.year, int((self.farming or {}).get('fallow', land_lib.FALLOW))
@@ -2566,6 +2588,7 @@ class World:
         'queued': {k: list(v) for k, v in self.queued.items()},
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
+        'norm_acts': {k: list(v) for k, v in self.norm_acts.items()},
         'courting': dict(self.courting),
         'interviews': dict(self.interviews),
         'asked': {k: list(v) for k, v in self.asked.items()},
@@ -2599,6 +2622,10 @@ class World:
     self.breaches = {
         str(k): [str(n) for n in v]
         for k, v in state.get('breaches', {}).items()
+    }
+    self.norm_acts = {
+        str(k): [bool(v[0]), *(str(c) for c in v[1:])]
+        for k, v in state.get('norm_acts', {}).items()
     }
     self.courting = {
         str(k): str(v) for k, v in state.get('courting', {}).items()

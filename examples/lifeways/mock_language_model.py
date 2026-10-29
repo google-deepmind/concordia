@@ -160,19 +160,19 @@ def _choose(
   """
   if list(moves) == [world_lib.WATCH]:
     return world_lib.WATCH
+  watched = bool(_SIGHT.findall(prompt)) and int(_SIGHT.findall(prompt)[-1]) > 0
+  # Unseen, a norm only expected of one neither guides nor is named.
+  customs = [c for c in customs if c[1] not in expected or watched]
   texts = ' '.join(text.lower() for _, _, text in customs)
   food = float(_FOOD.findall(prompt)[-1]) if _FOOD.findall(prompt) else 0.0
   age = int(_AGE.findall(prompt)[-1]) if _AGE.findall(prompt) else 30
   draw = _stable(prompt)
   land = float(_LAND.findall(prompt)[-1]) if _LAND.findall(prompt) else 99.0
-  watched = bool(_SIGHT.findall(prompt)) and int(_SIGHT.findall(prompt)[-1]) > 0
   # The sharing norms that call for sharing (not every one does).
   sharing = [
       cid
       for domain, cid, text in customs
-      if domain == culture_lib.SHARING
-      and 'share' in text.lower()
-      and (cid not in expected or watched)
+      if domain == culture_lib.SHARING and 'share' in text.lower()
   ]
   share = [m for m in moves if m.startswith(f'{world_lib.SHARE} ')]
   shame = [m for m in moves if m.startswith(f'{world_lib.SHAME} ')]
@@ -184,15 +184,12 @@ def _choose(
   ]
   others = [cid for _, cid, _ in customs if cid not in reading]
 
-  # A custom against taking from others' fields (one's own, or expected when
-  # watched; a norm or a value alike) spares them whenever the person
-  # gathers.
+  # A custom against taking from others' fields (a norm or a value alike)
+  # spares them whenever the person gathers.
   sparing = [
       cid
       for domain, cid, text in customs
-      if domain == culture_lib.FARMING
-      and "another's field" in text.lower()
-      and (cid not in expected or watched)
+      if domain == culture_lib.FARMING and "another's field" in text.lower()
   ]
 
   def follow(move: str, *domains: str) -> str:
@@ -234,15 +231,12 @@ def _choose(
   if food < 2.5 or ('lean' in texts and food < 4.0):
     return follow(world_lib.GATHER, culture_lib.FOOD)
   farming = [cid for domain, cid, _ in customs if domain == culture_lib.FARMING]
-  # A custom of tending (one's own, or expected when watched) calls for
-  # sowing every year one can spare the food. A mind reads its customs by
-  # what they say, whatever their kind.
+  # A custom of tending calls for sowing every year one can spare the food.
+  # A mind reads its customs by what they say, whatever their kind.
   tending = [
       cid
       for domain, cid, text in customs
-      if domain == culture_lib.FARMING
-      and _TEND.search(text)
-      and (cid not in expected or watched)
+      if domain == culture_lib.FARMING and _TEND.search(text)
   ]
   if world_lib.SOW in moves and farming:
     if tending or (food >= 3.0 and draw < 0.35):

@@ -587,6 +587,24 @@ class MockMindTest(absltest.TestCase):
         _mind(2.5, [sowing, tending], moves), f'{world_lib.SOW} c1 c2'
     )
 
+  def test_a_norm_only_expected_is_kept_and_named_only_when_seen(self):
+    def mind(sight):
+      return _ask_mock(
+          '\n'.join([
+              '(food) [c1]: Smoking fish.',
+              (
+                  'A custom others expect of us (food) [c2]: We take no more'
+                  ' fish than we need.'
+              ),
+              'Food stored: 1.0',
+              f'{sight} other people are within sight.',
+          ]),
+          '\n'.join(['What do you do?', f'- {world_lib.GATHER}']),
+      )
+
+    self.assertEqual(mind(1), f'{world_lib.GATHER} c1 c2')
+    self.assertEqual(mind(0), f'{world_lib.GATHER} c1')
+
   def test_a_custom_of_property_spares_others_fields(self):
     moves = [world_lib.GATHER, world_lib.SPARE, world_lib.REST]
     fishing = (culture_lib.FOOD, 'c1', 'Smoking fish.')
@@ -663,6 +681,30 @@ class QuietTest(absltest.TestCase):
       thread.join(timeout=120)
 
     self.assertIs(sys.stdout, stdout)
+
+
+class NormsKeptTest(absltest.TestCase):
+
+  def test_the_census_counts_norms_kept_seen_and_unseen(self):
+    run = simulation.build_simulation(scenarios.settings(max_years=30))
+    rows = []
+    run.lifecycle.year_closed = lambda year: rows.append(run.census_row(year))
+    with simulation.quiet():
+      run.play()
+
+    total = {
+        key: [sum(r['norms_kept'][key][i] for r in rows) for i in (0, 1)]
+        for key in rows[-1]['norms_kept']
+    }
+    self.assertCountEqual(
+        total, ['own_seen', 'own_unseen', 'known_seen', 'known_unseen']
+    )
+    for kept, held in total.values():
+      self.assertLessEqual(kept, held)
+    # The mock keeps its own norms unseen, and never one only expected.
+    self.assertGreater(total['own_unseen'][0], 0)
+    self.assertGreater(total['known_unseen'][1], 0)
+    self.assertEqual(total['known_unseen'][0], 0)
 
 
 class PlotTest(absltest.TestCase):

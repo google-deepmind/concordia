@@ -425,7 +425,9 @@ class Run:
       world keeps none), `held` (`customs_census`) and `peoples`.
     """
     world = self.world()
-    row = dict(world.history[-1]) if world.history else {'year': year - 1}
+    row: dict[str, Any] = (
+        dict(world.history[-1]) if world.history else {'year': year - 1}
+    )
     if row.get('barren_names'):
       # Whether those whose sowing grew nothing still hold farming know-how
       # (they named something else) or no longer do (measurement only).
@@ -437,7 +439,44 @@ class Run:
         **row,
         'held': self.customs_census(),
         'peoples': self.peoples(),
+        'norms_kept': self.norms_kept(),
     }
+
+  def norms_kept(self) -> dict[str, list[int]]:
+    """How often last year's deeds kept the norms their doers hold, seen or not.
+
+    Measurement only: the World GM saw each deed, whether anyone was within
+    sight as it was chosen, and the norms it named (`norm_acts`); what each
+    doer holds is read from its Learner, which the World never reads. A norm
+    is kept when the deed named it. The design's two forms of a norm:
+    one's own (internalized) is kept when unseen; one only expected of one
+    (known), when seen (DESIGN §3).
+
+    Returns:
+      For each form and sight (`own_seen`, `own_unseen`, `known_seen`,
+      `known_unseen`): [norms kept, norms held], over the doers.
+    """
+    acts = self.world().norm_acts
+    kept = {
+        f'{form}_{sight}': [0, 0]
+        for form in ('own', 'known')
+        for sight in ('seen', 'unseen')
+    }
+    for entity in list(self.sim.entities):
+      if entity.name not in acts:
+        continue
+      seen, *named = acts[entity.name]
+      learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+          person_lib.LEARNER, type_=culture.Learner
+      )
+      for custom in learner.get_state()['held']:
+        if custom['kind'] != culture_lib.NORM:
+          continue
+        form = 'known' if custom['form'] == culture_lib.KNOWN else 'own'
+        counts = kept[f'{form}_{"seen" if seen else "unseen"}']
+        counts[0] += custom['id'] in named
+        counts[1] += 1
+    return kept
 
   def anatomy(self, name: str = '') -> dict[str, Any] | None:
     """How Concordia builds a person, or (no name) the World GM.

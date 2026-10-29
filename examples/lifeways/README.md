@@ -39,7 +39,7 @@ The run writes these files to `--out_dir`:
 
 | File | Contents |
 |---|---|
-| `census.jsonl` | a row a year: the world's census (population, births, deaths, moves, how many moves named a custom (`cited`), the first answers that named no move (`unread`), sowings that grew nothing for naming no know-how (`barren`, with the first answers), offers by channel, variants, the skill people work by) and, under `held`, what the living hold (read from their entities) |
+| `census.jsonl` | a row a year: the world's census (population, births, deaths, moves, how many moves named a custom (`cited`), the first answers that named no move (`unread`), sowings that grew nothing for naming no know-how (`barren`, with the first answers), how unequal food stores are and how much was shared (`gini`, `shares`, `fed`, `judged`), how often norms were kept, seen and unseen (`norms_kept`), offers by channel, variants, the skill people work by) and, under `held`, what the living hold (read from their entities) |
 | `dead.jsonl` | each person who died: their name and their entity's final state |
 | `customs.jsonl` | each variant of a custom once nobody living holds it, with its parent: the long record of culture |
 | `summary.json` | the run's totals, with memory use and seconds per year (`--soak`) |
@@ -368,6 +368,16 @@ nobody watches) or *known* (expected by others, kept when someone is within
 sight). Children raised in a norm make it their own; so may those who keep a
 norm they only know, or are shamed for breaking one. What one sees others
 keep, one knows. A known norm never displaces an internalized one.
+
+Whether minds keep them so is measured, not assumed. The World notes, for
+each deed, whether anyone was within sight as it was chosen and which norms
+it named (`World.norm_acts`); the harness reads which norms each doer holds,
+and in which form, from its Learner (`Run.norms_kept`). The census's
+`norms_kept` counts, for own and known norms, seen and unseen, how many were
+held and how many the deed named; the page draws it as "Norms kept, seen and
+unseen". The mock keeps a known norm only when seen, and then names it; a
+live mind is told the same things (its status says how many are within
+sight; its customs say which are "expected of us") and may not.
 
 **Sharing and shame.** A person with enough may `share food with` a needy
 person within sight. One who keeps full stores and gives nothing to the
