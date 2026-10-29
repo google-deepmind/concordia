@@ -454,6 +454,16 @@ form a norm comes in by it, and which channels exist. A founding custom's
 `held_by` is the share of founders who hold it. What people take up is their own Learners' choice; the harness
 reads it for the census (`Run.customs_census`), the GM never does.
 
+**Over the pass** (`migration`). Where a ridge parts two valleys but for a
+pass, a grown person within `reach` of a mouth of the pass may `cross the
+pass`, to the best land near its far mouth. Those near see one go, and
+those beyond see a stranger come, whose ways they may then see done, learn
+or marry into, as anyone's. The mock crosses for land when its land is poor
+or, unpartnered with nobody near to court, for a partner. In Two Valleys
+(reach 6) 87 crossed in 150 MOCK years, and the two peoples became one by
+year 150; the census counts crossings (`crossed`), and the page says how
+many crossed lately.
+
 **Scripts.** Reading is know-how written in a script: the reading skill's
 marks (`script`, six of `culture.MARKS`, in its words too). A copying error
 in teaching it makes one mark another way, so scripts drift as tongues do.

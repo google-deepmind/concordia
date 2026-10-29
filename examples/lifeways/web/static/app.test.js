@@ -24,7 +24,8 @@ const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
   fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-  labLines, labStatus, prevalenceSeries, previewText, spreadLabels,
+  crossedText, labLines, labStatus, prevalenceSeries, previewText,
+  spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText,
   tileText,
@@ -452,6 +453,13 @@ test('the lab says what it plays, and what came of it', () => {
   assert.equal(labStatus({...compare, lever: ['without', 'story'],
     state: 'failed', error: 'ValueError: no'}), 'The experiment failed: ' +
       'ValueError: no');
+});
+
+test('the page says how many crossed the pass lately', () => {
+  assert.equal(crossedText([{year: 1, crossed: 5}, {year: 20, crossed: 1},
+    {year: 25, crossed: 2}]), ' In the last ten years, 3 people crossed ' +
+    'the pass to the other valley, bringing their ways with them.');
+  assert.equal(crossedText([{year: 3}]), '');
 });
 
 test('labels at the same height spread up from the bottom', () => {

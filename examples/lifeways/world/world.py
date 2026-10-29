@@ -82,6 +82,8 @@ JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
 # An elder's: tell of the old days, in its own words (a new story).
 TELL_PAST = 'tell of the old days'
+# The grown's, near a pass through a ridge: go over to the other valley.
+CROSS = 'cross the pass'
 STORY_LENGTH = 200  # The most of an elder's words a story keeps.
 _STORY_WORDS = re.compile(r'[A-Za-z]+')
 PREACH = 'preach'
@@ -425,6 +427,12 @@ class World:
     # one judged gives each of the needy it passed over.
     court = settings.get('court')
     self.court: dict[str, Any] | None = None if court is None else dict(court)
+    # Crossing a ridge's pass, if the setting allows it: how near a pass's
+    # mouth one must be to cross (`reach`).
+    migration = settings.get('migration')
+    self.migration: dict[str, Any] | None = (
+        None if migration is None else dict(migration)
+    )
     # Markets, if the setting allows them (`scenarios.SANDBOX`'s `market`).
     market = settings.get('market')
     self.market: dict[str, Any] | None = (
@@ -489,8 +497,10 @@ class World:
     # (the census's).
     self._sold = 0
     self._stories = 0
-    # Texts a reader could not make out this year (another script).
+    # Texts a reader could not make out this year (another script), and
+    # those who crossed a pass.
     self._unreadable = 0
+    self._crossed = 0
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
@@ -1045,6 +1055,7 @@ class World:
         *([SPARE] if self._fields_of_others(person) else []),
         REST,
         MOVE,
+        *([CROSS] if self._far_side(person) else []),
         *self._library_moves(person),
         *self._school_moves(person),
         *self._shrine_moves(person),
@@ -1204,6 +1215,62 @@ class World:
     ) and person.food >= float(self.market.get('cost', 3.0)):
       found.append(BUILD_MARKET)
     return found
+
+  def _passes(self) -> list[tuple[land_lib.Tile, land_lib.Tile]]:
+    """Each ridge's pass, as its two mouths (west, east)."""
+    ridges = [self.settings['ridge']] if self.settings.get('ridge') else []
+    found = []
+    for ridge in ridges + list(self.settings.get('ridges', ())):
+      if 'gap' not in ridge:
+        continue
+      col, width = int(ridge['col']), int(ridge.get('width', 2))
+      row = sum(int(r) for r in ridge['gap']) // 2
+      found.append((
+          self.land.wrap(row, col - 1),
+          self.land.wrap(row, col + width),
+      ))
+    return found
+
+  def _far_side(self, person: Person) -> land_lib.Tile | None:
+    """The far mouth of a pass whose near mouth a grown person is near.
+
+    Within the `migration` setting's `reach` of a pass's mouth (nearer it
+    than the other mouth), the grown may cross.
+
+    Args:
+      person: Who is asked.
+
+    Returns:
+      Where crossing leads (None: no pass near, or no migration).
+    """
+    if self.migration is None or person.age(self.year) < ADULT_AGE:
+      return None
+    reach = int(self.migration.get('reach', 6))
+    for west, east in self._passes():
+      for near, far in ((west, east), (east, west)):
+        here = self.places.distance(person.tile, near)
+        if here <= reach and here < self.places.distance(person.tile, far):
+          return far
+    return None
+
+  def _cross(self, person: Person) -> None:
+    """Goes over the pass to the best land near its far mouth.
+
+    Those within sight see one go, and those at the far side see one come
+    (whose customs they may then see done, as anyone's).
+
+    Args:
+      person: Who crosses.
+    """
+    far = self._far_side(person)
+    if far is None:
+      return
+    for seen in self._in_sight(person):
+      self._tell(seen, f'{person.name} goes over the pass.')
+    person.tile = self.land.best_near(far, int(self.settings.get('roam', 1)))
+    self._crossed += 1
+    for seen in self._in_sight(person):
+      self._tell(seen, f'{person.name} comes over the pass, a stranger here.')
 
   def _markets_near(self, person: Person, reach: int) -> list[places_lib.Place]:
     """The standing markets within `reach` of a person, nearest first."""
@@ -1571,6 +1638,7 @@ class World:
     self._sold = 0
     self._stories = 0
     self._unreadable = 0
+    self._crossed = 0
     self._shares = 0
     self._fed = set()
     self._releases = []
@@ -1730,6 +1798,8 @@ class World:
       person.tile = self.land.best_near(
           person.tile, int(self.settings.get('roam', 1))
       )
+    elif move == CROSS:
+      self._cross(person)
     elif move == CHILD and self._may_have_child(person):
       parents = [name] + ([person.partner] if person.partner else [])
       self.expecting[name] = parents
@@ -2942,6 +3012,7 @@ class World:
         'sold': self._sold,
         'stories': self._stories,
         'unreadable': self._unreadable,
+        'crossed': self._crossed,
         'libraries': sum(
             1
             for p in self.places.all()

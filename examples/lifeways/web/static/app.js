@@ -911,7 +911,22 @@ function drawChart(rows, twinRows = []) {
       .join(', ');
   document.getElementById('channels').textContent =
       `How the living came by the customs they hold: ${channels}. ` +
-      peoplesText(last.peoples, last.population);
+      peoplesText(last.peoples, last.population) + crossedText(rows);
+}
+
+/**
+ * How many crossed a pass between valleys in the last ten years, if any did.
+ * @param {!Array<!Object>} rows The census rows (`crossed`).
+ * @return {string} A sentence, or ''.
+ */
+function crossedText(rows) {
+  const last = rows.length ? rows[rows.length - 1].year : 0;
+  const crossed = rows.filter((row) => row.year > last - 10)
+      .reduce((sum, row) => sum + (row.crossed || 0), 0);
+  if (!crossed) return '';
+  return ` In the last ten years, ${crossed} ${crossed === 1 ?
+    'person' : 'people'} crossed the pass to the other valley, bringing ` +
+      'their ways with them.';
 }
 
 /**
@@ -2598,8 +2613,9 @@ async function refreshOnce() {
         page.paceSeen, world.pace.years_per_second, Boolean(world.twin));
     document.getElementById('year').textContent =
         `${worldName(world.scenario)}, year ${yearText(world.year)}: ` +
-        `${world.people.length} people alive` +
-        (world.lean ? ', a lean year' : '') +
+        // Kept to one line on a phone: shorter in a lean year.
+        `${world.people.length} ${world.lean ? 'alive, a lean year' :
+          'people alive'}` +
         (world.running ? '' : ' (the world has stopped)');
     document.getElementById('anew-box').hidden = world.running;
     document.getElementById('play-as-box').hidden = !world.playable;
@@ -3560,7 +3576,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
     fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-    labLines, labStatus, prevalenceSeries, previewText, spreadLabels,
+    crossedText, labLines, labStatus, prevalenceSeries, previewText,
+    spreadLabels,
     surveyMove, surveyText, treeLayout, twinReport, wordChange,
     letGoText, mapText,
     tileText,

@@ -221,6 +221,12 @@ def _choose(
   # a duty, before its own affairs.
   if judge and sharing and draw < 0.6:
     return ' '.join([judge[0], *sharing])
+  # Over the pass: for land when it is poor here, or for a partner when
+  # nobody here is free to court.
+  if world_lib.CROSS in moves:
+    lonely = 'Partner: no partner' in prompt and not _SUITORS.findall(prompt)
+    if (land < 3.0 and draw > 0.7) or (lonely and age >= 18 and draw < 0.1):
+      return world_lib.CROSS
   if world_lib.MOVE in moves and land < 4.0 and draw > 0.4:
     return world_lib.MOVE
   if world_lib.APPRENTICE in moves and food >= 1.0 and draw < 0.6:

@@ -2103,6 +2103,53 @@ class ScriptTest(absltest.TestCase):
     self.assertEqual(culture_lib.legibility([], marks), 1.0)
 
 
+class MigrationTest(absltest.TestCase):
+
+  def test_the_grown_near_a_pass_cross_to_the_other_valley(self):
+    world = world_lib.World({
+        'seed': 0,
+        'founders': 0,
+        'rows': 20,
+        'cols': 40,
+        'ridge': {'col': 20, 'width': 2, 'gap': [9, 10]},
+        'migration': {'reach': 6},
+        'roam': 2,
+    })
+    for name, tile, age in (
+        ('Ada', (9, 17), 30),  # Near the pass, west.
+        ('Bo', (9, 16), 30),  # Sees her go.
+        ('Cy', (9, 3), 30),  # Far from the pass.
+        ('Kid', (9, 17), 10),  # Not grown.
+        ('Dee', (9, 24), 30),  # East: sees her come.
+    ):
+      world.people[name] = world_lib.Person(
+          name=name, born=world.year - age, sex='f', tile=tile, food=5.0
+      )
+    self.assertIn(world_lib.CROSS, world.moves('Ada'))
+    self.assertNotIn(world_lib.CROSS, world.moves('Cy'))
+    self.assertNotIn(world_lib.CROSS, world.moves('Kid'))
+
+    world.actions = {
+        'Ada': world_lib.CROSS,
+        'Bo': 'rest',
+        'Cy': 'rest',
+        'Kid': 'play',
+        'Dee': 'rest',
+        world_lib.EXPERIMENTER: 'watch',
+    }
+    world.close_year()
+
+    self.assertGreaterEqual(world.people['Ada'].tile[1], 22)  # East now.
+    self.assertIn('Ada goes over the pass.', world.queued['Bo'])
+    self.assertIn(
+        'Ada comes over the pass, a stranger here.', world.queued['Dee']
+    )
+    self.assertEqual(world.history[-1]['crossed'], 1)
+    plain = world_lib.World({'seed': 0, 'founders': 0})
+    plain.people['Ada'] = world.people['Ada']
+    self.assertNotIn(world_lib.CROSS, plain.moves('Ada'))  # No migration.
+
+
 class LandTest(absltest.TestCase):
 
   def test_ridges_part_the_land_and_a_pass_crosses_one(self):

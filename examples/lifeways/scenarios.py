@@ -378,6 +378,8 @@ TWO_VALLEYS: Mapping[str, Any] = {
     'rows': 20,
     'cols': 40,
     'ridge': {'col': 20, 'width': 2, 'gap': [9, 10]},
+    # The grown within 6 steps of the pass may cross it to the other valley.
+    'migration': {'reach': 6},
     'arrivals': None,
     'groups': [
         {
