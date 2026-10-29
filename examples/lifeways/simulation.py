@@ -526,6 +526,26 @@ class Run:
         'components': [part(key, c) for key, c in items],
     }
 
+  def holdings(self) -> dict[str, list[dict[str, Any]]]:
+    """What each living person holds, read from its Learner.
+
+    Measurement only, as `customs_census`; call it where `world()` may be
+    read.
+
+    Returns:
+      By name, each custom held as the Learner keeps it: id, kind, domain,
+      level, form, how it came (`via`) and from whom.
+    """
+    living = set(self.world().people)
+    found = {}
+    for entity in list(self.sim.entities):
+      if entity.name in living:
+        learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+            person_lib.LEARNER, type_=culture.Learner
+        )
+        found[entity.name] = [dict(c) for c in learner.get_state()['held']]
+    return found
+
   def holds(self, name: str, kind: str, domain: str) -> bool:
     """Whether a living person holds a custom of a kind and domain.
 

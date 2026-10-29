@@ -121,6 +121,14 @@ the number of peoples or tongues, a custom becoming the most widely held
 for the first time, few or none left. `GET notebook.md` gives a copy as
 Markdown.
 
+**Data to keep.** The census section links three CSV files, for analysis
+outside the page: `data/census.csv` (the census rows kept, a column for
+each number, nested ones spread out), `data/people.csv` (a row for each
+living person and custom they hold now: the person as the World knows them,
+their people by size, 0 the largest, and the custom as their Learner keeps
+it, read by the harness, never by the GM) and `data/surveys.csv` (each
+survey answer kept, with the customs it named).
+
 **Live as a founder.** With `--play_as`, or "live as a founder" when a new
 world begins, the person also lives in the valley as its first founder.
 That founder is an ordinary person of the valley built from the same prefab

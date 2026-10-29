@@ -18,7 +18,9 @@
 # pylint: disable=protected-access
 
 import collections
+import csv
 import dataclasses
+import io
 import json
 import os
 import subprocess
@@ -1054,6 +1056,37 @@ class ServerTest(absltest.TestCase):
     )
     self.assertNotEmpty(survey['tally'])  # The mock names its customs.
     self.assertLen(survey['said'], 3)
+
+  def test_the_data_is_kept_as_csv(self):
+    self._post('/api/move', {'move': 'survey 3: Why do you share?'})
+    self.assertTrue(
+        _wait(
+            lambda: self._get('/api/state')['surveys'][:1]
+            and self._get('/api/state')['surveys'][0]['tally'] is not None
+        )
+    )
+    self._post('/api/pace', {'paused': True})
+    time.sleep(0.3)
+
+    def table(name):
+      return list(csv.DictReader(io.StringIO(self._get(f'/data/{name}.csv'))))
+
+    census = table('census')
+    self.assertEqual(
+        [int(r['year']) for r in census],
+        [r['year'] for r in self._get('/api/census')],
+    )
+    self.assertIn('own_unseen_held', census[-1])
+    self.assertTrue(all(r['population'] for r in census))
+    people = table('people')
+    living = {p['name'] for p in self._get('/api/state')['people']}
+    self.assertEqual({r['name'] for r in people}, living)
+    held = [r for r in people if r['custom']]
+    self.assertNotEmpty(held)
+    self.assertTrue(all(r['text'] and r['kind'] for r in held))
+    surveys = table('surveys')
+    self.assertLen(surveys, 3)
+    self.assertEqual({r['question'] for r in surveys}, {'Why do you share?'})
 
   def test_bad_requests_are_refused_and_the_bare_prefix_redirects(self):
     for path, data in (

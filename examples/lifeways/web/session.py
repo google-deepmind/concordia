@@ -51,6 +51,8 @@ the first world's alone. The page draws their census together.
 import collections
 from collections.abc import Callable, Mapping, Sequence
 from concurrent import futures
+import csv
+import io
 import json
 import os
 import re
@@ -157,6 +159,15 @@ def await_engines(timeout: float = 10.0) -> None:
   for thread in threading.enumerate():
     if thread.name.startswith(ENGINE_THREADS):
       thread.join(max(0.0, deadline - time.monotonic()))
+
+
+def _csv(columns: Sequence[str], rows: Sequence[Mapping[str, Any]]) -> str:
+  """Rows as CSV text under a header; a column a row lacks is empty."""
+  out = io.StringIO()
+  writer = csv.DictWriter(out, fieldnames=list(columns), restval='')
+  writer.writeheader()
+  writer.writerows(rows)
+  return out.getvalue()
 
 
 def _fields(land: Mapping[str, Any]) -> list[list[Any]]:
@@ -1362,6 +1373,120 @@ class Session:
         lines += ['', f'## Year {year}', '']
       lines.append(f'- **{entry["kind"]}**: {entry["text"]}')
     return '\n'.join(lines) + '\n'
+
+  # --- Data to keep -----------------------------------------------------
+
+  def census_csv(self) -> str:
+    """The census rows kept, a row a year, as CSV.
+
+    Each number in a row is a column; what the living hold, the peoples,
+    norms kept and moves by kind are spread over columns of their own
+    (`held_...`, `peoples`, `<form>_<sight>_kept`/`_held`, `moves_<kind>`);
+    lists (reports, answers not read) are left out.
+
+    Returns:
+      The CSV text, with a header.
+    """
+    flat = []
+    for row in self.census():
+      out: dict[str, Any] = {}
+      for key, value in row.items():
+        if isinstance(value, (int, float, str, bool)):
+          out[key] = value
+        elif key == 'held':
+          for part in ('people', 'distinct', 'per_person', 'diversity'):
+            out[f'held_{part}'] = value.get(part)
+        elif key == 'peoples':
+          out['peoples'] = value.get('peoples')
+        elif key == 'norms_kept':
+          for part, (kept, held) in value.items():
+            out[f'{part}_kept'], out[f'{part}_held'] = kept, held
+        elif key == 'moves':
+          for move, n in value.items():
+            out[f'moves_{move}'] = n
+      flat.append(out)
+    columns = sorted({k for out in flat for k in out} - {'year'})
+    return _csv(['year', *columns], flat)
+
+  def people_csv(self) -> str:
+    """Who holds what now, a row for each living person and custom held.
+
+    Reading only, under the World GM's lock: the person as the World knows
+    them (born, sex, descent, people, where, food, partner) and each custom
+    as their Learner keeps it (id, kind, domain, level, form, how it came
+    and from whom), with its words. One with nothing held has one row.
+
+    Returns:
+      The CSV text, with a header.
+    """
+    columns = [
+        'year', 'name', 'born', 'sex', 'descent', 'people', 'row', 'col',
+        'food', 'partner', 'custom', 'kind', 'domain', 'level', 'form',
+        'came_by', 'from', 'text',
+    ]  # fmt: skip
+    rows = []
+    with self.run.world_lock():
+      world = self.run.world()
+      holdings = self.run.holdings()
+      people_of = dict(self.run.people_of)
+      for name in world.living():
+        person = world.people[name]
+        who = {
+            'year': world.year,
+            'name': name,
+            'born': person.born,
+            'sex': person.sex,
+            'descent': person.descent,
+            'people': people_of.get(name, ''),
+            'row': person.tile[0],
+            'col': person.tile[1],
+            'food': round(person.food, 2),
+            'partner': person.partner,
+        }
+        held = holdings.get(name, [])
+        for custom in held:
+          rows.append({
+              **who,
+              'custom': custom['id'],
+              'kind': custom['kind'],
+              'domain': custom['domain'],
+              'level': custom['level'],
+              'form': custom['form'],
+              'came_by': custom['via'],
+              'from': custom['from'],
+              'text': (
+                  world.culture.get(custom['id']).text
+                  if custom['id'] in world.culture
+                  else ''
+              ),
+          })
+        if not held:
+          rows.append(who)
+    return _csv(columns, rows)
+
+  def surveys_csv(self) -> str:
+    """Each survey answer kept, with the customs it named, as CSV.
+
+    Returns:
+      The CSV text, with a header: the year a survey was answered in, its
+      question, who answered, and the customs the answer named (ids and
+      words, `; `-separated).
+    """
+    rows = []
+    with self.run.world_lock():
+      world = self.run.world()
+      for survey in world.surveys:
+        for name, ids in survey['answers'].items():
+          rows.append({
+              'year': survey['year'],
+              'question': survey['question'],
+              'name': name,
+              'named': '; '.join(ids),
+              'named_words': '; '.join(
+                  world.culture.get(c).text for c in ids if c in world.culture
+              ),
+          })
+    return _csv(['year', 'question', 'name', 'named', 'named_words'], rows)
 
   # --- The twin ---------------------------------------------------------
 

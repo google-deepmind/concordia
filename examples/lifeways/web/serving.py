@@ -36,6 +36,9 @@ Everything it does with the world is read the simulation
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
 | `GET /notebook.md` | the notebook, to keep |
+| `GET /data/census.csv` | the census rows kept, a row a year |
+| `GET /data/people.csv` | who holds what now: a row per living person and custom |
+| `GET /data/surveys.csv` | each survey answer kept, with the customs it named |
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
@@ -68,6 +71,13 @@ _TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
+}
+# The data the page offers to keep, by path: the session's method that
+# writes it.
+_DATA = {
+    '/data/census.csv': 'census_csv',
+    '/data/people.csv': 'people_csv',
+    '/data/surveys.csv': 'surveys_csv',
 }
 
 
@@ -289,6 +299,12 @@ def handler(
             200,
             session.notebook_markdown().encode(),
             'text/markdown; charset=utf-8',
+        )
+      elif path in _DATA:
+        self._send(
+            200,
+            getattr(session, _DATA[path])().encode(),
+            'text/csv; charset=utf-8',
         )
       elif path in ('/', '/index.html'):
         self._static('index.html')
