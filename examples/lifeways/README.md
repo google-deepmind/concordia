@@ -277,13 +277,28 @@ experiment repeats that over seeds.
   Python's hash seed, so every difference is the lever's or the seed's.
 - **The comparison.** A run's measure is its mean over its later half:
   the living, distinct customs held, their diversity, the share holding
-  the top custom, peoples, tongues and the skill worked by. Across seeds
+  the top custom, peoples, tongues, the skill worked by, fields, inequality
+  and food shares given. Across seeds
   the tool gives the control's and the treatment's mean ± sd, and the
   paired difference: its mean ± sd and in how many seeds it was above or
   below.
 - **The output.** It prints a Markdown table and writes `summary.json`,
   `report.md` and every run's census (`census.jsonl`). The harness only
   builds, plays and reads simulations.
+
+### The lab, on the page
+
+The page's lab plays the same runs in the background, one experiment at a
+time in two worker processes, while the world plays on (`web/lab.py`, over
+`sweep`). Each run starts from the page's world's own settings in year 0,
+without the Experimenter's moves.
+- **Pull a lever, seed by seed**: the comparison above, from the world's
+  seed on, in words: each measure as set and with the lever, the
+  difference, and in how many seeds it was more or less.
+- **Play this world again on other seeds**: its settings on the seeds after
+  its own, each measure's mean ± sd and range over them, and where this
+  world's own measure over the same years falls: within them, or above or
+  below every seed. (This world also had your moves; the seeds did not.)
 
 ## Scenarios
 

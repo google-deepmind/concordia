@@ -64,10 +64,12 @@ from absl import logging
 from concordia.components.agent import human_act_component
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
+from examples.lifeways import sweep
 from examples.lifeways.components import culture
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.components import played as played_lib
 from examples.lifeways.prefabs import person as person_lib
+from examples.lifeways.web import lab as lab_lib
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import world as world_lib
@@ -664,6 +666,7 @@ class Session:
       minds: str = simulation.MOCK,
       play_as: bool = False,
       patience: float = PATIENCE,
+      lab_workers: int = 2,
       **overrides: Any,
   ):
     """Builds the world, or restores its last save (it starts with `start`).
@@ -686,6 +689,8 @@ class Session:
         (`PersonInput`); minds play the others, and the person in a twin.
         A save of a played world is restored only as a played world.
       patience: How long a played person's question waits for the page.
+      lab_workers: Runs the lab plays at once, each in a process (0: in its
+        own thread).
       **overrides: More settings.
 
     Raises:
@@ -772,6 +777,9 @@ class Session:
         max_workers=1, thread_name_prefix='lifeways-save'
     )
     self._written: futures.Future[bool] | None = None
+    # The lab, made when first asked for (a twin never is).
+    self._lab: lab_lib.Lab | None = None
+    self._lab_workers = lab_workers
     self.saved_year: int | None = None
     self.restored_year: int | None = None
     # The twin playing beside this world, and a snapshot taken for it.
@@ -860,7 +868,83 @@ class Session:
     twin = self.end_twin(noted=False)
     if twin is not None:
       twin.close(max(0.0, deadline - time.monotonic()))
+    if self._lab is not None:
+      self._lab.close(max(0.0, deadline - time.monotonic()))
     self._writer.shutdown(wait=True)  # A save being written is finished.
+
+  # --- The lab ----------------------------------------------------------
+
+  def lab_start(
+      self,
+      kind: str,
+      seeds: int,
+      years: int,
+      lever: str = '',
+      value: Any = None,
+  ) -> dict[str, Any]:
+    """Starts an experiment on this world's settings, in the background.
+
+    `lab.COMPARE` plays them as they are and with a lever pulled, from this
+    world's seed on; `lab.REPLICATE` plays them as they are on the seeds
+    after this world's. The runs start in year 0, without the
+    Experimenter's moves.
+
+    Args:
+      kind: `lab.COMPARE` or `lab.REPLICATE`.
+      seeds: How many seeds.
+      years: Years each run plays.
+      lever: For a comparison: a key of `scenarios.LEVERS`, or
+        `scenarios.WITHOUT`.
+      value: The lever's value, or the channel gone without.
+
+    Returns:
+      The job (`lab_status`).
+
+    Raises:
+      ValueError: If the lab cannot play the job (or is playing one).
+    """
+    if self._lab is None:
+      self._lab = lab_lib.Lab(workers=self._lab_workers)
+    pulled = (lever, value) if kind == lab_lib.COMPARE else None
+    self._lab.start(
+        kind,
+        self.scenario,
+        {**self._overrides},
+        int(seeds),
+        int(years),
+        pulled,
+        first_seed=self._seed + (kind == lab_lib.REPLICATE),
+    )
+    return self.lab_status() or {}
+
+  def lab_status(self) -> dict[str, Any] | None:
+    """The lab's job (None if none), and this world beside a replication.
+
+    A replication done also gives this world's own measures over the same
+    years (`here`), read from the census rows kept, when they reach back to
+    year 0; else why not (`here_note`).
+
+    Returns:
+      The job, as `lab.Lab.status`, with `here` or `here_note`.
+    """
+    job = self._lab.status() if self._lab is not None else None
+    if job is None or job['kind'] != lab_lib.REPLICATE or not job['result']:
+      return job
+    years = int(job['years'])
+    with self._rows_lock:
+      rows = [r for r in self._rows if 0 <= int(r['year']) < years]
+    if len(rows) < years:
+      job['here_note'] = (
+          f'This world has not lived {years} years yet.'
+          if self._year < years
+          else "This world's first years are no longer kept to compare."
+      )
+      return job
+    job['here'] = {
+        name: round(sweep.late_mean(rows, measure), 3)
+        for name, measure in sweep.MEASURES.items()
+    }
+    return job
 
   def _year_closed(self, year: int) -> None:
     # In the World GM's lock: the world may be read here, and is whole.

@@ -40,6 +40,9 @@ MEASURES: Mapping[str, Any] = {
     'peoples': lambda row: row['peoples']['peoples'],
     'tongues': lambda row: row.get('tongues', 0),
     'skill worked': lambda row: row.get('skill_worked', 0.0),
+    'fields': lambda row: row.get('fields', 0),
+    'inequality': lambda row: row.get('gini', 0.0),
+    'food shares given': lambda row: row.get('shares', 0),
 }
 
 
@@ -76,23 +79,29 @@ def parse_lever(text: str) -> tuple[str, Any]:
 
 def play(
     scenario: str,
-    lever: tuple[str, Any],
+    lever: tuple[str, Any] | None,
     condition: Condition,
     years: int,
+    overrides: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
   """Plays one run and returns its census rows.
 
   Args:
     scenario: The scenario or preset.
-    lever: The lever and its value.
+    lever: The lever and its value (None: no treatment).
     condition: The seed, and whether the lever is pulled.
     years: How many years.
+    overrides: Optional. Settings that replace the scenario's (a world's
+      own, to play it again).
 
   Returns:
     A census row a year (`Run.census_row`).
   """
-  settings = scenarios.settings(scenario, seed=condition.seed, max_years=years)
-  if condition.treated:
+  settings = scenarios.settings(
+      scenario,
+      **{**(overrides or {}), 'seed': condition.seed, 'max_years': years},
+  )
+  if condition.treated and lever is not None:
     settings = scenarios.with_lever(settings, *lever)
   run = simulation.build_simulation(
       settings, archive=simulation.Archive(keep=0)
@@ -124,30 +133,30 @@ def summarize(
   """
   seeds = sorted({c.seed for c in rows})
 
-  def late_mean(run: Sequence[Mapping[str, Any]], measure: Any) -> float:
-    late = run[int(len(run) * burn_in) :] or run
-    return statistics.fmean(float(measure(row)) for row in late)
-
-  def spread(values: Sequence[float]) -> float:
+  def sd(values: Sequence[float]) -> float:
     return statistics.stdev(values) if len(values) > 1 else 0.0
 
   out: dict[str, Any] = {'seeds': seeds, 'measures': {}}
   for name, measure in MEASURES.items():
-    control = [late_mean(rows[Condition(s, False)], measure) for s in seeds]
-    treated = [late_mean(rows[Condition(s, True)], measure) for s in seeds]
+    control = [
+        late_mean(rows[Condition(s, False)], measure, burn_in) for s in seeds
+    ]
+    treated = [
+        late_mean(rows[Condition(s, True)], measure, burn_in) for s in seeds
+    ]
     diffs = [t - c for t, c in zip(treated, control)]
     out['measures'][name] = {
         'control': [
             round(statistics.fmean(control), 3),
-            round(spread(control), 3),
+            round(sd(control), 3),
         ],
         'treatment': [
             round(statistics.fmean(treated), 3),
-            round(spread(treated), 3),
+            round(sd(treated), 3),
         ],
         'difference': [
             round(statistics.fmean(diffs), 3),
-            round(spread(diffs), 3),
+            round(sd(diffs), 3),
         ],
         'above': sum(d > 0 for d in diffs),
         'below': sum(d < 0 for d in diffs),
@@ -156,6 +165,41 @@ def summarize(
             str(s): [round(c, 3), round(t, 3)]
             for s, c, t in zip(seeds, control, treated)
         },
+    }
+  return out
+
+
+def late_mean(
+    run: Sequence[Mapping[str, Any]], measure: Any, burn_in: float = 0.5
+) -> float:
+  """A run's measure: its mean over the later years (after `burn_in`)."""
+  late = run[int(len(run) * burn_in) :] or run
+  return statistics.fmean(float(measure(row)) for row in late)
+
+
+def spread(
+    runs: Mapping[int, Sequence[Mapping[str, Any]]], burn_in: float = 0.5
+) -> dict[str, Any]:
+  """How a measure varies over seeds: one setting, played again.
+
+  Args:
+    runs: Each run's census rows, by seed.
+    burn_in: The share of the years left out at the start.
+
+  Returns:
+    The seeds, and by measure: the mean, standard deviation, least and most
+    of the runs' measures, and each seed's.
+  """
+  seeds = sorted(runs)
+  out: dict[str, Any] = {'seeds': seeds, 'measures': {}}
+  for name, measure in MEASURES.items():
+    values = [late_mean(runs[s], measure, burn_in) for s in seeds]
+    out['measures'][name] = {
+        'mean': round(statistics.fmean(values), 3),
+        'sd': round(statistics.stdev(values), 3) if len(values) > 1 else 0.0,
+        'least': round(min(values), 3),
+        'most': round(max(values), 3),
+        'by_seed': {str(s): round(v, 3) for s, v in zip(seeds, values)},
     }
   return out
 

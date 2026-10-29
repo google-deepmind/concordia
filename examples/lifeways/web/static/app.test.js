@@ -24,8 +24,8 @@ const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
   fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-  prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
-  treeLayout, twinReport, wordChange,
+  labLines, labStatus, prevalenceSeries, previewText, spreadLabels,
+  surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -417,6 +417,40 @@ test('a hypothesis says what the census will check, then how it came out',
           'fields sown went from 6 to 5.13 on average (years 1,015–1,019); ' +
           'you said rise.');
     });
+
+test('the lab says what it plays, and what came of it', () => {
+  assert.equal(labStatus(null), 'No experiment yet.');
+  const compare = {kind: 'compare', lever: ['richness', 0.5], seeds: [0, 4],
+    years: 100, runs: 10, done: 3, state: 'playing'};
+  assert.equal(labStatus(compare), 'Playing how rich the land is set to ' +
+      '0.5, against this world\'s settings: 3 of 10 runs done (seeds 0–4, ' +
+      '100 years each)…');
+  const done = {...compare, state: 'done', seconds: 95, result: {seeds:
+    [0, 1, 2, 3, 4], measures: {living: {control: [40, 2.5],
+      treatment: [52.25, 3], difference: [12.25, 1], above: 5, below: 0}}}};
+  assert.equal(labStatus(done), 'How rich the land is set to 0.5, against ' +
+      'this world\'s settings (seeds 0–4, 100 years each), done in 95 s:');
+  assert.deepEqual(labLines(done), ['Alive: 40 ± 2.5 as set, 52.25 ± 3 ' +
+      'with the lever (+12.25; more in 5 of 5 seeds, less in 0).']);
+  const again = {kind: 'replicate', lever: null, seeds: [1, 1], years: 50,
+    state: 'done', seconds: 9, here: {living: 70, fields: 3, tongues: 0.999},
+    result: {seeds: [1], measures: {
+      living: {mean: 40, sd: 0, least: 40, most: 40},
+      fields: {mean: 3, sd: 0, least: 2, most: 4},
+      tongues: {mean: 1, sd: 0, least: 1, most: 1}}}};
+  assert.equal(labStatus(again), 'This world\'s settings on other seeds ' +
+      '(seed 1, 50 years each), done in 9 s:');
+  assert.deepEqual(labLines(again), [
+    'Alive: 40 ± 0 (from 40 to 40); this world, 70, above every seed.',
+    'Fields sown: 3 ± 0 (from 2 to 4); this world, 3, within them.',
+    'Tongues: 1 ± 0 (from 1 to 1); this world, 1, within them.']);
+  assert.deepEqual(labLines({...again, here: undefined,
+    here_note: 'This world has not lived 50 years yet.'}).slice(-1),
+  ['This world has not lived 50 years yet.']);
+  assert.equal(labStatus({...compare, lever: ['without', 'story'],
+    state: 'failed', error: 'ValueError: no'}), 'The experiment failed: ' +
+      'ValueError: no');
+});
 
 test('labels at the same height spread up from the bottom', () => {
   const labels = [{at: 100}, {at: 100}, {at: 100}, {at: 20}];

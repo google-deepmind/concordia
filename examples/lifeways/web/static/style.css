@@ -140,7 +140,7 @@ button { cursor: pointer; }
 /* Nothing is wider than a phone: a long choice wraps its box, not the page. */
 select, input, textarea { max-width: 100%; }
 #fork label { flex: 1 1 100%; }
-#fork select { width: 100%; }
+#fork select, #lab-kind, #lab-lever { width: 100%; }
 #fork label#lever-to { flex: 0 1 auto; }
 button.danger { border-color: var(--danger); color: var(--danger); }
 button[type="submit"] { border-color: var(--accent); color: var(--accent); }
@@ -237,9 +237,9 @@ button.link {
 #find { margin-top: 10px; }
 #find label { display: flex; flex-direction: column; font-size: 0.95rem; }
 #find input { width: 100%; }
-#release, #ask, #fork, #note, #fate, #survey-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release, #ask, #fork, #note, #fate, #survey-form, #lab-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 #release label, #ask label, #fork label, #note label, #fate label,
-#survey-form label {
+#survey-form label, #lab-form label {
   display: flex;
   flex-direction: column;
   min-width: 0;  /* A flex item may shrink below its longest choice. */
@@ -247,7 +247,7 @@ button.link {
   font-size: 0.95rem;
 }
 #release label.wide, #ask label.wide, #note label.wide,
-#survey-form label.wide { flex: 1 1 100%; }
+#survey-form label.wide, #lab-form label.wide { flex: 1 1 100%; }
 #note textarea { width: 100%; resize: vertical; }
 #note-check {
   display: flex;

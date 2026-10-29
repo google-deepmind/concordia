@@ -431,7 +431,7 @@ async function preview() {
 }
 
 /** The sections whose heading folds them away. */
-const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
+const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'lab', 'interviews',
   'notebook', 'built'];
 
 /**
@@ -1086,6 +1086,92 @@ function twinReport(rows, twinRows) {
       ...(same.length ? [`The same in both (within 1%): ` +
         `${same.join(', ')}.`] : []), ...apart],
   };
+}
+
+/** The lab's measures (as `sweep` names them) in the page's words. */
+const LAB_WORDS = {
+  'living': 'alive',
+  'distinct customs held': 'different versions held',
+  'diversity of customs': 'variety of customs held',
+  'share holding the top custom': 'share holding the most-held custom',
+  'peoples': 'peoples',
+  'tongues': 'tongues',
+  'skill worked': 'skill worked by',
+  'fields': 'fields sown',
+  'inequality': 'inequality',
+  'food shares given': 'food shares given',
+};
+
+/**
+ * What the lab is doing, or did, in a line.
+ * @param {?Object} job The lab's job (`/api/lab`), or null.
+ * @return {string} The line.
+ */
+function labStatus(job) {
+  if (!job) return 'No experiment yet.';
+  const [first, last] = job.seeds;
+  const seeds = first === last ? `seed ${first}` : `seeds ${first}–${last}`;
+  const [lever, value] = job.lever || [];
+  const what = job.kind === 'compare' ?
+    (lever === 'without' ? `without ${CHANNEL_WORDS[value] || value}` :
+      `${(LEVER_WORDS[lever] || lever).toLowerCase()} set to ${value}`) +
+      ', against this world\'s settings' :
+    'this world\'s settings on other seeds';
+  const runs = `${seeds}, ${job.years} years each`;
+  if (job.state === 'playing') {
+    return `Playing ${what}: ${job.done} of ${job.runs} runs done (${runs})…`;
+  }
+  if (job.state === 'failed') return `The experiment failed: ${job.error}`;
+  if (job.state === 'stopped') return 'The experiment was stopped.';
+  return `${what[0].toUpperCase()}${what.slice(1)} (${runs}), done in ` +
+      `${job.seconds} s:`;
+}
+
+/**
+ * The lab's result in words, a line a measure.
+ * @param {?Object} job The lab's job, done.
+ * @return {!Array<string>} The lines ([] until it is done).
+ */
+function labLines(job) {
+  if (!job || job.state !== 'done' || !job.result) return [];
+  const n = (v) => Number(v.toFixed(2)).toString();
+  const signed = (v) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${n(Math.abs(v))}`;
+  const lines = Object.entries(job.result.measures).map(([name, m]) => {
+    const words = LAB_WORDS[name] || name;
+    const what = `${words[0].toUpperCase()}${words.slice(1)}`;
+    if (job.kind === 'compare') {
+      const seeds = job.result.seeds.length;
+      return `${what}: ${n(m.control[0])} ± ${n(m.control[1])} as set, ` +
+          `${n(m.treatment[0])} ± ${n(m.treatment[1])} with the lever ` +
+          `(${signed(m.difference[0])}; more in ${m.above} of ${seeds} ` +
+          `seeds, less in ${m.below}).`;
+    }
+    const here = job.here && job.here[name];
+    const shown = (v) => Number(v.toFixed(2));  // Compared as shown.
+    const where = here === undefined ? '' :
+      shown(here) < shown(m.least) ?
+        `; this world, ${n(here)}, below every seed` :
+        shown(here) > shown(m.most) ?
+          `; this world, ${n(here)}, above every seed` :
+          `; this world, ${n(here)}, within them`;
+    return `${what}: ${n(m.mean)} ± ${n(m.sd)} (from ${n(m.least)} to ` +
+        `${n(m.most)})${where}.`;
+  });
+  return job.here_note ? [...lines, job.here_note] : lines;
+}
+
+/**
+ * Shows the lab's job and, once done, its result.
+ * @param {?Object} job The lab's job, or null.
+ */
+function drawLab(job) {
+  document.getElementById('lab-status').textContent = labStatus(job);
+  document.getElementById('lab-result').replaceChildren(
+      ...labLines(job).map((line) => {
+        const item = document.createElement('li');
+        item.textContent = line;
+        return item;
+      }));
 }
 
 /**
@@ -2531,6 +2617,7 @@ async function refreshOnce() {
     }
     if (rows.length || twinRows.length) drawChart(page.rows, page.twinRows);
     drawTwinReport(world.twin ? twinReport(page.rows, page.twinRows) : null);
+    drawLab((await api('api/lab')).job);
     const entries = await api(`api/notebook?since=${page.entrySince}`);
     if (entries.length) {
       page.entries = appendNew(page.entries, entries, 'id', page.entrySince,
@@ -3088,6 +3175,19 @@ async function start() {
   presetNote();
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
+  document.getElementById('lab-lever').replaceChildren(
+      ...leverChoices(world).map(([value, label]) => new Option(label, value)));
+  const labShown = () => {  // A lever only for a comparison; a value only
+    // for a lever that takes one.
+    const compare = document.getElementById('lab-kind').value === 'compare';
+    document.getElementById('lab-lever-box').hidden = !compare;
+    document.getElementById('lab-to').hidden = !compare ||
+        document.getElementById('lab-lever').value.startsWith('without ');
+  };
+  labShown();
+  for (const id of ['lab-kind', 'lab-lever']) {
+    document.getElementById(id).addEventListener('change', labShown);
+  }
   document.getElementById('check-measure').replaceChildren(
       new Option('— no check —', ''),
       ...Object.entries(world.checkable || {}).map(
@@ -3351,6 +3451,30 @@ async function start() {
     }
     refresh();
   });
+  document.getElementById('lab-form').addEventListener('submit',
+      async (event) => {
+        event.preventDefault();
+        const said = document.getElementById('lab-error');
+        said.textContent = '';
+        const kind = document.getElementById('lab-kind').value;
+        const lever = document.getElementById('lab-lever').value;
+        const value = document.getElementById('lab-value').value.trim();
+        const [name, pulled] = lever.startsWith('without ') ?
+          ['without', lever.slice('without '.length)] : [lever, Number(value)];
+        if (kind === 'compare' && name !== 'without' &&
+            (value === '' || !Number.isFinite(pulled))) {
+          said.textContent = 'Not played: give the lever a value, a number.';
+          return;
+        }
+        try {
+          drawLab(await api('api/lab', {kind,
+            seeds: Number(document.getElementById('lab-seeds').value),
+            years: Number(document.getElementById('lab-years').value),
+            ...(kind === 'compare' ? {lever: name, value: pulled} : {})}));
+        } catch (error) {
+          said.textContent = `Not played: ${error.message}`;
+        }
+      });
   document.getElementById('fate').addEventListener('submit', async (event) => {
     event.preventDefault();
     const said = document.getElementById('fate-error');
@@ -3401,8 +3525,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
     fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-    prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
-    treeLayout, twinReport, wordChange,
+    labLines, labStatus, prevalenceSeries, previewText, spreadLabels,
+    surveyMove, surveyText, treeLayout, twinReport, wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

@@ -33,6 +33,7 @@ limitations under the License.
         <option value="fates">Shape the valley</option>
         <option value="graphs">The census</option>
         <option value="twins">Fork a twin</option>
+        <option value="lab">The lab</option>
         <option value="interviews">Interviews</option>
         <option value="notebook">Notebook</option>
         <option value="built">How it's built</option>
@@ -363,6 +364,39 @@ limitations under the License.
         Inequality runs from 0 (all store alike) to 1 (one has all);
         variety, from 0 (all hold the same) towards 1.</p>
     </div>
+  </section>
+
+  <section id="lab" aria-label="The lab">
+    <h2>The lab</h2>
+    <p class="hint">Experiments over many seeds, played quickly in the
+      background by people who think by simple rules, while this world plays
+      on. Each run starts from this world's settings in year 0, without your
+      moves; a measure is a run's average over its later half.</p>
+    <form id="lab-form">
+      <label class="wide">Experiment <select id="lab-kind">
+        <option value="replicate">Play this world again on other seeds</option>
+        <option value="compare">Pull a lever, seed by seed</option>
+      </select></label>
+      <label id="lab-lever-box" class="wide">Lever
+        <select id="lab-lever"></select></label>
+      <label id="lab-to">To <input id="lab-value" inputmode="decimal"
+        size="6"></label>
+      <label>Seeds <select id="lab-seeds">
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+      </select></label>
+      <label>Years <select id="lab-years">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+        <option value="200">200</option>
+        <option value="300">300</option>
+      </select></label>
+      <button type="submit">Play it in the background</button>
+    </form>
+    <p id="lab-status" aria-live="polite"></p>
+    <ul id="lab-result" class="parts"></ul>
+    <p id="lab-error" class="hint" role="alert"></p>
   </section>
 
   <section id="interviews" aria-label="Interviews">

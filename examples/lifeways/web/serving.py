@@ -47,6 +47,8 @@ Everything it does with the world is read the simulation
 | `POST /api/me` `{"id": ..., "answer": ...}` | answer the played person's question |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
 | `POST /api/twin` `{"end": true}` | let the twin go |
+| `GET /api/lab` | the lab's experiment playing or last played |
+| `POST /api/lab` `{"kind", "seeds", "years", "lever", "value"}` | play an experiment on this world's settings in the background: `compare` (a lever pulled) or `replicate` (other seeds) |
 """
 
 from collections.abc import Callable, Mapping
@@ -294,6 +296,8 @@ def handler(
           self._json(404, {'error': 'no such custom is remembered'})
         else:
           self._json(200, lineage)
+      elif path == '/api/lab':
+        self._json(200, {'job': session.lab_status()})
       elif path == '/notebook.md':
         self._send(
             200,
@@ -353,6 +357,19 @@ def handler(
         self._json(200, session.input.settings())
       elif path == '/api/twin':
         self._twin(session, body)
+      elif path == '/api/lab':
+        try:
+          job = session.lab_start(
+              str(body.get('kind', '')),
+              int(body.get('seeds', 0)),
+              int(body.get('years', 0)),
+              str(body.get('lever', '')),
+              body.get('value'),
+          )
+        except (TypeError, ValueError) as error:
+          self._json(400, {'error': str(error)})
+          return
+        self._json(200, job)
       elif path == '/api/new':
         try:
           renewed = served.begin_anew(
