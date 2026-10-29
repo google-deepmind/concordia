@@ -42,6 +42,7 @@ LEARNING = 'learning'
 IDENTITY = 'identity'
 LANGUAGE = 'language'
 FARMING = 'farming'
+REASONING = 'reasoning'  # How one decides: question customs.
 # Order matters to recombination; a new domain goes last, so that worlds
 # without its customs draw as before.
 DOMAINS = (
@@ -55,6 +56,7 @@ DOMAINS = (
     IDENTITY,
     LANGUAGE,
     FARMING,
+    REASONING,
 )
 
 # The kinds of custom, each built as its own kind of component.
@@ -66,7 +68,10 @@ HABIT = 'habit'
 BIAS = 'bias'
 DIALECT = 'dialect'
 MARRIAGE = 'marriage'
-KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT, MARRIAGE)
+# A step of decision logic: a question the person asks itself before it
+# acts (DESIGN 3), built as the stock `QuestionOfRecentMemories`.
+QUESTION = 'question'
+KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT, MARRIAGE, QUESTION)
 
 # What a marriage rule's `within` param asks of a partner: to speak as one
 # does (understanding at least `SAME_TONGUE`), or to be of one's people.
@@ -75,10 +80,12 @@ DESCENT = 'descent'
 SAME_TONGUE = 0.75
 
 # Kinds bound to a domain: a dialect is how one speaks, a marriage rule whom
-# one marries. A custom of another kind may be of any domain.
+# one marries, a question how one decides. A custom of another kind may be of
+# any domain but reasoning.
 KIND_DOMAINS: Mapping[str, tuple[str, ...]] = {
     DIALECT: (LANGUAGE,),
     MARRIAGE: (KINSHIP,),
+    QUESTION: (REASONING,),
 }
 
 

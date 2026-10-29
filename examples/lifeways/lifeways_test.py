@@ -953,6 +953,47 @@ class LearnerTest(absltest.TestCase):
         if isinstance(c, culture.Custom)
     }
 
+  def test_a_question_custom_is_asked_before_each_act(self):
+    spec = {
+        'id': 'c7',
+        'kind': 'question',
+        'domain': 'reasoning',
+        'text': 'What would my mother do?',
+        'params': {},
+    }
+    prompts = []
+
+    class Recording(mock_language_model.MockModel):
+
+      def sample_text(self, prompt, **kwargs):
+        prompts.append(prompt)
+        return super().sample_text(prompt, **kwargs)
+
+    prefab = person_lib.Person()
+    prefab.params = {'name': 'Ada', 'born': 0, 'seed': 0, 'customs': [spec]}
+    entity = prefab.build(
+        Recording(),
+        basic_associative_memory.AssociativeMemoryBank(
+            sentence_embedder=person_lib.hash_embedder
+        ),
+    )
+    self.assertIsInstance(self._customs(entity)['c7'], culture.QuestionCustom)
+
+    entity.act(_QUESTION)
+    entity.act(_QUESTION)  # Asked afresh each act.
+
+    asked = [p for p in prompts if 'Question: What would my mother do?' in p]
+    self.assertLen(asked, 2)
+    self.assertIn(
+        'A question we ask ourselves (reasoning) [c7]: What would my mother'
+        ' do?\nAda does as our customs say.',
+        prompts[-1],
+    )
+    # Restored from the entity's state, it is a question again.
+    again = self._person()
+    again.set_state(entity.get_state())
+    self.assertIsInstance(self._customs(again)['c7'], culture.QuestionCustom)
+
   def test_an_offer_taken_up_becomes_a_component(self):
     entity = self._person(uptake={'apprenticeship': 1.0})
     spec = {

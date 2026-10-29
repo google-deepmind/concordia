@@ -2016,6 +2016,7 @@ const EXAMPLE_SAYS = {
   habit: 'In lean years, gather before anything else.',
   marriage: 'We marry only our own people.',
   bias: 'Learn from the eldest.',
+  question: 'What would my elders do in a situation such as this?',
 };
 
 /** What each kind of custom is, in words. */
@@ -2028,6 +2029,7 @@ const KIND_WORDS = {
   bias: 'whom to learn from',
   dialect: 'a way of speaking',
   marriage: 'whom to marry',
+  question: 'a question asked before acting',
 };
 
 /** The world's levers, in words. */

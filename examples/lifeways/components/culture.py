@@ -30,7 +30,9 @@ from typing import Any, cast, override
 import zlib
 
 from concordia.agents import entity_agent
+from concordia.components.agent import question_of_recent_memories
 from examples.lifeways.world import culture as culture_lib
+from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 import numpy as np
@@ -54,7 +56,10 @@ _LABELS = {
     culture_lib.BIAS: 'Whom we learn from',
     culture_lib.DIALECT: 'How we speak',
     culture_lib.MARRIAGE: 'Whom we marry',
+    culture_lib.QUESTION: 'A question we ask ourselves',
 }
+# How many recent memories a question custom reads.
+QUESTION_MEMORIES = 10
 
 
 def component_name(custom_id: str) -> str:
@@ -105,6 +110,55 @@ class Custom(entity_component.ContextComponent):
     del state
 
 
+class QuestionCustom(Custom):
+  """A custom of reasoning: a question the person asks itself before acting.
+
+  The question is put by the stock `QuestionOfRecentMemories` (an
+  InteractiveDocument over the person's recent memories, as Concordia asks
+  models), once an act; its answer joins what the person acts on. So a
+  person's logic of appropriateness, or of consequence, is a custom it was
+  raised in, and may drop.
+  """
+
+  def __init__(
+      self, spec: Mapping[str, Any], model: language_model.LanguageModel
+  ):
+    super().__init__(spec)
+    self._question = question_of_recent_memories.QuestionOfRecentMemories(
+        model=model,
+        pre_act_label=_LABELS[culture_lib.QUESTION],
+        # Asked as written (the stock component fills `{agent_name}`; a
+        # custom's words never hold braces).
+        question=str(spec['text']).replace('{', '(').replace('}', ')'),
+        answer_prefix='{agent_name} ',
+        add_to_memory=False,
+        num_memories_to_retrieve=QUESTION_MEMORIES,
+    )
+
+  @override
+  def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
+    super().set_entity(entity)
+    self._question.set_entity(entity)
+
+  @override
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    asked = super().pre_act(action_spec)
+    return f'{asked}\n{self._question.get_pre_act_value()}'
+
+  @override
+  def update(self) -> None:
+    self._question.update()  # A new question for the next act.
+
+
+def build_custom(
+    spec: Mapping[str, Any], model: language_model.LanguageModel | None
+) -> Custom:
+  """A custom's component: a question custom asks with `model`."""
+  if spec['kind'] == culture_lib.QUESTION and model is not None:
+    return QuestionCustom(spec, model)
+  return Custom(spec)
+
+
 def offer_chance(
     offer: re.Match[str], uptake: Mapping[str, float], biases: str
 ) -> float:
@@ -147,19 +201,22 @@ def offer_chance(
 
 
 def make_custom(
-    name: str, spec: entity_component.ComponentState
+    name: str,
+    spec: entity_component.ComponentState,
+    model: language_model.LanguageModel | None = None,
 ) -> entity_component.ContextComponent:
   """The component factory of a person's entity: a custom from its spec.
 
   Args:
     name: The component's key (unused: the spec names the custom).
     spec: The custom's spec, as the entity's state recorded it.
+    model: The model a question custom asks with (bound by the prefab).
 
   Returns:
     The custom's component.
   """
   del name
-  return Custom(spec)
+  return build_custom(spec, model)
 
 
 class Learner(entity_component.ContextComponent):
@@ -187,8 +244,11 @@ class Learner(entity_component.ContextComponent):
       uptake: Mapping[str, float],
       per_domain: int = 2,
       capacity: int = 10,
+      model: language_model.LanguageModel | None = None,
   ):
     super().__init__()
+    # The model the person's question customs ask with.
+    self._model = model
     self._seed = int(seed)
     self._uptake = dict(uptake)
     self._per_domain = int(per_domain)
@@ -219,7 +279,9 @@ class Learner(entity_component.ContextComponent):
     with self._lock:
       if str(spec['id']) in self._held or not self._make_room(entity, spec):
         return
-      entity.add_component(component_name(spec['id']), Custom(spec), spec)
+      entity.add_component(
+          component_name(spec['id']), build_custom(spec, self._model), spec
+      )
       self._hold(spec, via)
 
   def held(self) -> list[str]:
@@ -287,7 +349,9 @@ class Learner(entity_component.ContextComponent):
             'params': params,
         }
         if self._make_room(entity, spec):
-          entity.add_component(component_name(custom_id), Custom(spec), spec)
+          entity.add_component(
+              component_name(custom_id), build_custom(spec, self._model), spec
+          )
           self._hold(spec, offer.group('via'), offer.group('source') or '')
     return ''
 

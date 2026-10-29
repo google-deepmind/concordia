@@ -412,6 +412,19 @@ channel's copying errors, as lines of next year's observations:
 | sanction | one shamed (`shame <name>`): the norm the shamer shames by |
 | practice | one who keeps a norm only expected of it: that norm as its own |
 
+**Decision logic as customs.** A `question` custom (in the `reasoning`
+domain) is a question a person asks itself before each act. It is built as
+the stock `QuestionOfRecentMemories`, wrapped as a custom
+(`culture.QuestionCustom`), so the model is asked through Concordia's own
+component and InteractiveDocument, and the answer joins what the person
+acts on. Customs pass on, mutate and are dropped as any do, so a logic of
+appropriateness ("What kind of situation is this, what kind of person am I,
+and what does a person such as I do in a situation such as this?") or of
+consequence ("What could I do now, and what would come of each choice for
+me and for those near?") is inherited: in Two Valleys the West people are
+raised in the first, the East people in the second. Each costs one model
+call an act; the Experimenter may release one, too.
+
 **Norms in two forms.** A norm is *internalized* (a person's own, kept when
 nobody watches) or *known* (expected by others, kept when someone is within
 sight). Children raised in a norm make it their own; so may those who keep a

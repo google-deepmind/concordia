@@ -123,7 +123,9 @@ class MockModel(language_model.LanguageModel):
       return ' '.join([world_lib.PASS_ON, *(cid for _, cid, _ in customs)])
     moves = _MOVES.findall(question)
     if not moves:
-      return ''
+      # A question one asks oneself (a question custom): an answer that
+      # leaves the choice to the customs.
+      return 'does as our customs say.' if question.strip() else ''
     expected = {cid for _, cid in _EXPECTED.findall(prompt)}
     return _choose(prompt, moves, customs, expected)
 

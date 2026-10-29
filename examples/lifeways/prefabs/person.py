@@ -25,6 +25,7 @@ Concordia's models are framed to do.
 
 from collections.abc import Mapping
 import dataclasses
+import functools
 from typing import Any
 import zlib
 
@@ -141,6 +142,7 @@ class Person(prefab_lib.Prefab):
         uptake=dict(self.params.get('uptake', DEFAULT_UPTAKE)),
         per_domain=int(self.params.get('per_domain', 2)),
         capacity=int(self.params.get('capacity', 10)),
+        model=model,
     )
     components = {
         memory.DEFAULT_MEMORY_COMPONENT_KEY: memory.AssociativeMemory(
@@ -168,7 +170,7 @@ class Person(prefab_lib.Prefab):
         act_component=act,
         context_components=components,
         measurements=measures.measurements(),
-        component_factory=culture.make_custom,
+        component_factory=functools.partial(culture.make_custom, model=model),
     )
     for spec in self.params.get('customs', ()):
       learner.inherit(

@@ -357,6 +357,25 @@ PLASMID_SOUP: Mapping[str, Any] = {
 # Two Valleys: two peoples with their own tongues, beliefs and marriage
 # rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or
 # both, over centuries?
+# Decision logics as customs (DESIGN 3): each a question one asks oneself
+# before acting, as the stock `QuestionOfRecentMemories` asks it.
+APPROPRIATENESS: Mapping[str, Any] = {
+    'kind': 'question',
+    'domain': 'reasoning',
+    'text': (
+        'What kind of situation is this, what kind of person am I, and what'
+        ' does a person such as I do in a situation such as this?'
+    ),
+}
+CONSEQUENCE: Mapping[str, Any] = {
+    'kind': 'question',
+    'domain': 'reasoning',
+    'text': (
+        'What could I do now, and what would come of each choice for me and'
+        ' for those near?'
+    ),
+}
+
 TWO_VALLEYS: Mapping[str, Any] = {
     'rows': 20,
     'cols': 40,
@@ -390,6 +409,7 @@ TWO_VALLEYS: Mapping[str, Any] = {
                     'domain': 'identity',
                     'text': 'We are the West people, children of the river.',
                 },
+                APPROPRIATENESS,
             ],
         },
         {
@@ -418,6 +438,7 @@ TWO_VALLEYS: Mapping[str, Any] = {
                     'domain': 'identity',
                     'text': 'We are the East people; the mountain is ours.',
                 },
+                CONSEQUENCE,
             ],
         },
     ],
