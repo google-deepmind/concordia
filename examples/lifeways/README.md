@@ -323,17 +323,20 @@ Farmers, 24 years, seed 0, build 8bfa7a06 (local Ollama models):
 | llama3.2:3b, situation first | 350 | 12% | 87% | 18 | 13 | 15 | 15 | 0 | 11% | – |
 | llama3.2:3b, in the history | 393 | 12% | 83% | 38 | 31 | 17 | 14 | 1 | 28% | – |
 | granite3.3:2b | 357 | 6% | 81% | 55 | 43 | 17 | 17 | 4 | 35% | 14% |
+| qwen3:1.7b | 437 | 4% | 90% | 34 | 34 | 5 | 21 | 0 | 21% | 12% |
 
-The mock keeps an expected norm only when seen, by its rule; granite kept
-some unseen. Granite sowed most and its sowings grew nothing most often (12
-of 55).
+The mock keeps an expected norm only when seen, by its rule; granite and
+qwen kept some unseen. Granite sowed most and its sowings grew nothing most
+often (12 of 55). Qwen, the smallest, lived best of the live minds (5
+deaths): it moved to the better land its status names 225 times, and
+every sowing grew; it thinks at length, so a year took 473 s.
 
 With its stores and land read first, the small mind sowed half as often,
 and lived about as well: where a prompt puts things changes what a mind
 does, though not here towards farming. One seed each; more are playing.
-Neither had children: 0 and 1 births in 24 years, where the mock had 32.
-The small mind looked for partners, then gathered and rested; its valley
-lived on the strangers who come when it is nearly empty.
+No live mind had many children: 0 to 4 births in 24 years, where the mock
+had 32. They looked for partners, then gathered, rested or moved; their
+valleys lived on the strangers who come when one is nearly empty.
 
 ### Long runs
 
