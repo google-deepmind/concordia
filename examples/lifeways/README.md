@@ -301,6 +301,42 @@ experiment repeats that over seeds.
   `report.md` and every run's census (`census.jsonl`). The harness only
   builds, plays and reads simulations.
 
+### Minds compared
+
+```bash
+python -m examples.lifeways.minds --scenario=first_farmers --years=24 \
+    --minds=mock,ollama:llama3.2:3b,ollama:granite3.3:2b --out_dir=/tmp/minds
+```
+
+One scenario, played by several minds one run at a time, set side by side
+from their censuses (`sweep.play_mind`, `sweep.minds_report`): answers the
+World could not read, moves that named a custom, sowing and what grew,
+deaths and the living, norms kept unseen, seconds a year and model calls.
+`--settings` changes the world for all of them, so one mind can be compared
+with itself: here, llama3.2:3b with its situation read first (`Now`, the
+default) and in the history alone (`situation_first: false`), First
+Farmers, 24 years, seed 0, build 8bfa7a06:
+
+| | answers | not read | named a custom | "sow a field" | fields | deaths | alive |
+|---|---|---|---|---|---|---|---|
+| situation first | 350 | 12% | 87% | 18 | 13 | 15 | 15 |
+| in the history | 393 | 12% | 83% | 38 | 31 | 17 | 14 |
+
+With its stores and land read first, the small mind sowed half as often,
+and lived about as well: where a prompt puts things changes what a mind
+does, though not here towards farming. One seed each; more are playing.
+
+### Long runs
+
+A MOCK Sandbox of 10,000 years (`run.py --soak`, build 8bfa7a06) keeps its
+memory flat (120 MB by year 1,000, 122-124 MB after) and its seconds a
+year flat (0.65-1.0, as the machine's load varied); every sample has as
+many entities as living people plus the Experimenter, and the log stays
+at its bound. 6,451 died, 7,762 variants of customs arose, 51 were held at
+the end; the living averaged 33, outside 20-60 in 2.5% of the years after
+the founding. The time a year goes to the stock entities' per-call thread
+pools, not to the World's rules.
+
 ### The lab, on the page
 
 The page's lab plays the same runs in the background, one experiment at a
