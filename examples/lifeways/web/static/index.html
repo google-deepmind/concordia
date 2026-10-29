@@ -108,6 +108,11 @@ limitations under the License.
       Copying loses words, so some read oddly; "how it has changed" shows a
       custom's versions.</p>
     <ul id="person-customs"></ul>
+    <details id="person-anatomy">
+      <summary id="person-anatomy-label">How Concordia builds this
+        person</summary>
+      <ul id="person-anatomy-list" class="parts"></ul>
+    </details>
     <div id="person-let-go-box" hidden>
       <h3>Let go to make room</h3>
       <p class="hint">A person holds only so many customs, and only two about
@@ -281,6 +286,30 @@ limitations under the License.
       </select>
     </label>
     <ol id="entries"></ol>
+  </section>
+
+  <section id="built" aria-label="How it's built">
+    <h2>How it's built</h2>
+    <p class="hint">Lifeways shows off Concordia, Google DeepMind's library
+      for simulating people with language models.</p>
+    <ul class="hint key-list">
+      <li>Each person is a Concordia entity built from a prefab: memory,
+        what it sees, who it is, a Learner, and one part per custom. Taking
+        up a custom adds a part; letting it go removes one. Tap a person,
+        then "How Concordia builds …".</li>
+      <li>The valley is a game master: its parts answer the engine's
+        questions (who acts next, what each is asked, what each answer
+        does, what each sees).</li>
+      <li>Concordia's own asynchronous engine runs it, each person in a
+        thread of its own. This page only reads the world and passes on
+        your moves.</li>
+      <li>You are the Experimenter, an entity too: your moves are actions
+        the game master resolves. You never edit a mind.</li>
+    </ul>
+    <details id="world-anatomy">
+      <summary>The valley's game master, part by part</summary>
+      <ul id="world-anatomy-list" class="parts"></ul>
+    </details>
   </section>
 
   <footer><span id="build"></span> · <span id="minds"></span>

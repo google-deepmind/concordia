@@ -1017,6 +1017,27 @@ class ServerTest(absltest.TestCase):
     self.assertIn('from', person['customs'][0])
     self.assertNotEmpty(lineage['variants'])
 
+  def test_the_page_shows_how_concordia_builds_a_person_and_the_world(self):
+    name = self._get('/api/state')['people'][0]['name']
+
+    person = self._get(f'/api/anatomy?name={name}')
+    world = self._get('/api/anatomy')
+
+    self.assertEqual(person['name'], name)
+    self.assertIn(
+        {'key': 'learner', 'class': 'Learner', 'source': 'lifeways'},
+        person['components'],
+    )
+    self.assertEqual(person['acting']['class'], 'ConcatActComponent')
+    self.assertEqual(
+        (world['acting']['class'], world['acting']['source']),
+        ('SwitchAct', 'concordia'),
+    )
+    self.assertIn('TurnGate', [c['class'] for c in world['components']])
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._get('/api/anatomy?name=Nobody')
+    self.assertEqual(caught.exception.code, 404)
+
   def test_the_page_writes_in_the_notebook_and_keeps_a_copy(self):
     entry = self._post('/api/note', {'kind': 'observation', 'text': 'Hm.'})
 

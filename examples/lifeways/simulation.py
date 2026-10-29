@@ -436,6 +436,54 @@ class Run:
         'peoples': self.peoples(),
     }
 
+  def anatomy(self, name: str = '') -> dict[str, Any] | None:
+    """How Concordia builds a person, or (no name) the World GM.
+
+    Reading only, for the page's "How it's built": the entity's class, its
+    acting component and its context components by key, each with its
+    class and where it comes from (`concordia` stock, `contrib`, or
+    `lifeways`, this example's own).
+
+    Args:
+      name: A living entity's name; '' for the World GM.
+
+    Returns:
+      The anatomy, or None if no entity has the name.
+    """
+    if name:
+      found = next((e for e in list(self.sim.entities) if e.name == name), None)
+    else:
+      found = self.sim.game_masters[0]
+    if found is None:
+      return None
+
+    def part(key: str, component: Any) -> dict[str, str]:
+      module = type(component).__module__
+      source = (
+          'contrib'
+          if module.startswith('concordia.contrib.')
+          else 'concordia'
+          if module.startswith('concordia.')
+          else 'lifeways'
+      )
+      return {'key': key, 'class': type(component).__name__, 'source': source}
+
+    components = found.get_all_context_components()  # pyrefly: ignore[missing-attribute]
+    for _ in range(5):  # A live view: a person may add a custom meanwhile.
+      try:
+        items = list(components.items())
+        break
+      except RuntimeError:
+        continue
+    else:
+      items = []
+    return {
+        'name': found.name,
+        'class': type(found).__name__,
+        'acting': part('', found.get_act_component()),  # pyrefly: ignore[missing-attribute]
+        'components': [part(key, c) for key, c in items],
+    }
+
   def holds(self, name: str, kind: str, domain: str) -> bool:
     """Whether a living person holds a custom of a kind and domain.
 

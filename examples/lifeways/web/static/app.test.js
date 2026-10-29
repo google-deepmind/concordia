@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+  anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
+  queuedNote,
   statusLines,
   goneFromPanel, paceNote,
   peoplesText,
@@ -158,6 +159,26 @@ test('a status is a line a sentence', () => {
       'land around holds 10.0 food.', 'Food stored: 8.0 (a year needs 1.0).',
   '2 other people are within sight.']);
   assert.deepEqual(statusLines(''), []);
+});
+
+test('an entity says how Concordia builds it, customs counted once', () => {
+  assert.deepEqual(anatomyLines({class: 'EntityAgentWithLogging',
+    acting: {class: 'ConcatActComponent', source: 'concordia'},
+    components: [
+      {key: '__memory__', class: 'AssociativeMemory', source: 'concordia'},
+      {key: 'learner', class: 'Learner', source: 'lifeways'},
+      {key: 'custom c1', class: 'Custom', source: 'lifeways'},
+      {key: 'custom c2', class: 'Custom', source: 'lifeways'},
+    ]}), [
+    'EntityAgentWithLogging (stock Concordia): the entity',
+    'AssociativeMemory (stock Concordia): remembers what it has seen',
+    'Learner (this example): takes up customs it is offered, and lets old ' +
+        'ones go',
+    'Custom × 2 (this example): a custom: a text it reads when it decides',
+    'It acts through ConcatActComponent (stock Concordia): asks its mind (a ' +
+        'language model, or the simple rules) what it does, in one ' +
+        'document of all the parts above',
+  ]);
 });
 
 test('a panel says when its person is no longer alive', () => {

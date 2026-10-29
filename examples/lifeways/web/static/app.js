@@ -759,6 +759,75 @@ function statusLines(status) {
       .filter(Boolean);
 }
 
+/** What each Concordia part does here, in words, by its class. */
+const PART_WORDS = {
+  AssociativeMemory: 'remembers what it has seen',
+  ObservationToMemory: 'writes each thing it sees into memory',
+  LastNObservations: 'keeps the latest things it saw in mind',
+  Constant: 'a fixed text it reads: who it is',
+  Learner: 'takes up customs it is offered, and lets old ones go',
+  Custom: 'a custom: a text it reads when it decides',
+  ConcatActComponent: 'asks its mind (a language model, or the simple ' +
+      'rules) what it does, in one document of all the parts above',
+  PlayedAct: 'you answer for this person; unanswered, it acts by habit',
+  HumanActComponent: 'a person answers',
+  RuleAct: 'a rule decides',
+  SwitchAct: 'sends each of the engine\'s questions to the part that ' +
+      'answers it',
+  WorldComponent: 'the valley itself: land, people, places, culture, rules',
+  PlayerRoster: 'people join the game when born and leave when they die',
+  TurnGate: 'who acts next; closes the year when everyone has acted',
+  Questions: 'what each person is asked this year',
+  Answers: 'what each answer does in the world',
+  MakeObservation: 'tells each person what they see',
+  Terminate: 'ends the world when you end it',
+};
+
+/** Where a part comes from, in words. */
+const SOURCE_WORDS = {
+  concordia: 'stock Concordia',
+  contrib: 'Concordia contrib',
+  lifeways: 'this example',
+};
+
+/**
+ * How Concordia builds an entity, a line a part (customs counted as one).
+ * @param {!Object} anatomy The anatomy reply: {class, acting, components}.
+ * @return {!Array<string>} E.g. 'Learner (this example): takes up ...'.
+ */
+function anatomyLines(anatomy) {
+  const line = (part, count = 1) => `${part.class}` +
+      (count > 1 ? ` × ${count}` : '') +
+      ` (${SOURCE_WORDS[part.source] || part.source}): ` +
+      (PART_WORDS[part.class] || 'a part of this entity');
+  const counts = new Map();
+  const first = new Map();
+  for (const part of anatomy.components) {
+    counts.set(part.class, (counts.get(part.class) || 0) + 1);
+    if (!first.has(part.class)) first.set(part.class, part);
+  }
+  return [
+    `${anatomy.class} (${SOURCE_WORDS.concordia}): the entity`,
+    ...[...first.values()].map((part) => line(part, counts.get(part.class))),
+    `It acts through ${line(anatomy.acting)}`,
+  ];
+}
+
+/**
+ * Fills a list with how Concordia builds an entity (fetched when shown).
+ * @param {string} listId The list's id.
+ * @param {string} name The entity's name ('' for the World).
+ */
+async function showAnatomy(listId, name) {
+  const anatomy = await api(`api/anatomy?name=${encodeURIComponent(name)}`);
+  document.getElementById(listId).replaceChildren(
+      ...anatomyLines(anatomy).map((text) => {
+        const item = document.createElement('li');
+        item.textContent = text;
+        return item;
+      }));
+}
+
 /**
  * What the ask form says once a question is asked.
  * @param {string} name Who is asked.
@@ -808,6 +877,10 @@ async function showPerson(name) {
     item.append(meta);
     return item;
   }));
+  const parts = document.getElementById('person-anatomy');
+  if (parts.open) showAnatomy('person-anatomy-list', person.name);
+  document.getElementById('person-anatomy-label').textContent =
+      `How Concordia builds ${person.name}`;
   const letGo = person.let_go || [];
   document.getElementById('person-let-go-box').hidden = !letGo.length;
   document.getElementById('person-let-go').replaceChildren(
@@ -1901,6 +1974,16 @@ async function start() {
     document.getElementById('lineage').hidden = true;
     page.lineage = null;
   });
+  document.getElementById('person-anatomy').addEventListener('toggle',
+      (event) => {
+        if (event.target.open && page.person) {
+          showAnatomy('person-anatomy-list', page.person);
+        }
+      });
+  document.getElementById('world-anatomy').addEventListener('toggle',
+      (event) => {
+        if (event.target.open) showAnatomy('world-anatomy-list', '');
+      });
   document.getElementById('lineage-update').addEventListener('click', () => {
     if (page.lineage) showLineage(page.lineage, false);
   });
@@ -2055,7 +2138,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    answerText, askedNote, askMove, cameBy, letGoText, queuedNote,
+    anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
+    queuedNote,
     statusLines,
     goneFromPanel, paceNote,
     peoplesText,

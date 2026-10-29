@@ -1609,6 +1609,10 @@ class Session:
         'asked': self.played.asked(lives[-1]),
     }
 
+  def anatomy(self, name: str = '') -> dict[str, Any] | None:
+    """How Concordia builds a person, or the World GM (`Run.anatomy`)."""
+    return self.run.anatomy(name)
+
   def person(self, name: str) -> dict[str, Any] | None:
     """A living person as the inspector shows it: customs, kin, body.
 

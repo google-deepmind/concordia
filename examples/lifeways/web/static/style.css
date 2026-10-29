@@ -200,5 +200,8 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
    white people shows on light paper). */
 #people-key .swatch { border-radius: 50%; border: 1.5px solid #000; }
 .key-list { padding-left: 18px; }
+.parts { padding-left: 18px; font-size: 0.95rem; }
+.parts li { margin: 3px 0; }
+#person-anatomy summary, #world-anatomy summary { color: var(--accent); }
 .key-list li, details.hint li { margin: 3px 0; }
 details.hint ul { padding-left: 18px; margin: 6px 0; }

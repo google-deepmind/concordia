@@ -286,6 +286,9 @@ names its preset, so a restarted server restores the world as it was.
 
 It runs on the stock `prefabs/simulation/generic.Simulation` and the stock
 `Asynchronous` engine: every person has an observe-act loop of its own.
+The page shows this live in "How it's built". Each person's panel lists
+the person's components, and the section lists the World GM's, part by
+part, read from the running entities (`Run.anatomy`, `GET /api/anatomy`).
 
 **People** (`prefabs/person.py`) are entities with these components:
 - `AssociativeMemory`, `ObservationToMemory`, `LastNObservations`;
@@ -532,6 +535,50 @@ which holds the list of entities the simulation plays:
 This example relies on three core changes: a game master's `PlayerRoster`
 (players join and leave a game; the asynchronous engine's threads follow),
 entity agents adding and removing components, and bounded async logs.
+
+### What a mind is asked
+
+A person's acting component (the stock `ConcatActComponent`) builds one
+`InteractiveDocument`. It holds each context component's text, then the
+World's question as an exercise, then "Answer: " and the person's name for
+the model to continue. This is a founder's first question in First
+Farmers, as the model receives it (MOCK; customs shortened):
+
+```
+Who I am:
+Kaka, born 29 years before the valley was settled.
+
+Observations (ordered from oldest to latest):
+[observation] Kaka is one of the first people to settle the valley.
+
+A custom of ours (kinship) [c1]: We raise a child only when the stores can feed it.
+A custom others expect of us (sharing) [c3]: We share our food with those near us who go hungry.
+Something we know how to do (food) [c4]: Smoking fish over green alder. (level 2)
+A habit of ours (food) [c7]: In lean years, gather before anything else.
+...
+:
+
+Exercise: It is year 0. What does Kaka do this year? Choose one move:
+- gather food
+- rest
+- move to better land
+- ...
+Answer with one of these moves, exactly as written, then the ids of the customs Kaka follows in doing it (or, to teach, the customs taught), if any.
+Answer: Kaka gather food c4 c7
+```
+
+- **The order.** Identity and observations come first (the component's
+  explicit order); the other components follow by key: each custom, then
+  the Learner and `ObservationToMemory`, which say nothing. (The lone ":"
+  is the stock `ObservationToMemory`, whose empty label and value still
+  print a colon.)
+- **The framing.** Concordia's models are framed to continue the user's
+  sentences, so the answer begins with the name. Without it, live minds
+  sowed a third as often (cycle 36).
+- **What the World reads back.** The first move offered that the answer
+  names (`world.first_move`, which also reads "Kaka sows a field"), and the
+  ids of customs the GM once gave the person: those are enacted, and
+  others may copy them (`cited` in the census).
 
 ## Tests
 
