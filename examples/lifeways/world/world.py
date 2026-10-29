@@ -25,6 +25,7 @@ which people's threads happened to act.
 
 import collections
 from collections.abc import Mapping, Sequence
+import copy
 import dataclasses
 import math
 import re
@@ -93,6 +94,19 @@ MOVES = 'move'
 ASK_FORM = 'ask <name>: <question>'
 _ASK = re.compile(r'^ask (?P<name>[A-Za-z]+): (?P<question>.+)$')
 TRANSCRIPTS_KEPT = 50
+# The Experimenter's: put one question to everyone who can answer, or to a
+# sample of them (drawn by the year's seed); they answer it next year.
+SURVEY = 'survey'
+SURVEY_FORM = 'survey: <question> (or survey <how many>: <question>)'
+_SURVEY = re.compile(r'^survey(?: (?P<many>\d+))?: (?P<question>.+)$')
+SURVEYS_KEPT = 10
+SURVEY_SAID = 5  # The first answers a survey keeps as said.
+SURVEY_TOP = 5  # The customs a survey's tally lists, most named first.
+# An answer names a custom by its id, or by most of the words of its text
+# (a mind tells its customs in its own words): words of four letters or
+# more, at least this share of them.
+NAMED_SHARE = 2 / 3
+_WORDS = re.compile(r'[a-z]{4,}')
 # Answers that named no move, kept a year in the census (the first few, cut
 # short): what the reader missed, from live minds.
 UNREAD_KEPT = 3
@@ -456,6 +470,10 @@ class World:
     # the answers given (the latest few).
     self.interviews: dict[str, str] = {}
     self.transcripts: list[dict[str, Any]] = []
+    # The Experimenter's surveys, the latest last: the question, the year it
+    # is answered in, who was asked, the customs each answer named (ids, by
+    # name), the first answers as said, and once the year closes the tally.
+    self.surveys: list[dict[str, Any]] = []
     # What each participant was last asked, and in which year.
     self.asked: dict[str, list[Any]] = {}
     # Who is looking for a partner (until paired), and for whom: a name, or
@@ -939,6 +957,12 @@ class World:
 
   def _answered(self, name: str, answer: str) -> None:
     question = self.interviews.pop(name)
+    survey = self._survey_of(name, question)
+    if survey is not None:  # Tallied as the year closes, not reported.
+      survey['answers'][name] = self._named(name, answer)
+      if len(survey['said']) < SURVEY_SAID:
+        survey['said'].append([name, ' '.join(answer.split())[:UNREAD_LENGTH]])
+      return
     self.transcripts.append({
         'year': self.year,
         'name': name,
@@ -964,6 +988,7 @@ class World:
           WATCH,
           RELEASE_FORM,
           ASK_FORM,
+          SURVEY_FORM,
           DISASTER_FORM,
           MIGRANTS_FORM,
           *INSTITUTION_FORMS,
@@ -1381,7 +1406,9 @@ class World:
       if name in self.people:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._release(self.actions.get(EXPERIMENTER, ''))
+    self._close_surveys()
     self._ask(self.actions.get(EXPERIMENTER, ''))
+    self._survey(self.actions.get(EXPERIMENTER, ''))
     brought = self._bring(self.actions.get(EXPERIMENTER, ''))
     self._institution(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
@@ -1658,6 +1685,123 @@ class World:
       return
     self.interviews[name] = question
     self._report(f'{name} will be asked next year.')
+
+  def _survey(self, answer: str) -> None:
+    """Puts the Experimenter's question to everyone, or some, for next year.
+
+    Those already asked something are left out. Each answers it next year
+    as an interview; the answers are tallied as that year closes.
+
+    Args:
+      answer: The Experimenter's answer this year (`SURVEY_FORM`).
+    """
+    match = _SURVEY.match(' '.join(answer.split()))
+    if match is None:
+      if _is_move(answer.strip().lower(), SURVEY):
+        self._report('The survey is not understood: ' + answer)
+      return
+    question = match.group('question')
+    able = [
+        name
+        for name in self.living()
+        if self.people[name].age(self.year + 1) >= CHILD_ACTS_AGE
+        and name not in self.interviews
+    ]
+    many = int(match.group('many') or len(able))
+    if many < len(able):
+      drawn = self._rng(SURVEY).choice(len(able), size=many, replace=False)
+      able = [able[i] for i in sorted(int(i) for i in drawn)]
+    if not able:
+      self._report('Nobody can answer a survey now.')
+      return
+    for name in able:
+      self.interviews[name] = question
+    self.surveys.append({
+        'year': self.year + 1,
+        'question': question,
+        'asked': able,
+        'answers': {},
+        'said': [],
+    })
+    del self.surveys[:-SURVEYS_KEPT]
+    self._report(f'{len(able)} will be asked next year: "{question}"')
+
+  def _survey_of(self, name: str, question: str) -> dict[str, Any] | None:
+    """The survey this year that asked a person a question, if any."""
+    for survey in reversed(self.surveys):
+      if (
+          survey['year'] == self.year
+          and 'tally' not in survey
+          and survey['question'] == question
+          and name in survey['asked']
+      ):
+        return survey
+    return None
+
+  def _named(self, name: str, answer: str) -> list[str]:
+    """The customs the GM gave a person that its answer names.
+
+    By id, or by most of the words of the custom's text (`NAMED_SHARE`).
+    Customs of the same words (a norm's two forms, a skill's levels) are
+    one: words cannot tell them apart.
+
+    Args:
+      name: Who answered.
+      answer: The answer.
+
+    Returns:
+      The ids, in the order the GM gave them, one for each text.
+    """
+    said = answer.lower()
+    words = set(_WORDS.findall(said))
+    named: dict[str, str] = {}
+    for custom_id in self.people[name].given:
+      if custom_id not in self.culture:
+        continue
+      text = self.culture.get(custom_id).text
+      own = set(_WORDS.findall(text.lower()))
+      if text not in named and (
+          re.search(rf'\b{custom_id}\b', said)
+          or (own and len(own & words) >= NAMED_SHARE * len(own))
+      ):
+        named[text] = custom_id
+    return list(named.values())
+
+  def _close_surveys(self) -> None:
+    """Tallies this year's surveys, and tells the Experimenter.
+
+    Who did not answer by the year's close is asked no more.
+    """
+    for survey in self.surveys:
+      if survey['year'] != self.year or 'tally' in survey:
+        continue
+      for name in survey['asked']:
+        if self.interviews.get(name) == survey['question']:
+          del self.interviews[name]
+      # By text: the same words given under two ids are one custom named.
+      first: dict[str, str] = {}
+      counts: collections.Counter[str] = collections.Counter()
+      for ids in survey['answers'].values():
+        for c in ids:
+          text = self.culture.get(c).text if c in self.culture else c
+          first.setdefault(text, c)
+          counts[text] += 1
+      survey['tally'] = [
+          [first[text], text, n]
+          for text, n in sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+      ][:SURVEY_TOP]
+      survey['none'] = sum(1 for ids in survey['answers'].values() if not ids)
+      most = '; '.join(f'"{text}" ({n})' for _, text, n in survey['tally'][:3])
+      self._report(
+          f'Survey "{survey["question"]}": {len(survey["answers"])} of'
+          f' {len(survey["asked"])} answered.'
+          + (f' Most named: {most}.' if most else '')
+          + (
+              f' {survey["none"]} named none of their customs.'
+              if survey['none']
+              else ''
+          )
+      )
 
   def _forage(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Everyone old enough forages a little, whatever else they did.
@@ -2436,7 +2580,13 @@ class World:
         parents.remove(name)
     self.queued.pop(name, None)
     self.asked.pop(name, None)
-    if self.interviews.pop(name, None) is not None:
+    question = self.interviews.pop(name, None)
+    if question is not None and not any(
+        'tally' not in survey
+        and survey['question'] == question
+        and name in survey['asked']
+        for survey in self.surveys
+    ):
       self._report(f'{name} died before answering.')
 
   def _census(
@@ -2595,6 +2745,7 @@ class World:
         # What the World has told the Experimenter so far this year.
         'reports': list(self._reports),
         'transcripts': [dict(t) for t in self.transcripts],
+        'surveys': copy.deepcopy(self.surveys),
         'places': self.places.get_state(),
     }
 
@@ -2635,6 +2786,7 @@ class World:
         str(k): str(v) for k, v in state.get('interviews', {}).items()
     }
     self.transcripts = [dict(t) for t in state.get('transcripts', ())]
+    self.surveys = copy.deepcopy(list(state.get('surveys', ())))
     self.asked = {
         str(k): [str(v[0]), int(v[1])]
         for k, v in state.get('asked', {}).items()

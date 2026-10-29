@@ -96,6 +96,8 @@ SETTLED_YEARS = 10
 GONE_SHOWN = 30
 # How many people, and how many customs, a search gives at most.
 SEARCH_SHOWN = 8
+# The Experimenter's latest surveys the page shows.
+SURVEYS_SHOWN = 5
 # The years the same words arose again, kept on a version's row (the latest).
 AGAIN_KEPT = 5
 # What the person writes in the notebook, and the longest entry.
@@ -1485,6 +1487,13 @@ class Session:
     with self.run.world_lock():
       reach = self.run.world().song_reach()
     land = world['land']
+    surveys = list(world.get('surveys', ()))
+    surveyed = {
+        (name, survey['question'])
+        for survey in surveys
+        if 'tally' not in survey
+        for name in survey['asked']
+    }
     people_of = dict(self.run.people_of)  # The last census's peoples.
     people = [
         {
@@ -1530,8 +1539,25 @@ class Session:
             else None
         ),
         'release_form': world_lib.RELEASE_FORM,
-        'interviews': dict(world.get('interviews', {})),
+        # Interviews one by one; a survey's are counted with the survey.
+        'interviews': {
+            name: question
+            for name, question in world.get('interviews', {}).items()
+            if (name, question) not in surveyed
+        },
         'transcripts': list(world.get('transcripts', ()))[-10:],
+        'surveys': [
+            {
+                'year': survey['year'],
+                'question': survey['question'],
+                'asked': len(survey['asked']),
+                'answered': len(survey['answers']),
+                'tally': survey.get('tally'),
+                'none': survey.get('none'),
+                'said': survey['said'],
+            }
+            for survey in reversed(surveys[-SURVEYS_SHOWN:])
+        ],
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
         'kind_domains': {

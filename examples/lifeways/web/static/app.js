@@ -1381,6 +1381,87 @@ function askMove(name, question) {
 }
 
 /**
+ * The Experimenter's survey, in the form the World reads.
+ * @param {string} question The question.
+ * @param {number} many How many to ask (0: everyone who can answer).
+ * @return {string} The move.
+ */
+function surveyMove(question, many) {
+  return `survey${many ? ` ${many}` : ''}: ${question.trim()}`;
+}
+
+/**
+ * A survey in words: its question and who answered; once the year it is
+ * answered in closes, the customs the answers named, most first.
+ * @param {!Object} survey The server's survey: `year`, `question`, `asked`,
+ *     `answered`, and (closed) `tally` [[id, text, count]] and `none`.
+ * @return {{head: string, lines: !Array<string>}} A line, and the tally.
+ */
+function surveyText(survey) {
+  const year = yearText(survey.year);
+  if (!survey.tally) {
+    return {head: `Year ${year}: “${survey.question}”, asked of ` +
+        `${survey.asked}; ${survey.answered} answered so far.`, lines: []};
+  }
+  const share = (n) => survey.answered ?
+    ` (${Math.round((100 * n) / survey.answered)}%)` : '';
+  return {
+    head: `Year ${year}: “${survey.question}”, answered by ` +
+        `${survey.answered} of ${survey.asked}.`,
+    lines: [
+      ...survey.tally.map(([, text, n]) =>
+        `“${text}”: named by ${n}${share(n)}`),
+      ...(survey.none ? [`Named none of their customs: ${survey.none}` +
+          share(survey.none)] : []),
+    ],
+  };
+}
+
+/**
+ * Lists the latest surveys, the newest first, each with what some said.
+ * @param {!Object} world The server's state.
+ */
+function drawSurveys(world) {
+  const queued = world.pace.queued.filter((move) => move.startsWith('survey'))
+      .map((move) => {
+        const item = document.createElement('li');
+        item.textContent = `Next: ${moveWords(move)} (asked next year, ` +
+            'answered the year after)';
+        return item;
+      });
+  const done = world.surveys.map((survey) => {
+    const {head, lines} = surveyText(survey);
+    const item = document.createElement('li');
+    const meta = document.createElement('div');
+    meta.textContent = head;
+    const tally = document.createElement('ul');
+    tally.className = 'parts';
+    tally.replaceChildren(...lines.map((line) => {
+      const part = document.createElement('li');
+      part.textContent = line;
+      return part;
+    }));
+    item.append(meta, tally);
+    if (survey.said.length) {
+      const fold = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = `What the first ${survey.said.length} said`;
+      const said = document.createElement('ul');
+      said.className = 'parts';
+      said.replaceChildren(...survey.said.map(([name, answer]) => {
+        const part = document.createElement('li');
+        part.textContent = answerText({name, answer});
+        return part;
+      }));
+      fold.append(summary, said);
+      item.append(fold);
+    }
+    return item;
+  });
+  document.getElementById('surveys').replaceChildren(...queued, ...done);
+}
+
+/**
  * Lists the latest interviews, the newest first.
  * @param {!Object} world The server's state.
  */
@@ -2275,6 +2356,7 @@ async function refreshOnce() {
     drawAt(world);
     drawLife(world);
     drawTranscripts(world);
+    drawSurveys(world);
     drawReleases(world);
     document.getElementById('twin').textContent = twinNote(world.twin);
     document.getElementById('unfork').hidden = !world.twin;
@@ -2714,6 +2796,8 @@ function moveWords(move) {
   }
   m = move.match(/^ask ([^:]+): (.+)$/);
   if (m) return `Ask ${m[1]}: “${m[2]}”`;
+  m = move.match(/^survey(?: (\d+))?: (.+)$/);
+  if (m) return `Ask ${m[1] ? `${m[1]} people` : 'everyone'}: “${m[2]}”`;
   if (move === 'stop the world') return 'End this world';
   return move;
 }
@@ -3047,6 +3131,25 @@ async function start() {
         page.world.pace.paused);
     refresh();
   });
+  document.getElementById('survey-form').addEventListener('submit',
+      async (event) => {
+        event.preventDefault();
+        const question = document.getElementById('survey-question').value
+            .trim();
+        const note = document.getElementById('survey-note');
+        if (!question) {
+          note.textContent = 'Write a question first.';
+          return;
+        }
+        const many = Number(document.getElementById('survey-many').value);
+        await api('api/move', {move: surveyMove(question, many)});
+        document.getElementById('survey-question').value = '';
+        note.textContent = `Queued: ${moveWords(surveyMove(question, many))}.` +
+            ' The answers are counted below as the year they answer in ends' +
+            (page.world.pace.paused ? ' (press Play: the world is paused).' :
+              '.');
+        refresh();
+      });
   document.getElementById('release').addEventListener('submit', async (event) => {
     event.preventDefault();
     const says = document.getElementById('says').value.trim();
@@ -3128,8 +3231,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
     fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-    prevalenceSeries, previewText, spreadLabels, treeLayout,
-    wordChange,
+    prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
+    treeLayout, wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

@@ -472,6 +472,17 @@ and the answer goes into the world's transcripts (and to the Experimenter, and
 to the page): a mind's tells what the person says ("Kaka says: ..."), a
 player's is in their own words.
 
+**Surveys.** The Experimenter may put one question to everyone who can
+answer (`survey: <question>`) or to a sample drawn by the year's seed
+(`survey <how many>: <question>`). Each is asked it next year as an
+interview. The GM files the answers with the survey rather than reporting
+each, and as that year closes it tallies which of the customs it gave each
+respondent the answer names: by its id, or by two thirds of its text's
+words (a mind tells its customs in its own words). The Experimenter is told
+the tally ("Most named: ...", and how many named none), and the page lists
+it, with the first answers as said. The GM reads only the answers, never a
+mind.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

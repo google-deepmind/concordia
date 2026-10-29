@@ -237,23 +237,25 @@ button.link {
 #find { margin-top: 10px; }
 #find label { display: flex; flex-direction: column; font-size: 0.95rem; }
 #find input { width: 100%; }
-#release, #ask, #fork, #note, #fate { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-#release label, #ask label, #fork label, #note label, #fate label {
+#release, #ask, #fork, #note, #fate, #survey-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release label, #ask label, #fork label, #note label, #fate label,
+#survey-form label {
   display: flex;
   flex-direction: column;
   min-width: 0;  /* A flex item may shrink below its longest choice. */
   max-width: 100%;
   font-size: 0.95rem;
 }
-#release label.wide, #ask label.wide, #note label.wide { flex: 1 1 100%; }
+#release label.wide, #ask label.wide, #note label.wide,
+#survey-form label.wide { flex: 1 1 100%; }
 #note textarea { width: 100%; resize: vertical; }
 label.filter { display: block; margin: 8px 0; font-size: 0.95rem; }
 #entries { list-style: none; padding: 0; }
 #entries li { margin: 6px 0; }
 #entries .meta { color: var(--muted); font-size: 0.95rem; }
 #entries li.mine { border-left: 3px solid var(--accent); padding-left: 6px; }
-#release input#says, #ask input#question { width: 100%; }
-#transcripts { padding-left: 18px; }
+#release input#says, #ask input#question, #survey-question { width: 100%; }
+#transcripts, #surveys { padding-left: 18px; }
 #transcripts li { margin: 6px 0; }
 #transcripts .meta { color: var(--muted); font-size: 0.95rem; }
 

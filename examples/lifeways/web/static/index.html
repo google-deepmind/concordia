@@ -354,6 +354,25 @@ limitations under the License.
       so they answer by naming the customs they live by that bear most on
       your question.</span></p>
     <ul id="transcripts"></ul>
+    <h3>Surveys</h3>
+    <p class="hint">A survey puts one question to everyone who can answer,
+      or to some drawn at random. They answer next year; as that year ends,
+      the page counts which of their own customs each answer named, in its
+      words or by its number.</p>
+    <form id="survey-form">
+      <label class="wide">Ask many the same question
+        <input id="survey-question" maxlength="160"
+          placeholder="What do you owe your neighbours?">
+      </label>
+      <label>Whom <select id="survey-many">
+        <option value="0">everyone</option>
+        <option value="10">10, drawn at random</option>
+        <option value="25">25, drawn at random</option>
+      </select></label>
+      <button type="submit">Survey next year</button>
+    </form>
+    <p id="survey-note" class="hint" aria-live="polite"></p>
+    <ul id="surveys"></ul>
   </section>
 
   <section id="notebook" aria-label="The notebook">

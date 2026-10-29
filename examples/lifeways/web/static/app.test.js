@@ -24,8 +24,8 @@ const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
   fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
-  prevalenceSeries, previewText, spreadLabels, treeLayout,
-  wordChange,
+  prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
+  treeLayout, wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -353,6 +353,24 @@ test('norms kept: shares over ten years, by form and sight', () => {
   assert.equal(keptText([{year: 3, norms_kept: {own_seen: [1, 2]}}]),
       'Years 3–3. Unseen: own norms, none held; expected, none held. ' +
       'Seen: own, 50% kept (1 of 2); expected, none held.');
+});
+
+test('a survey is asked in the World\'s form and read in words', () => {
+  assert.equal(surveyMove(' Why share? ', 0), 'survey: Why share?');
+  assert.equal(surveyMove('Why share?', 10), 'survey 10: Why share?');
+  assert.equal(moveWords('survey: Why share?'), 'Ask everyone: “Why share?”');
+  assert.equal(moveWords('survey 10: Why share?'),
+      'Ask 10 people: “Why share?”');
+  assert.deepEqual(surveyText({year: 1200, question: 'Why share?', asked: 30,
+    answered: 4}), {head: 'Year 1,200: “Why share?”, asked of 30; 4 ' +
+    'answered so far.', lines: []});
+  assert.deepEqual(surveyText({year: 12, question: 'Why share?', asked: 30,
+    answered: 20, tally: [['c3', 'We share our food.', 15]], none: 5}), {
+    head: 'Year 12: “Why share?”, answered by 20 of 30.',
+    lines: ['“We share our food.”: named by 15 (75%)',
+      'Named none of their customs: 5 (25%)']});
+  assert.deepEqual(surveyText({year: 12, question: 'Why?', asked: 3,
+    answered: 0, tally: [], none: 0}).lines, []);
 });
 
 test('labels at the same height spread up from the bottom', () => {

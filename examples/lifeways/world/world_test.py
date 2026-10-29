@@ -1147,6 +1147,109 @@ class TransmissionTest(absltest.TestCase):
     self.assertLen(set(names), len(names))
 
 
+class SurveyTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.world = world_lib.World({'seed': 0, 'founders': 0})
+    culture = self.world.culture
+    self.share = culture.add(
+        'norm', 'sharing', 'We share food with the hungry.'
+    ).id
+    self.fish = culture.add('skill', 'food', 'Smoking fish.', {'level': 2}).id
+    # The same words, only expected: one custom named, as words go.
+    self.known = culture.add(
+        'norm',
+        'sharing',
+        'We share food with the hungry.',
+        {'form': culture_lib.KNOWN},
+    ).id
+    for i, name in enumerate(['Ada', 'Bo', 'Cy', 'Dee']):
+      self.world.people[name] = world_lib.Person(
+          name=name,
+          born=self.world.year - 30,
+          sex='f',
+          tile=(i, i),
+          food=5.0,
+          given=[self.share, self.fish, self.known],
+      )
+    self.world.people['Eli'] = world_lib.Person(
+        name='Eli', born=self.world.year, sex='m', tile=(0, 0), food=1.0
+    )
+
+  def _year(self, experimenter='watch'):
+    for name in self.world.living():
+      self.world.actions[name] = 'rest'
+    self.world.actions[world_lib.EXPERIMENTER] = experimenter
+    self.world.close_year()
+
+  def test_everyone_who_can_answer_is_asked_and_the_answers_tallied(self):
+    self._year('survey: Why do you share?')
+
+    self.assertEqual(
+        self.world.interviews,
+        {n: 'Why do you share?' for n in ['Ada', 'Bo', 'Cy', 'Dee']},
+    )  # Eli, a baby, cannot answer.
+    self.assertIn(
+        '4 will be asked next year: "Why do you share?"',
+        self.world.history[-1]['reports'],
+    )
+    self.world.record_action(
+        'Ada', 'Ada says: "We share food with the hungry."'
+    )
+    self.world.record_action(
+        'Bo', f'Bo says: "By {self.share} and {self.fish}."'
+    )
+    self.world.record_action('Cy', 'Cy says: "I do not know."')
+    restored = world_lib.World({'seed': 0, 'founders': 0})
+    restored.set_state(self.world.get_state())
+    self.assertEqual(restored.surveys, self.world.surveys)
+    self._year()
+
+    (survey,) = self.world.surveys
+    self.assertEqual(
+        survey['answers'],
+        {'Ada': [self.share], 'Bo': [self.share, self.fish], 'Cy': []},
+    )
+    self.assertEqual(
+        survey['tally'],
+        [
+            [self.share, 'We share food with the hungry.', 2],
+            [self.fish, 'Smoking fish.', 1],
+        ],
+    )
+    self.assertEqual(survey['none'], 1)
+    self.assertLen(survey['said'], 3)
+    reports = self.world.history[-1]['reports']
+    self.assertIn(
+        'Survey "Why do you share?": 3 of 4 answered. Most named: "We share'
+        ' food with the hungry." (2); "Smoking fish." (1). 1 named none of'
+        ' their customs.',
+        reports,
+    )
+    self.assertFalse(any('Ada, asked' in r for r in reports))  # No one by one.
+    self.assertEqual(self.world.transcripts, [])
+    self.assertEqual(self.world.interviews, {})  # Dee is asked no more.
+
+  def test_a_sample_is_drawn_and_those_asked_already_are_left_out(self):
+    self._year('ask Ada: Who are you?')
+    self.world.record_action('Ada', 'Ada says: "Ada."')  # Answers this year.
+    self.world.interviews['Bo'] = 'Who taught you?'
+    self._year('survey 2: What do you owe?')
+
+    (survey,) = self.world.surveys
+    self.assertLen(survey['asked'], 2)
+    self.assertNotIn('Bo', survey['asked'])
+    self.assertEqual(self.world.interviews['Bo'], 'Who taught you?')
+
+    self._year('survey everyone')
+
+    self.assertIn(
+        'The survey is not understood: survey everyone',
+        self.world.history[-1]['reports'],
+    )
+
+
 class LibraryTest(absltest.TestCase):
 
   def setUp(self):

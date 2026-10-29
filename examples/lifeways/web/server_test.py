@@ -731,6 +731,7 @@ class PlaceTest(absltest.TestCase):
 
       place = session.place(court.id)
 
+      assert place is not None
       self.assertEqual(
           {k: place[k] for k in ('kind', 'tile', 'founder', 'keeper')},
           {'kind': 'court', 'tile': [3, 4], 'founder': 'Ada', 'keeper': 'Ada'},
@@ -1036,6 +1037,23 @@ class ServerTest(absltest.TestCase):
     self._post('/api/stop', {})
     self.assertTrue(_wait(lambda: not self._get('/api/state')['running']))
     self.assertEqual(self._get('/api/state')['error'], '')
+
+  def test_a_survey_is_asked_and_its_answers_tallied(self):
+    self.assertTrue(_wait(lambda: self._get('/api/state')['year'] >= 1))
+    self._post('/api/move', {'move': 'survey 3: Why do you share?'})
+
+    def tallied():
+      surveys = self._get('/api/state')['surveys']
+      return surveys and surveys[0]['tally'] is not None
+
+    self.assertTrue(_wait(tallied))
+    (survey,) = self._get('/api/state')['surveys']
+    self.assertEqual(
+        (survey['question'], survey['asked'], survey['answered']),
+        ('Why do you share?', 3, 3),
+    )
+    self.assertNotEmpty(survey['tally'])  # The mock names its customs.
+    self.assertLen(survey['said'], 3)
 
   def test_bad_requests_are_refused_and_the_bare_prefix_redirects(self):
     for path, data in (
