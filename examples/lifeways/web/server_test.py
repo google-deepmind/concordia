@@ -403,10 +403,10 @@ class TwinTest(absltest.TestCase):
             120,
         )
     )
-    living = lambda s: sum(
-        r['population'] for r in self._rows(s, year + 11, year + 20)
-    )
-    self.assertGreater(living(twin), living(self.session))
+    # Richer land holds more food (whether more live on it within a few
+    # years depends on births and the seasons).
+    food = lambda s: sum(r['food'] for r in self._rows(s, year + 11, year + 20))
+    self.assertGreater(food(twin), food(self.session))
     self.assertEqual(self.session.state()['twin']['lever'], 'richness')
 
   def test_moves_reach_the_twin_in_the_same_year_and_questions_do_not(self):
@@ -1016,6 +1016,23 @@ class ReplayTest(absltest.TestCase):
     run.lifecycle.year_closed = lambda year: again.append(run.census_row(year))
     run.play()
     self.assertEqual(json.dumps(again), json.dumps(rows))
+
+
+class MovesKeptTest(absltest.TestCase):
+
+  def test_a_replay_keeps_the_latest_moves_and_says_from_when(self):
+    page = session_lib.PageInput(1.0)
+    with mock.patch.object(session_lib, 'MOVES_KEPT', 2), page._changed:
+      for year, move in (
+          (3, 'ask Ada: Why?'),
+          (5, 'watch'),
+          (7, 'x'),
+          (9, 'y'),
+      ):
+        page._answered(year, move)
+
+    self.assertEqual(page.moves(), [[7, 'x'], [9, 'y']])
+    self.assertEqual(page.moves_known_from, 7)
 
 
 class ReleasesTest(absltest.TestCase):

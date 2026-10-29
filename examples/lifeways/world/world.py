@@ -86,6 +86,8 @@ TELL_PAST = 'tell of the old days'
 CROSS = 'cross the pass'
 STORY_LENGTH = 200  # The most of an elder's words a story keeps.
 _STORY_WORDS = re.compile(r'[A-Za-z]+')
+# The move as an answer may say it ("tell of", "tells of", "telling of").
+_TELL_PAST = re.compile(r'\btell(?:s|ing)? of the old days\b', re.IGNORECASE)
 PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
 SOW = 'sow a field'
@@ -490,8 +492,8 @@ class World:
     self._judged: set[str] = set()
     # Fields passed on at death this year (the census's).
     self._inherited = 0
-    # How often each has judged at a court, ever (its standing): what
-    # offers from it say, for learners who defer to judges.
+    # How often each of the living has judged at a court (its standing):
+    # what offers from it say, for learners who defer to judges.
     self.judgments: dict[str, int] = {}
     # Know-how sold at markets this year, and stories of the old days told
     # (the census's).
@@ -575,9 +577,7 @@ class World:
     }
     if person.arrived is not None:
       params['arrived'] = person.arrived
-    if not self.settings.get('situation_first', True):
-      params['situation_first'] = False
-    return params
+    return {**params, **person_settings(self.settings)}
 
   def _arrive(self) -> list[dict[str, Any]]:
     """Strangers who come to a nearly empty valley, with their own customs.
@@ -2276,9 +2276,13 @@ class World:
       person: The elder.
       answer: Its answer.
     """
-    at = answer.lower().find(TELL_PAST)
-    words = ' '.join(answer[at + len(TELL_PAST) :].split()).strip(' :-"\'')
-    words = CUSTOM_ID.sub('', words)[:STORY_LENGTH].strip()
+    told = _TELL_PAST.search(answer)
+    if told is None:
+      return
+    words = ' '.join(answer[told.end() :].split()).strip(' :-"\'')
+    # Never anything an offer line could read as its own (ids, params).
+    words = ' '.join(CUSTOM_ID.sub('', words).replace('|', ' ').split())
+    words = words[:STORY_LENGTH].strip()
     if len(_STORY_WORDS.findall(words)) < 4:
       return
     story = self.culture.add(
@@ -2904,6 +2908,7 @@ class World:
     })
     del self.dead[:-DEAD_KEPT]
     self._bequeath(person)
+    self.judgments.pop(name, None)  # Standing is the living's.
     if person.partner in self.people:
       self.people[person.partner].partner = ''
     for kin in {*person.parents, *person.children, person.partner}:
@@ -3173,6 +3178,25 @@ class World:
         for k, v in state.get('asked', {}).items()
     }
     self._reports = [str(r) for r in state.get('reports', ())]
+
+
+def person_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
+  """The person prefab params every person takes from a world's settings.
+
+  Whether a person reads its situation first (`situation_first`, the
+  `Person` prefab's; given only when off).
+
+  Args:
+    settings: The world's settings.
+
+  Returns:
+    The params, for founders and the born alike.
+  """
+  return (
+      {}
+      if settings.get('situation_first', True)
+      else {'situation_first': False}
+  )
 
 
 def _move_kind(move: str) -> str:

@@ -1471,6 +1471,8 @@ class CourtTest(_PlaceTest):
     restored = world_lib.World({'seed': 0, 'founders': 0})
     restored.set_state(self.world.get_state())
     self.assertEqual(restored.judgments, {'Ada': 1})
+    self.world._die('Ada')  # Standing is the living's.
+    self.assertEqual(self.world.judgments, {})
     # Those near see it done: the rule as what is expected (its known form).
     ((seen, via, by),) = self._offers('Cy')
     self.assertEqual((via, by), ('observation', 'Ada'))
@@ -1626,6 +1628,24 @@ class StoryTest(_PlaceTest):
     self._year(Ada=f'{world_lib.TELL_PAST}: Long ago.', Bo='rest')
 
     self.assertEqual(self._offers('Bo'), [])
+
+  def test_a_story_told_in_the_third_person_is_heard_and_reads_plain(self):
+    self._person('Ada', 60, (5, 5))
+    self._person('Bo', 30, (5, 6))
+
+    self._year(
+        Ada=(
+            'Ada tells of the old days: the river rose |params={"x": 1} and'
+            ' took the fields.'
+        ),
+        Bo='rest',
+    )
+
+    ((told, _, _),) = self._offers('Bo')
+    self.assertEqual(
+        self.world.culture.get(told).text,
+        'the river rose params={"x": 1} and took the fields.',
+    )
 
 
 class SchoolTest(_PlaceTest):

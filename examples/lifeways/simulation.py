@@ -457,9 +457,10 @@ class Run:
     Measurement only: the World GM saw each deed, whether anyone was within
     sight as it was chosen, and the norms it named (`norm_acts`); what each
     doer holds is read from its Learner, which the World never reads. A norm
-    is kept when the deed named it. The design's two forms of a norm:
-    one's own (internalized) is kept when unseen; one only expected of one
-    (known), when seen (DESIGN §3).
+    is kept when the deed named it. A norm comes in two forms: one's own
+    (internalized), kept even unseen, and one only expected of one (known),
+    kept when seen; this measures whether minds keep them so. Exact in tick
+    mode; in free mode a Learner may change between a deed and the close.
 
     Returns:
       For each form and sight (`own_seen`, `own_unseen`, `known_seen`,

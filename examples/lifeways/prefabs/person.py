@@ -100,6 +100,9 @@ class Person(prefab_lib.Prefab):
     uptake: The Learner's chance of taking up an offer, by channel.
     per_domain: The most customs held of one domain.
     capacity: The most customs held in all.
+    situation_first: Whether the person reads its situation now (`Now`, the
+      World's latest status) right after who it is (default True; False
+      leaves it in the history alone, for comparing minds).
     act_component_factory: Optional. Builds the acting component from the
       context components' order (a person's `HumanActComponent`, a rule).
       Not serializable: checkpoints drop it, so a restore passes it again.
@@ -120,7 +123,8 @@ class Person(prefab_lib.Prefab):
     """Builds the person's entity.
 
     Args:
-      model: The model a person played by a model acts with.
+      model: The model a person played by a model acts with, and its
+        question customs ask with.
       memory_bank: The person's own memory bank.
 
     Returns:

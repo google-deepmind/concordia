@@ -69,7 +69,7 @@ BIAS = 'bias'
 DIALECT = 'dialect'
 MARRIAGE = 'marriage'
 # A step of decision logic: a question the person asks itself before it
-# acts (DESIGN 3), built as the stock `QuestionOfRecentMemories`.
+# acts, built as the stock `QuestionOfRecentMemories`: a decision logic.
 QUESTION = 'question'
 # A story of the old days, in an elder's own words (who we are is what we
 # remember).
@@ -218,7 +218,10 @@ def offer_line(
       if source and stores is not None
       else ''
   )
-  full = f' |params={json.dumps(params, sort_keys=True)}' if params else ''
+  # The level and form are in the bracket; the rest (a dialect's words, a
+  # script's marks, a marriage rule's `within`) follows, as JSON.
+  rest = {k: v for k, v in params.items() if k not in ('level', 'form')}
+  full = f' |params={json.dumps(params, sort_keys=True)}' if rest else ''
   return (
       f'[custom id={spec["id"]} kind={spec["kind"]} domain={spec["domain"]}'
       f'{detail} via={via}{seen}] {spec["text"]}{full}'

@@ -18,9 +18,9 @@ The World's yearly status line (the year, the person's age and land, its
 stores, who is near, the season) arrives among the year's other news, and
 the stock observation component shows it in the history of all a person
 saw. `Now` keeps only the latest status and the person's prefab shows it
-right after who the person is, so a small mind reads its situation first
-(cycle 36: small minds starved on spent land they were told of only in
-passing).
+right after who the person is, so a small mind reads its situation first:
+small live minds were seen to starve on spent land when the better land
+they were told of lay buried in the history.
 """
 
 import re

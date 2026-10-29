@@ -44,7 +44,7 @@ SANDBOX: Mapping[str, Any] = {
     'richness': 0.2,
     'regrowth': 0.5,
     'seed_bank': 0.06,
-    # Good years and lean (DESIGN §2): a good year turns lean with chance
+    # Good years and lean: a good year turns lean with chance
     # `start`, a lean one stays lean with chance `stay`, and a lean year's
     # land grows back `lean` times as much as usual (a good year's a little
     # more, so that over many years the land feeds as many). None: every
@@ -355,7 +355,7 @@ PLASMID_SOUP: Mapping[str, Any] = {
 # Two Valleys: two peoples with their own tongues, beliefs and marriage
 # rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or
 # both, over centuries?
-# Decision logics as customs (DESIGN 3): each a question one asks oneself
+# Decision logics as customs: each a question one asks oneself
 # before acting, as the stock `QuestionOfRecentMemories` asks it.
 APPROPRIATENESS: Mapping[str, Any] = {
     'kind': 'question',
@@ -689,12 +689,7 @@ def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:
                   for c, held in holders.items()
                   if i in held
               ],
-              # Whether a person reads its situation first (`Person`).
-              **(
-                  {}
-                  if settings.get('situation_first', True)
-                  else {'situation_first': False}
-              ),
+              **world_lib.person_settings(settings),
           },
           'tile': tile,
           'food': 8.0,

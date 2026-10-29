@@ -301,9 +301,14 @@ class SandboxTest(parameterized.TestCase):
         },
     )
 
-  def test_a_restored_year_plays_on_exactly(self):
+  @parameterized.parameters('sandbox', 'two_valleys')
+  def test_a_restored_year_plays_on_exactly(self, scenario):
+    # Two Valleys: question customs rebuilt through the entity's factory,
+    # and crossings over the pass.
     saved: dict[str, Any] = {}
-    live = simulation.build_simulation(scenarios.settings(max_years=24))
+    live = simulation.build_simulation(
+        scenarios.settings(scenario, max_years=24)
+    )
 
     def save(year: int) -> None:
       if year == 12:
@@ -314,7 +319,9 @@ class SandboxTest(parameterized.TestCase):
     live.lifecycle.year_closed = save
     live.play()
 
-    restored = simulation.build_simulation(scenarios.settings(max_years=24))
+    restored = simulation.build_simulation(
+        scenarios.settings(scenario, max_years=24)
+    )
     simulation.load_checkpoint(restored, saved['checkpoint'])
     self.assertEqual(restored.world().year, 12)
     restored.play()
@@ -1012,8 +1019,16 @@ class LearnerTest(absltest.TestCase):
     )
     self.assertIsInstance(self._customs(entity)['c7'], culture.QuestionCustom)
 
+    logged = []
+    question = self._customs(entity)['c7']
+    assert isinstance(question, culture.QuestionCustom)
+    question.set_logging_channel(logged.append)
     entity.act(_QUESTION)
     entity.act(_QUESTION)  # Asked afresh each act.
+    # The stock question logs on the custom's channel.
+    self.assertEqual(
+        [log['Summary'] for log in logged], ['What would my mother do?'] * 2
+    )
 
     asked = [p for p in prompts if 'Question: What would my mother do?' in p]
     self.assertLen(asked, 2)

@@ -111,7 +111,7 @@ class Custom(entity_component.ContextComponent):
     del state
 
 
-class QuestionCustom(Custom):
+class QuestionCustom(Custom, entity_component.ComponentWithLogging):
   """A custom of reasoning: a question the person asks itself before acting.
 
   The question is put by the stock `QuestionOfRecentMemories` (an
@@ -140,6 +140,12 @@ class QuestionCustom(Custom):
   def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
     super().set_entity(entity)
     self._question.set_entity(entity)
+
+  @override
+  def set_logging_channel(self, logging_channel: Any) -> None:
+    """Logs the question and its answer on the custom's channel."""
+    super().set_logging_channel(logging_channel)
+    self._question.set_logging_channel(logging_channel)
 
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
@@ -460,7 +466,7 @@ class Learner(entity_component.ContextComponent):
           }
           for held in data.get('held', ())
       }
-      self._let_go = [  # Saves before cycle 36 kept none.
+      self._let_go = [  # Older saves keep none.
           {str(k): str(v) for k, v in dict(record).items()}
           for record in data.get('let_go', ())
       ][-LET_GO_KEPT:]

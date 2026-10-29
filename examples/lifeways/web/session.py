@@ -146,6 +146,9 @@ RELEASES_FOLLOWED = 12
 RELEASE_YEARS_SENT = 120
 # The years of the Experimenter's answers an input remembers, for a twin.
 ANSWERS_KEPT = 400
+# The moves a replay keeps, the latest (one a year at most): beyond them, a
+# replay is known only from the oldest kept.
+MOVES_KEPT = 10000
 # How long a played person's question waits for the page (seconds).
 PATIENCE = 120.0
 # The year in a person's yearly question, or in its status line
@@ -373,8 +376,10 @@ class PageInput:
     # more will come): what a twin follows.
     self._answers: collections.OrderedDict[int, str] = collections.OrderedDict()
     self._finished = False
-    # Every move made (not watching), by year: a replay's plan.
+    # Every move made (not watching), by year: a replay's plan (the latest
+    # `MOVES_KEPT`, known from `moves_known_from` on).
     self._moves: list[list[Any]] = []
+    self.moves_known_from = 0
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
     with self._changed:
@@ -394,6 +399,9 @@ class PageInput:
     """Remembers the answer given for a year (in the condition's lock)."""
     if answer.strip() and answer.strip() != world_lib.WATCH:
       self._moves.append([year, answer])
+      if len(self._moves) > MOVES_KEPT:
+        del self._moves[0]
+        self.moves_known_from = int(self._moves[0][0])
     self._answers[year] = answer
     while len(self._answers) > ANSWERS_KEPT:
       self._answers.popitem(last=False)
@@ -797,6 +805,7 @@ class Session:
     self._moves_from = 0
     # The lab, made when first asked for (a twin never is).
     self._lab: lab_lib.Lab | None = None
+    self._lab_lock = threading.Lock()
     self._lab_workers = lab_workers
     self.saved_year: int | None = None
     self.restored_year: int | None = None
@@ -921,10 +930,12 @@ class Session:
     Raises:
       ValueError: If the lab cannot play the job (or is playing one).
     """
-    if self._lab is None:
-      self._lab = lab_lib.Lab(workers=self._lab_workers)
+    with self._lab_lock:  # One lab, whichever request comes first.
+      if self._lab is None:
+        self._lab = lab_lib.Lab(workers=self._lab_workers)
+      lab = self._lab
     pulled = (lever, value) if kind == lab_lib.COMPARE else None
-    self._lab.start(
+    lab.start(
         kind,
         self.scenario,
         {**self._overrides},
@@ -1021,7 +1032,7 @@ class Session:
         'releases': releases,
         'pace': self.input.settings(),
         'moves': self.input.moves(),
-        'moves_from': self._moves_from,
+        'moves_from': self._moves_known(),
         'checkpoint': checkpoint,
     }
 
@@ -1636,6 +1647,10 @@ class Session:
 
   # --- Data to keep -----------------------------------------------------
 
+  def _moves_known(self) -> int:
+    """The first year from which every move made is known."""
+    return max(self._moves_from, self.input.moves_known_from)
+
   def replay(self) -> dict[str, Any]:
     """This world, to play again exactly: its settings and every move made.
 
@@ -1654,7 +1669,7 @@ class Session:
         'overrides': json.loads(json.dumps(self._overrides, default=str)),
         'plan': {str(year): move for year, move in self.input.moves()},
         'years': self._year,
-        'moves_from': self._moves_from,
+        'moves_from': self._moves_known(),
         'played': self.played is not None,
     }
 
