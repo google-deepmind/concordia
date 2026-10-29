@@ -1500,11 +1500,15 @@ class Session:
               closed,
           )
       for i, (kind, tile) in self._standing.items():
-        if i not in standing and i in places:  # Not closed: a ruin.
+        # Not closed: a ruin, noted if it held anything (an empty place's
+        # fall is no news in a long run).
+        held = len(places[i].shelf) if i in places else 0
+        if i not in standing and held:
+          customs = f'{held} custom{"" if held == 1 else "s"}'
           self._write(
               EVENT,
               f'The {kind} at {world_lib.where(tile)} stood unused for years'
-              ' and is now a ruin; what its shelf holds will crumble.',
+              f' and is now a ruin; what it holds ({customs}) will crumble.',
               closed,
           )
     self._standing = standing

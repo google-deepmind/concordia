@@ -761,6 +761,7 @@ class NotebookTest(absltest.TestCase):
       built = world.places.found('shrine', (3, 4), 'Kaka', 4)
       world.places.found('library', (5, 6), world_lib.EXPERIMENTER, 4)
       session._note_valley(5, 25)
+      built.shelf.append('c1')  # It holds something: its fall is news.
       built.used = -1000  # Unused for long: a ruin.
       session._note_valley(6, 25)
 
@@ -776,7 +777,8 @@ class NotebookTest(absltest.TestCase):
               f'Kaka built a shrine at {world_lib.where((3, 4))}.',
               (
                   f'The shrine at {world_lib.where((3, 4))} stood unused for'
-                  ' years and is now a ruin; what its shelf holds will crumble.'
+                  ' years and is now a ruin; what it holds (1 custom) will'
+                  ' crumble.'
               ),
           ],
       )
