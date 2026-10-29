@@ -65,6 +65,8 @@ class Place:
   # Who last kept it (a school's teacher), and when.
   keeper: str = ''
   kept: int = -1
+  # A library's texts' scripts: the marks each was written in, by id.
+  scripts: dict[str, list[str]] = dataclasses.field(default_factory=dict)
 
   def to_dict(self) -> dict[str, Any]:
     data = dataclasses.asdict(self)
@@ -83,6 +85,10 @@ class Place:
         shelf=[str(c) for c in data.get('shelf', ())],
         keeper=str(data.get('keeper', '')),
         kept=int(data.get('kept', -1)),
+        scripts={
+            str(k): [str(m) for m in v]
+            for k, v in data.get('scripts', {}).items()
+        },
     )
 
 
@@ -156,12 +162,29 @@ class Places:
     self._places[place.id] = place
     return place
 
-  def write(self, place: Place, custom_id: str, year: int) -> None:
-    """Puts a text on the shelf (the newest), the oldest crumbling if full."""
+  def write(
+      self,
+      place: Place,
+      custom_id: str,
+      year: int,
+      script: Sequence[str] = (),
+  ) -> None:
+    """Puts a text on the shelf (the newest), the oldest crumbling if full.
+
+    Args:
+      place: The library.
+      custom_id: The custom written.
+      year: This year.
+      script: The marks it is written in (the writer's script).
+    """
     if custom_id in place.shelf:
       place.shelf.remove(custom_id)
     place.shelf.append(custom_id)
     del place.shelf[: max(0, len(place.shelf) - self._shelf)]
+    if script:
+      place.scripts[custom_id] = list(script)
+    for gone in set(place.scripts) - set(place.shelf):
+      del place.scripts[gone]
     place.used = year
 
   def keep(

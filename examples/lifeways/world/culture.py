@@ -93,6 +93,15 @@ TONGUE = 'tongue'
 DESCENT = 'descent'
 SAME_TONGUE = 0.75
 
+# A script is the marks a reading skill reads and writes by (its `script`
+# param); a copying error changes one, so scripts drift as tongues do. A
+# reader makes out a text whose marks agree with its own at least this much.
+MARKS = (
+    'hook', 'ring', 'cross', 'wave', 'fork', 'dot', 'bar', 'arc', 'spiral',
+    'tick', 'loop', 'step',
+)  # fmt: skip
+SAME_SCRIPT = 0.75
+
 # Kinds bound to a domain: a dialect is how one speaks, a marriage rule whom
 # one marries, a question how one decides. A custom of another kind may be of
 # any domain but reasoning.
@@ -500,6 +509,13 @@ class Culture:
     text = custom.text
     if custom.kind == SKILL:
       params['level'] = max(1, level - 1)
+      marks = list(params.get('script', ()))
+      if marks:  # The script drifts: one mark is made another way.
+        marks[int(rng.integers(len(marks)))] = MARKS[
+            int(rng.integers(len(MARKS)))
+        ]
+        params['script'] = marks
+        text = f'{text.partition(":")[0]}: {" ".join(marks)}.'
     elif custom.kind == DIALECT:
       words = list(params.get('words', ()))
       if not words:
@@ -647,6 +663,22 @@ def intelligibility(a: Custom, b: Custom) -> float:
     return 1.0
   same = sum(1 for x, y in zip(words_a, words_b) if x == y)
   return same / max(len(words_a), len(words_b))
+
+
+def legibility(reader: Sequence[str], writer: Sequence[str]) -> float:
+  """How much of a text a reader makes out, 0 to 1, by their scripts.
+
+  Args:
+    reader: The marks of the reader's script.
+    writer: The marks of the writer's.
+
+  Returns:
+    The share of marks that are the same (1.0 if either has none).
+  """
+  if not reader or not writer:
+    return 1.0
+  same = sum(1 for x, y in zip(reader, writer) if x == y)
+  return same / max(len(reader), len(writer))
 
 
 def accepts(

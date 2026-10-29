@@ -454,6 +454,14 @@ form a norm comes in by it, and which channels exist. A founding custom's
 `held_by` is the share of founders who hold it. What people take up is their own Learners' choice; the harness
 reads it for the census (`Run.customs_census`), the GM never does.
 
+**Scripts.** Reading is know-how written in a script: the reading skill's
+marks (`script`, six of `culture.MARKS`, in its words too). A copying error
+in teaching it makes one mark another way, so scripts drift as tongues do.
+A text keeps the marks it was written in (`Place.scripts`); a reader whose
+marks agree with them less than `SAME_SCRIPT` (five of six) cannot make it
+out and is told so. Old shelves become unreadable to readers taught far
+from them (`unreadable` in the census).
+
 **Libraries.** Customs can wait in the world itself, like plasmids in the
 environment. One who can read (a skill some founders have, passed on by
 teaching) may `found a library`, `write at the library` (exact copies of the

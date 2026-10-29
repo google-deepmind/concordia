@@ -23,6 +23,16 @@ from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import world as world_lib
 import numpy as np
 
+# Reading and writing, in a script of six marks (`culture.MARKS`) that
+# drifts as it is taught.
+SCRIPT = ['hook', 'ring', 'cross', 'wave', 'fork', 'dot']
+_READING = {
+    'kind': 'skill',
+    'domain': 'learning',
+    'text': f'Reading and writing marks on birch bark: {" ".join(SCRIPT)}.',
+    'params': {'level': 1, 'script': SCRIPT},
+}
+
 SANDBOX: Mapping[str, Any] = {
     'scenario': 'sandbox',
     'seed': 0,
@@ -240,13 +250,7 @@ SANDBOX: Mapping[str, Any] = {
             'text': 'We heed those who judge at the court.',
             'held_by': 1 / 3,
         },
-        {
-            'kind': 'skill',
-            'domain': 'learning',
-            'text': 'Reading and writing marks on birch bark.',
-            'params': {'level': 1},
-            'held_by': 0.25,
-        },
+        {**_READING, 'held_by': 0.25},
         {
             'kind': 'dialect',
             'domain': 'language',
@@ -291,12 +295,6 @@ _SHARING = {
     'kind': 'norm',
     'domain': 'sharing',
     'text': 'We share our food with those near us who go hungry.',
-}
-_READING = {
-    'kind': 'skill',
-    'domain': 'learning',
-    'text': 'Reading and writing marks on birch bark.',
-    'params': {'level': 1},
 }
 
 # Plasmid Soup: everyone buds alone, and customs move freely, by watching

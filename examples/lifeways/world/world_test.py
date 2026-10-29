@@ -1282,6 +1282,39 @@ class LibraryTest(absltest.TestCase):
     self.world.actions = dict(actions)
     return self.world.close_year()
 
+  def test_a_text_in_marks_made_another_way_cannot_be_read(self):
+    culture = self.world.culture
+    old = ['hook', 'ring', 'cross', 'wave', 'fork', 'dot']
+    new = ['hook', 'ring', 'step', 'wave', 'fork', 'arc']  # Two marks drift.
+    near = ['hook', 'ring', 'cross', 'wave', 'fork', 'arc']  # One.
+    ways = {
+        script[2]
+        + script[5]: (
+            culture.add(
+                'skill', 'learning', 'Reading.', {'level': 1, 'script': script}
+            ).id
+        )
+        for script in (old, new, near)
+    }
+    library = self.world.places.found(places_lib.LIBRARY, (5, 5), 'Ada', 0)
+    self.world.places.write(library, self.norm, 0, old)
+    restored = places_lib.Place.from_dict(library.to_dict())
+    self.assertEqual(restored.scripts, {self.norm: old})
+    self._person('Bo', (5, 5), [ways['steparc'], self.norm])
+    self._person('Cy', (5, 6), [ways['crossarc'], self.norm])
+
+    self._year(
+        Bo=f'{world_lib.READ} {ways["steparc"]}',
+        Cy=f'{world_lib.READ} {ways["crossarc"]}',
+    )
+
+    self.assertIn(
+        'Bo cannot make out a text: its marks are made another way.',
+        self.world.queued['Bo'],
+    )
+    self.assertIn('reading', '\n'.join(self.world.queued['Cy']))
+    self.assertEqual(self.world.history[-1]['unreadable'], 1)
+
   def test_the_literate_found_a_library_and_write_on_its_shelf(self):
     ada = self._person('Ada', (5, 5), [self.reading, self.norm, self.belief])
     self._person('Bo', (5, 6), [self.norm])
@@ -2040,6 +2073,34 @@ class InheritanceTest(absltest.TestCase):
 
     self.assertEqual(world.land.fields[(2, 2)][2], 'Ada')
     self.assertEqual(world._inherited, 0)
+
+
+class ScriptTest(absltest.TestCase):
+
+  def test_a_script_drifts_as_reading_is_taught(self):
+    culture = culture_lib.Culture()
+    marks = ['hook', 'ring', 'cross', 'wave', 'fork', 'dot']
+    reading = culture.add(
+        'skill',
+        'learning',
+        'Reading marks: hook ring cross wave fork dot.',
+        {'level': 1, 'script': marks},
+    )
+
+    erred = culture.copy(reading.id, np.random.default_rng(0), 1.0, 1)
+
+    drifted = erred.params['script']
+    self.assertLen(drifted, 6)
+    self.assertLessEqual(sum(a != b for a, b in zip(marks, drifted)), 1)
+    self.assertEqual(erred.text, f'Reading marks: {" ".join(drifted)}.')
+    self.assertEqual(culture_lib.legibility(marks, marks), 1.0)
+    self.assertAlmostEqual(
+        culture_lib.legibility(
+            marks, ['x', 'ring', 'cross', 'wave', 'fork', 'y']
+        ),
+        4 / 6,
+    )
+    self.assertEqual(culture_lib.legibility([], marks), 1.0)
 
 
 class LandTest(absltest.TestCase):

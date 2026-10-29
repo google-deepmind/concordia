@@ -489,6 +489,8 @@ class World:
     # (the census's).
     self._sold = 0
     self._stories = 0
+    # Texts a reader could not make out this year (another script).
+    self._unreadable = 0
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
@@ -1568,6 +1570,7 @@ class World:
     self._inherited = 0
     self._sold = 0
     self._stories = 0
+    self._unreadable = 0
     self._shares = 0
     self._fed = set()
     self._releases = []
@@ -1799,6 +1802,11 @@ class World:
     texts = [
         c.id for c in customs if not places_lib.literate([(c.kind, c.domain)])
     ]
+    # The marks this reader or writer knows: its best reading skill's script.
+    script = max(
+        (c for c in customs if places_lib.literate([(c.kind, c.domain)])),
+        key=lambda c: int(c.params.get('level', 1)),
+    ).params.get('script', [])
     near = self.places.near(person.tile, self.sight)
     if move == READ:
       shelves = [p for p in near if p.shelf]
@@ -1811,6 +1819,15 @@ class World:
           self.year,
       )
       for custom_id in read:
+        written = shelves[0].scripts.get(custom_id, [])
+        if culture_lib.legibility(script, written) < culture_lib.SAME_SCRIPT:
+          self._unreadable += 1
+          self._tell(
+              person.name,
+              f'{person.name} cannot make out a text: its marks are made'
+              ' another way.',
+          )
+          continue
         self._offer(
             person.name,
             '',
@@ -1840,7 +1857,7 @@ class World:
         return
       place = standing[0]
     for custom_id in texts:
-      self.places.write(place, custom_id, self.year)
+      self.places.write(place, custom_id, self.year, script)
     if texts:
       self._tell(
           person.name,
@@ -2924,6 +2941,7 @@ class World:
         'inherited': self._inherited,
         'sold': self._sold,
         'stories': self._stories,
+        'unreadable': self._unreadable,
         'libraries': sum(
             1
             for p in self.places.all()
