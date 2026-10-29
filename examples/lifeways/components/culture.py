@@ -286,10 +286,17 @@ class Learner(entity_component.ContextComponent):
           self._hold(spec, offer.group('via'), offer.group('source') or '')
     return ''
 
-  def _make_room(
-      self, entity: entity_agent.EntityAgent, spec: Mapping[str, Any]
-  ) -> bool:
-    """Drops what a new custom displaces; False if it is not wanted."""
+  def _displaced(self, spec: Mapping[str, Any]) -> tuple[bool, str | None, str]:
+    """What taking up a custom would cost, changing nothing.
+
+    Args:
+      spec: The custom offered.
+
+    Returns:
+      Whether it would be taken up at all, the custom it would push out
+      (None if there is room), and why (`SAME_LOCUS`, `DOMAIN_FULL`,
+      `CAPACITY_FULL`; '' if nothing).
+    """
     kind, domain = spec['kind'], spec['domain']
     level = int(spec.get('params', {}).get('level', 0))
     locus = [
@@ -300,19 +307,45 @@ class Learner(entity_component.ContextComponent):
     if kind == culture_lib.SKILL and any(
         self._held[c]['level'] >= level for c in locus
     ):
-      return False  # Nobody learns a worse way to do what they do.
+      return False, None, ''  # Nobody learns a worse way to do what they do.
     if culture_lib.form_of(spec) == culture_lib.KNOWN and any(
         self._held[c]['form'] == culture_lib.INTERNALIZED for c in locus
     ):
-      return False  # What is one's own is not displaced by what is expected.
+      return False, None, ''  # One's own is not displaced by what is expected.
     same = [c for c, held in self._held.items() if held['domain'] == domain]
     if locus:
-      victim, why = locus[0], SAME_LOCUS
-    elif len(same) >= self._per_domain:
-      victim, why = same[0], DOMAIN_FULL
-    elif len(self._held) >= self._capacity:
-      victim, why = next(iter(self._held)), CAPACITY_FULL
-    else:
+      return True, locus[0], SAME_LOCUS
+    if len(same) >= self._per_domain:
+      return True, same[0], DOMAIN_FULL
+    if len(self._held) >= self._capacity:
+      return True, next(iter(self._held)), CAPACITY_FULL
+    return True, None, ''
+
+  def would_take(self, spec: Mapping[str, Any]) -> dict[str, Any]:
+    """What this person would do with a custom offered (reading only).
+
+    The rule uptake uses to make room, asked without taking anything up:
+    for the page's preview of a release.
+
+    Args:
+      spec: The custom offered: kind, domain, and params (level, form).
+
+    Returns:
+      `wanted` (False if it would not take it at all), and `pushes`, the id
+      of the custom it would let go to make room (or None), and `why`.
+    """
+    with self._lock:
+      wanted, victim, why = self._displaced(spec)
+    return {'wanted': wanted, 'pushes': victim, 'why': why}
+
+  def _make_room(
+      self, entity: entity_agent.EntityAgent, spec: Mapping[str, Any]
+  ) -> bool:
+    """Drops what a new custom displaces; False if it is not wanted."""
+    wanted, victim, why = self._displaced(spec)
+    if not wanted:
+      return False
+    if victim is None:
       return True
     dropped = entity.get_all_context_components().get(component_name(victim))
     self._let_go.append({

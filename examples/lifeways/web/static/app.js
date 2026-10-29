@@ -371,6 +371,65 @@ function drawTree(variants) {
   box.replaceChildren(out);
 }
 
+/**
+ * What a release would meet, in words: who would hear it, and what they
+ * would let go for it.
+ * @param {!Object} preview The preview reply: hearers, room, push, no,
+ *     pushed [{text, why, count}].
+ * @param {string} domain The custom's domain.
+ * @return {string} The line.
+ */
+function previewText(preview, domain) {
+  if (!preview.hearers) return 'Nobody would hear it there now.';
+  const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+  const parts = [];
+  if (preview.room) parts.push(`${n(preview.room, 'has', 'have')} room for it`);
+  if (preview.push) {
+    parts.push(`${n(preview.push, 'would let', 'would let')} a custom go ` +
+        'to take it up');
+  }
+  if (preview.no) {
+    parts.push(`${n(preview.no, 'would', 'would')} not take it (they know ` +
+        'as well already, or hold their own)');
+  }
+  const why = {
+    locus: `one holds one of each kind about ${domain}`,
+    domain: `two about ${domain} are the most one holds`,
+    capacity: 'one holds only so many customs',
+  };
+  const pushed = preview.pushed.map((p) => `"${p.text}" (${p.count}: ` +
+      `${why[p.why] || p.why})`);
+  return `Of the ${n(preview.hearers, 'who', 'who')} would hear it: ` +
+      `${parts.join('; ')}.` +
+      (pushed.length ? ` They would let go: ${pushed.join('; ')}.` : '');
+}
+
+/** The last preview asked for, so it is asked again only when it changes. */
+let previewKey = '';
+
+/** Asks what a song released as the form says would meet (on change). */
+async function preview() {
+  const note = document.getElementById('release-preview');
+  const how = document.getElementById('how').value;
+  if (how !== 'song' || !page.at) {
+    note.textContent = how === 'song' ? '' : 'A text waits for whoever ' +
+        'reads it; who will is not known beforehand.';
+    previewKey = '';
+    return;
+  }
+  const kind = document.getElementById('kind').value;
+  const domain = document.getElementById('domain').value;
+  const level = kind === 'skill' ? document.getElementById('level').value :
+    '0';
+  const key = [kind, domain, level, page.at.join(','), page.world.year]
+      .join('|');
+  if (key === previewKey) return;
+  previewKey = key;
+  const found = await api(`api/release_preview?kind=${kind}` +
+      `&domain=${domain}&at=${page.at.join(',')}&level=${level}`);
+  note.textContent = previewText(found, domain);
+}
+
 /** The sections whose heading folds them away. */
 const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
   'notebook', 'built'];
@@ -982,6 +1041,7 @@ function tileText(world, at) {
  */
 function drawAt(world) {
   document.getElementById('map-text').textContent = mapText(world);
+  preview().catch(() => {});
   const note = document.getElementById('at-note');
   if (!page.at) {
     note.textContent = '';
@@ -2569,6 +2629,11 @@ async function start() {
   document.getElementById('how').addEventListener('change', () => {
     if (page.world) drawAt(page.world);
   });
+  for (const id of ['kind', 'domain', 'level']) {
+    document.getElementById(id).addEventListener('change', () => {
+      preview().catch(() => {});
+    });
+  }
   const build = await api('api/build');
   document.getElementById('build').textContent =
       `Lifeways, build ${build.commit || '?'} (the code's version)`;
@@ -2834,7 +2899,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-    kinLayout, treeLayout, wordChange,
+    kinLayout, previewText, treeLayout, wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

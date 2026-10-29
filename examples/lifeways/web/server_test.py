@@ -664,6 +664,25 @@ class TreesTest(absltest.TestCase):
     self.assertIsNone(self.session.kin('Nobody'))
 
 
+class ReleasePreviewTest(absltest.TestCase):
+
+  def test_a_preview_asks_each_hearer_what_they_would_let_go(self):
+    session = session_lib.Session(years_per_second=40)
+    try:
+      row, col, heard = session.state()['reach'][0]
+
+      rule = session.release_preview('norm', 'kinship', (row, col))
+      worse = session.release_preview('skill', 'food', (row, col), 1)
+
+      self.assertEqual(rule['hearers'], heard)
+      self.assertEqual(rule['room'] + rule['push'] + rule['no'], heard)
+      self.assertEqual(sum(p['count'] for p in rule['pushed']), rule['push'])
+      # Know-how no better than what they know is not taken up.
+      self.assertEqual(worse['no'], heard)
+    finally:
+      session.close()
+
+
 class SearchTest(absltest.TestCase):
 
   def test_a_search_finds_the_living_and_customs_by_their_words(self):

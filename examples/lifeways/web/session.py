@@ -1613,6 +1613,65 @@ class Session:
         'asked': self.played.asked(lives[-1]),
     }
 
+  def release_preview(
+      self, kind: str, domain: str, at: Sequence[int], level: int = 0
+  ) -> dict[str, Any]:
+    """What a song released at a tile would meet: who hears, and their room.
+
+    Reading only. Each who would hear it is asked, by their own Learner's
+    rule, whether they would take it up and what they would let go for it.
+
+    Args:
+      kind: The custom's kind.
+      domain: Its domain.
+      at: [row, col] where it would be sung.
+      level: Its level, for know-how.
+
+    Returns:
+      `hearers`; how many have room (`room`), would let a custom go
+      (`push`), would not take it (`no`); and what would be let go
+      (`pushed`: text, why, how many), most first.
+    """
+    spec = {
+        'kind': str(kind),
+        'domain': str(domain),
+        'params': {'level': int(level)} if level else {},
+    }
+    with self.run.world_lock():
+      hearers = self.run.world().hearers((int(at[0]), int(at[1])))
+    texts = {
+        str(c['id']): c['text']
+        for c in self.run.world_state()['culture']['customs']
+    }
+    learners = {
+        e.name: e.get_component(  # pyrefly: ignore[missing-attribute]
+            person_lib.LEARNER, type_=culture.Learner
+        )
+        for e in list(self.run.sim.entities)
+        if e.name in hearers
+    }
+    counts = {'room': 0, 'push': 0, 'no': 0}
+    pushed: collections.Counter[tuple[str, str]] = collections.Counter()
+    for name in hearers:
+      if name not in learners:
+        continue
+      answer = learners[name].would_take(spec)
+      if not answer['wanted']:
+        counts['no'] += 1
+      elif answer['pushes']:
+        counts['push'] += 1
+        pushed[(texts.get(answer['pushes'], ''), answer['why'])] += 1
+      else:
+        counts['room'] += 1
+    return {
+        'hearers': len(hearers),
+        **counts,
+        'pushed': [
+            {'text': text, 'why': why, 'count': n}
+            for (text, why), n in pushed.most_common(3)
+        ],
+    }
+
   def search(self, query: str, most: int = SEARCH_SHOWN) -> dict[str, Any]:
     """The living whose names, and the customs whose words, hold a query.
 

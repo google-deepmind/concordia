@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-  kinLayout, treeLayout, wordChange,
+  kinLayout, previewText, treeLayout, wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -305,6 +305,17 @@ test('a family is laid out in rows, a few names a row', () => {
   assert.deepEqual(boxes.filter((b) => b.more).map((b) => b.name), ['+2']);
   assert.equal(links.length, 2);  // Parents to Ada, Ada to children.
   assert.ok(boxes.every((b) => b.x >= 0 && b.x + b.w <= 340));
+});
+
+test('a release says who would hear it and what they would let go', () => {
+  assert.equal(previewText({hearers: 5, room: 1, push: 3, no: 1, pushed: [
+    {text: 'Children are a blessing.', why: 'locus', count: 3}]}, 'kinship'),
+  'Of the 5 who would hear it: 1 has room for it; 3 would let a custom go ' +
+      'to take it up; 1 would not take it (they know as well already, or ' +
+      'hold their own). They would let go: "Children are a blessing." (3: ' +
+      'one holds one of each kind about kinship).');
+  assert.equal(previewText({hearers: 0, room: 0, push: 0, no: 0,
+    pushed: []}, 'food'), 'Nobody would hear it there now.');
 });
 
 test('a panel says when its person is no longer alive', () => {

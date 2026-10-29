@@ -31,6 +31,7 @@ Everything it does with the world is read the simulation
 | `GET /api/anatomy[?name=<name>]` | how Concordia builds a person, or the World GM |
 | `GET /api/place?id=<place>` | a place: who keeps it, what it holds |
 | `GET /api/search?q=<words>` | the living and the customs that match |
+| `GET /api/release_preview?kind=..&domain=..&at=r,c[&level=n]` | who a song would reach, and what they would let go for it |
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
 | `GET /notebook.md` | the notebook, to keep |
@@ -243,6 +244,22 @@ def handler(
           self._json(404, {'error': 'nobody of that name is remembered'})
         else:
           self._json(200, kin)
+      elif path == '/api/release_preview':
+        try:
+          row, col = (int(x) for x in query.get('at', [''])[0].split(','))
+          level = int(query.get('level', ['0'])[0] or 0)
+        except ValueError:
+          self._json(400, {'error': 'at is <row>,<col>; level a number'})
+        else:
+          self._json(
+              200,
+              session.release_preview(
+                  query.get('kind', [''])[0],
+                  query.get('domain', [''])[0],
+                  (row, col),
+                  level,
+              ),
+          )
       elif path == '/api/search':
         self._json(200, session.search(query.get('q', [''])[0]))
       elif path == '/api/place':

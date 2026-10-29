@@ -844,6 +844,20 @@ class World:
       reach.update(tile for tile in near if self._hears(person, tile))
     return dict(reach)
 
+  def hearers(self, tile: land_lib.Tile) -> list[str]:
+    """Who would hear a song sung at a tile (a released song's rule).
+
+    Args:
+      tile: Where it would be sung.
+
+    Returns:
+      Their names.
+    """
+    tile = self.land.wrap(int(tile[0]), int(tile[1]))
+    return [
+        name for name in self.living() if self._hears(self.people[name], tile)
+    ]
+
   def living(self) -> list[str]:
     return sorted(self.people)
 
