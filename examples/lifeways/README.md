@@ -325,6 +325,9 @@ Farmers, 24 years, seed 0, build 8bfa7a06:
 With its stores and land read first, the small mind sowed half as often,
 and lived about as well: where a prompt puts things changes what a mind
 does, though not here towards farming. One seed each; more are playing.
+Neither had children: 0 and 1 births in 24 years, where the mock had 32.
+The small mind looked for partners, then gathered and rested; its valley
+lived on the strangers who come when it is nearly empty.
 
 ### Long runs
 
