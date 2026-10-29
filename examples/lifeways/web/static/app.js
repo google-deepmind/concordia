@@ -1403,7 +1403,92 @@ function onMapTap(event) {
       nearest = person;
     }
   }
-  if (nearest) showPerson(nearest.name);
+  // A place on the tile tapped, unless the tap was nearer a person on it.
+  const place = page.world.places.find(
+      (p) => p.tile[0] === row && p.tile[1] === col);
+  const centre = ((col + 0.5) * page.tile - x) ** 2 +
+      ((row + 0.5) * page.tile - y) ** 2;
+  if (place && (!nearest || centre <= best)) {
+    showPlace(place.id);
+  } else if (nearest) {
+    showPerson(nearest.name);
+  }
+}
+
+/** What each kind of place holds, in words: [heading, none yet]. */
+const PLACE_HOLDS = {
+  library: ['Its shelf: texts anyone near may read', 'Nothing is on its ' +
+      'shelf yet.'],
+  school: ['What it teaches: its teacher\'s curriculum', 'Nobody has ' +
+      'taught here yet.'],
+  shrine: ['Its rite: what the rite is led by', 'Nobody has led its rite ' +
+      'yet.'],
+  court: ['Its law: the rules it last judged by', 'It has judged nobody ' +
+      'yet.'],
+};
+
+/**
+ * A place's title and what the panel says of it, in words.
+ * @param {!Object} place The place reply: kind, tile, founder, founded,
+ *     keeper, kept, used, ruined.
+ * @return {!Object} {title, lines}.
+ */
+function placeText(place) {
+  const at = `row ${place.tile[0]}, column ${place.tile[1]}`;
+  const who = (name) => name === 'Experimenter' ? 'you' : name;
+  const lines = [`Founded by ${who(place.founder)} in year ` +
+      `${yearText(place.founded)}.`];
+  if (place.keeper && place.kept >= 0 &&
+      !(place.keeper === place.founder && place.kept === place.founded)) {
+    lines.push(`Last kept by ${who(place.keeper)}, in year ` +
+        `${yearText(place.kept)}.`);
+  }
+  lines.push(place.ruined ?
+      `Unused since year ${yearText(place.used)}: a ruin. What it holds ` +
+        'will crumble.' :
+      `Last used in year ${yearText(place.used)}.`);
+  return {
+    title: `A ${place.kind} at ${at}${place.ruined ? ' (a ruin)' : ''}`,
+    lines,
+  };
+}
+
+/**
+ * Shows a place: who founded and keeps it, and what it holds.
+ * @param {string} id The place's id.
+ */
+async function showPlace(id) {
+  const place = await api(`api/place?id=${encodeURIComponent(id)}`);
+  const {title, lines} = placeText(place);
+  document.getElementById('place-title').textContent = title;
+  document.getElementById('place-body').replaceChildren(...lines.map((t) => {
+    const item = document.createElement('li');
+    item.textContent = t;
+    return item;
+  }));
+  const [heading, none] = PLACE_HOLDS[place.kind] || ['What it holds', ''];
+  document.getElementById('place-holds-label').textContent = heading;
+  document.getElementById('place-holds-none').textContent = none;
+  document.getElementById('place-holds-none').hidden = place.holds.length > 0;
+  document.getElementById('place-holds').replaceChildren(
+      ...place.holds.map((custom) => {
+        const item = document.createElement('li');
+        item.textContent = custom.text;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = customKind(custom) + ' · ';
+        const lineage = document.createElement('button');
+        lineage.type = 'button';
+        lineage.className = 'link';
+        lineage.textContent = 'how it has changed';
+        lineage.addEventListener('click', () => showLineage(custom.id));
+        meta.append(lineage);
+        item.append(meta);
+        return item;
+      }));
+  const panel = document.getElementById('place');
+  panel.hidden = false;
+  panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
 
 /**
@@ -2086,6 +2171,9 @@ async function start() {
   document.getElementById('person-close').addEventListener('click', () => {
     document.getElementById('person').hidden = true;
   });
+  document.getElementById('place-close').addEventListener('click', () => {
+    document.getElementById('place').hidden = true;
+  });
   document.getElementById('lineage-close').addEventListener('click', () => {
     document.getElementById('lineage').hidden = true;
     page.lineage = null;
@@ -2265,7 +2353,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-    overlayKey, personColour, queuedNote, tongueRanks,
+    overlayKey, personColour, placeText, queuedNote, tongueRanks,
     statusLines,
     goneFromPanel, paceNote,
     peoplesText,

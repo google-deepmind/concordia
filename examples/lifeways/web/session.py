@@ -1611,6 +1611,50 @@ class Session:
         'asked': self.played.asked(lives[-1]),
     }
 
+  def place(self, place_id: str) -> dict[str, Any] | None:
+    """A library, school, shrine or court as the page shows it.
+
+    Reading only, under the World GM's lock: who founded and keeps it, when
+    it was last used, whether it is a ruin, and what it holds (a library's
+    texts, a school's curriculum, a shrine's rite, a court's law).
+
+    Args:
+      place_id: The place's id.
+
+    Returns:
+      The place, or None if no place has the id.
+    """
+    with self.run.world_lock():
+      world = self.run.world()
+      found = next((p for p in world.places.all() if p.id == place_id), None)
+      if found is None:
+        return None
+      holds = []
+      for custom_id in found.shelf:
+        if custom_id in world.culture:
+          custom = world.culture.get(custom_id)
+          holds.append({
+              'id': custom_id,
+              'kind': custom.kind,
+              'domain': custom.domain,
+              'text': custom.text,
+              'params': {
+                  k: v for k, v in custom.params.items() if k != 'words'
+              },
+          })
+      return {
+          'id': found.id,
+          'kind': found.kind,
+          'tile': list(found.tile),
+          'founded': found.founded,
+          'founder': found.founder,
+          'keeper': found.keeper,
+          'kept': found.kept,
+          'used': found.used,
+          'ruined': world.places.ruined(found, world.year),
+          'holds': holds,
+      }
+
   def anatomy(self, name: str = '') -> dict[str, Any] | None:
     """How Concordia builds a person, or the World GM (`Run.anatomy`)."""
     return self.run.anatomy(name)

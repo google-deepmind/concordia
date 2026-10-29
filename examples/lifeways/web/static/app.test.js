@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-  overlayKey, personColour, queuedNote, tongueRanks,
+  overlayKey, personColour, placeText, queuedNote, tongueRanks,
   statusLines,
   goneFromPanel, paceNote,
   peoplesText,
@@ -206,6 +206,25 @@ test('the map colours people by the overlay chosen, and keys it', () => {
         'a tongue spoken by 1, mostly of the Hill people']);
   assert.deepEqual(overlayKey(world, 'descent').map(([, words]) => words),
       ['the River people (2)', 'the Hill people (1)']);
+});
+
+test('a place says who founded and keeps it, and if it is a ruin', () => {
+  const place = {kind: 'court', tile: [4, 7], founder: 'Experimenter',
+    founded: 12, keeper: 'Ada', kept: 30, used: 30, ruined: false};
+  assert.deepEqual(placeText(place), {
+    title: 'A court at row 4, column 7',
+    lines: ['Founded by you in year 12.', 'Last kept by Ada, in year 30.',
+      'Last used in year 30.'],
+  });
+  assert.deepEqual(placeText({...place, keeper: '', kept: -1, ruined: true,
+    founder: 'Bo'}), {
+    title: 'A court at row 4, column 7 (a ruin)',
+    lines: ['Founded by Bo in year 12.', 'Unused since year 30: a ruin. ' +
+        'What it holds will crumble.'],
+  });
+  // Kept by its founder as it was founded: said once.
+  assert.deepEqual(placeText({...place, founder: 'Ada', founded: 30}).lines,
+      ['Founded by Ada in year 30.', 'Last used in year 30.']);
 });
 
 test('a panel says when its person is no longer alive', () => {

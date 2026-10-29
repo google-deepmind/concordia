@@ -111,6 +111,14 @@ button.link {
   color: var(--accent);
   text-decoration: underline;
 }
+#place {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+#place-holds { padding-left: 18px; }
+#place-holds li { margin: 4px 0; }
+#place-holds .meta { color: var(--muted); font-size: 0.95rem; }
 #lineage {
   border: 1px solid var(--line);
   border-radius: 8px;

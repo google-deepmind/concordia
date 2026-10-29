@@ -29,6 +29,7 @@ Everything it does with the world is read the simulation
 | `GET /api/kin?name=<name>` | a person's family, three generations |
 | `GET /api/lineage?id=<custom>` | a custom's variants, who holds them, from whom |
 | `GET /api/anatomy[?name=<name>]` | how Concordia builds a person, or the World GM |
+| `GET /api/place?id=<place>` | a place: who keeps it, what it holds |
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
 | `GET /notebook.md` | the notebook, to keep |
@@ -241,6 +242,12 @@ def handler(
           self._json(404, {'error': 'nobody of that name is remembered'})
         else:
           self._json(200, kin)
+      elif path == '/api/place':
+        place = session.place(query.get('id', [''])[0])
+        if place is None:
+          self._json(404, {'error': 'no such place stands'})
+        else:
+          self._json(200, place)
       elif path == '/api/anatomy':
         anatomy = session.anatomy(query.get('name', [''])[0])
         if anatomy is None:

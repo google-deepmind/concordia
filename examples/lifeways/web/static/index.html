@@ -100,7 +100,8 @@ limitations under the License.
     <ul class="hint key-list">
       <li>A dot is a person, coloured as chosen above; small dots are
         children. Tap one to see their customs.</li>
-      <li>Squares are places: L library, S school, ✦ shrine, C court.</li>
+      <li>Squares are places: L library, S school, ✦ shrine, C court. Tap
+        one to see who keeps it and what it holds.</li>
       <li>Golden furrows are fields; a dashed amber outline is a disaster of
         the last twenty years.</li>
       <li id="key-you" hidden>The dashed white ring is you.</li>
@@ -136,6 +137,15 @@ limitations under the License.
     </form>
     <p id="ask-note" class="hint" aria-live="polite"></p>
     <button id="person-close" type="button">Close</button>
+  </section>
+
+  <section id="place" hidden aria-label="A place">
+    <h2 id="place-title"></h2>
+    <ul id="place-body" class="parts"></ul>
+    <h3 id="place-holds-label"></h3>
+    <p id="place-holds-none" class="hint" hidden></p>
+    <ul id="place-holds"></ul>
+    <button id="place-close" type="button">Close</button>
   </section>
 
   <section id="lineage" hidden aria-label="A lineage">

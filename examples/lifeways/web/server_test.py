@@ -664,6 +664,29 @@ class TreesTest(absltest.TestCase):
     self.assertIsNone(self.session.kin('Nobody'))
 
 
+class PlaceTest(absltest.TestCase):
+
+  def test_a_place_says_who_keeps_it_and_what_it_holds(self):
+    session = session_lib.Session(years_per_second=40)
+    try:
+      world = session.run.world()
+      norm = world.culture.add('norm', 'sharing', 'Share.').id
+      court = world.places.found('court', (3, 4), 'Ada', 0)
+      world.places.keep(court, 'Ada', [norm], 0)
+
+      place = session.place(court.id)
+
+      self.assertEqual(
+          {k: place[k] for k in ('kind', 'tile', 'founder', 'keeper')},
+          {'kind': 'court', 'tile': [3, 4], 'founder': 'Ada', 'keeper': 'Ada'},
+      )
+      self.assertEqual([c['text'] for c in place['holds']], ['Share.'])
+      self.assertFalse(place['ruined'])
+      self.assertIsNone(session.place('p999'))
+    finally:
+      session.close()
+
+
 class NotebookTest(absltest.TestCase):
 
   def test_the_notebook_notes_the_valleys_own_great_changes(self):
