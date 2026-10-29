@@ -121,6 +121,14 @@ the number of peoples or tongues, a custom becoming the most widely held
 for the first time, few or none left. `GET notebook.md` gives a copy as
 Markdown.
 
+**Hypotheses that check themselves.** A hypothesis may name a census
+measure (the living, fields sown, tongues, peoples, inequality, food
+shares, hoarders and more), that it will rise or fall, and within how many
+years. The session reads the measure's average over the last five census
+rows when it is written and when it is due, and notes in the notebook
+whether it held. It is the page's reading of the census, as the charts
+are.
+
 **Data to keep.** The census section links three CSV files, for analysis
 outside the page: `data/census.csv` (the census rows kept, a column for
 each number, nested ones spread out), `data/people.csv` (a row for each

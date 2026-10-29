@@ -249,6 +249,23 @@ button.link {
 #release label.wide, #ask label.wide, #note label.wide,
 #survey-form label.wide { flex: 1 1 100%; }
 #note textarea { width: 100%; resize: vertical; }
+#note-check {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+#note-check legend { font-size: 0.95rem; }
+#note-check label { display: flex; flex-direction: column; min-width: 0;
+  max-width: 100%; font-size: 0.95rem; }
+#note-check select { max-width: 100%; }
+#note-check label.years { flex-direction: row; align-items: center; gap: 6px; }
+#note-check .hint { flex: 1 1 100%; margin: 0; }
 label.filter { display: block; margin: 8px 0; font-size: 0.95rem; }
 #entries { list-style: none; padding: 0; }
 #entries li { margin: 6px 0; }

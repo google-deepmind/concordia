@@ -1440,8 +1440,37 @@ function drawNotebook() {
     const text = document.createElement('div');
     text.textContent = entryText(entry);
     item.append(meta, text);
+    if (entry.check) {
+      const check = document.createElement('div');
+      check.className = 'meta';
+      check.textContent = checkNote(entry.check, page.world.checkable || {});
+      item.append(check);
+    }
     return item;
   }));
+}
+
+/**
+ * What a hypothesis's check says: what it waits for, or how it came out.
+ * @param {!Object} check `measure`, `direction`, `due`, `from`,
+ *     `from_years`, and once due `result` (`held`, `to`, `to_years`).
+ * @param {!Object} measures The census measures' words, by key.
+ * @return {string} The line.
+ */
+function checkNote(check, measures) {
+  const what = measures[check.measure] || check.measure;
+  const amount = (v) => Number(v.toFixed(2)).toString();
+  const span = ([a, b]) => a === b ? `year ${yearText(a)}` :
+    `years ${yearText(a)}–${yearText(b)}`;
+  if (!check.result) {
+    return `The census checks it in year ${yearText(check.due)}: ${what}, ` +
+        `${amount(check.from)} on average (${span(check.from_years)}), to ` +
+        `${check.direction}.`;
+  }
+  const {held, to} = check.result;
+  return `${held ? 'Held' : 'Did not hold'} (year ${yearText(check.due)}): ` +
+      `${what} went from ${amount(check.from)} to ${amount(to)} on average ` +
+      `(${span(check.result.to_years)}); you said ${check.direction}.`;
 }
 
 /** How many years the map shows a disaster after it struck. */
@@ -2506,6 +2535,13 @@ async function refreshOnce() {
     if (entries.length) {
       page.entries = appendNew(page.entries, entries, 'id', page.entrySince,
           1000);
+      for (const {checked} of entries) {  // A hypothesis checked: its result.
+        const hypothesis = checked &&
+            page.entries.find((e) => e.id === checked.id && e.check);
+        if (hypothesis) {
+          hypothesis.check = {...hypothesis.check, result: checked.result};
+        }
+      }
       const first = page.entrySince === 0;
       page.entrySince = entries[entries.length - 1].id;
       drawNotebook();
@@ -3052,6 +3088,16 @@ async function start() {
   presetNote();
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
+  document.getElementById('check-measure').replaceChildren(
+      new Option('— no check —', ''),
+      ...Object.entries(world.checkable || {}).map(
+          ([value, label]) => new Option(label, value)));
+  const checkShown = () => {  // Only a hypothesis checks itself.
+    document.getElementById('note-check').hidden =
+        document.getElementById('note-kind').value !== 'hypothesis';
+  };
+  checkShown();
+  document.getElementById('note-kind').addEventListener('change', checkShown);
   const leverTo = () => {  // A channel goes without; it takes no value.
     document.getElementById('lever-to').hidden =
         document.getElementById('lever').value.startsWith('without ');
@@ -3324,9 +3370,13 @@ async function start() {
     said.textContent = '';
     const text = document.getElementById('note-text').value.trim();
     if (!text) return;
+    const kind = document.getElementById('note-kind').value;
+    const measure = document.getElementById('check-measure').value;
+    const check = kind === 'hypothesis' && measure ? {measure,
+      direction: document.getElementById('check-direction').value,
+      years: Number(document.getElementById('check-years').value)} : null;
     try {
-      await api('api/note',
-          {kind: document.getElementById('note-kind').value, text});
+      await api('api/note', {kind, text, ...(check ? {check} : {})});
     } catch (error) {
       said.textContent = `Not written: ${error.message}`;
       return;
@@ -3364,7 +3414,7 @@ if (typeof document !== 'undefined') {
     crowdedSpot, customKind,
     domainsFor, kinName, entryText, moveWords, worldName, yearText,
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,
-    appendNew, entryMeta, entryShown,
+    appendNew, checkNote, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,

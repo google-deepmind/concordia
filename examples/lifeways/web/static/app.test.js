@@ -38,7 +38,8 @@ const {
   domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
   leverChoices, moreNote,
-  peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
+  peopleColour, releaseMove, appendNew, checkNote, entryMeta, entryShown,
+  fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeSuggested, livesNote, reachNote,
   recentDisasters, releaseStatus, savedNote,
@@ -403,6 +404,19 @@ test('the twin report reads each measure in both worlds', () => {
       [row(10, 5, 1, [0, 0])]).head,
   'Over year 10, a year on average: the same in every measure.');
 });
+
+test('a hypothesis says what the census will check, then how it came out',
+    () => {
+      const check = {measure: 'fields', direction: 'rise', due: 1019,
+        from: 6, from_years: [4, 8]};
+      const words = {fields: 'fields sown'};
+      assert.equal(checkNote(check, words), 'The census checks it in year ' +
+          '1,019: fields sown, 6 on average (years 4–8), to rise.');
+      assert.equal(checkNote({...check, result: {held: false, to: 5.125,
+        to_years: [1015, 1019]}}, words), 'Did not hold (year 1,019): ' +
+          'fields sown went from 6 to 5.13 on average (years 1,015–1,019); ' +
+          'you said rise.');
+    });
 
 test('labels at the same height spread up from the bottom', () => {
   const labels = [{at: 100}, {at: 100}, {at: 100}, {at: 20}];

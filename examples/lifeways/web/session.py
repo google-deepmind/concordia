@@ -105,6 +105,26 @@ AGAIN_KEPT = 5
 # What the person writes in the notebook, and the longest entry.
 NOTE_KINDS = ('hypothesis', 'observation', 'note')
 NOTE_LENGTH = 1000
+# What a hypothesis may name to check itself: a census measure, by key, in
+# words; that it will rise or fall; and within how many years (at most
+# CHECK_MOST). It is read as its mean a year over the last CHECK_YEARS
+# census rows, when written and when due.
+CHECKABLE = {
+    'population': 'the living',
+    'fields': 'fields sown',
+    'skill_worked': 'the skill people work by',
+    'tongues': 'tongues',
+    'peoples': 'peoples',
+    'distinct': 'different versions held',
+    'diversity': 'variety of customs held',
+    'gini': 'inequality',
+    'shares': 'food shares given',
+    'breaches': 'hoarders seen',
+    'judged': 'hoarders judged',
+}
+DIRECTIONS = ('rise', 'fall')
+CHECK_YEARS = 5
+CHECK_MOST = 1000
 # What the session writes there: the person's moves, the World's account of
 # them, and changes in the valley.
 MOVE, WORLD, EVENT = 'move', 'world', 'event'
@@ -159,6 +179,51 @@ def await_engines(timeout: float = 10.0) -> None:
   for thread in threading.enumerate():
     if thread.name.startswith(ENGINE_THREADS):
       thread.join(max(0.0, deadline - time.monotonic()))
+
+
+def _measure(row: Mapping[str, Any], key: str) -> float | None:
+  """A census measure of a row (`CHECKABLE`), if the row has it."""
+  if key == 'peoples':
+    value = (row.get('peoples') or {}).get('peoples')
+  elif key in ('distinct', 'diversity'):
+    value = (row.get('held') or {}).get(key)
+  else:
+    value = row.get(key)
+  return float(value) if isinstance(value, (int, float)) else None
+
+
+def _mean_of(
+    rows: Sequence[Mapping[str, Any]], key: str
+) -> tuple[float, list[int]] | None:
+  """A measure's mean a year over the last `CHECK_YEARS` rows with it.
+
+  Args:
+    rows: Census rows, oldest first.
+    key: A key of `CHECKABLE`.
+
+  Returns:
+    The mean (to 3 places) and the first and last year it covers; None if no
+    row has the measure.
+  """
+  found = [
+      (int(row['year']), value)
+      for row in rows
+      if (value := _measure(row, key)) is not None
+  ][-CHECK_YEARS:]
+  if not found:
+    return None
+  mean = sum(v for _, v in found) / len(found)
+  return round(mean, 3), [found[0][0], found[-1][0]]
+
+
+def _amount(value: float) -> str:
+  """A measure's value as the notebook writes it."""
+  return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
+def _span(years: Sequence[int]) -> str:
+  """Years first–last, or the one year."""
+  return f'{years[0]}' if years[0] == years[1] else f'{years[0]}–{years[1]}'
 
 
 def _csv(columns: Sequence[str], rows: Sequence[Mapping[str, Any]]) -> str:
@@ -812,6 +877,7 @@ class Session:
     self._follow_releases(row)
     with self._rows_lock:
       self._rows.append(row)
+    self._check_hypotheses(int(row['year']))
     with self._saving:
       if self._fork_wanted:
         # A copy that shares nothing with the live world.
@@ -1141,7 +1207,7 @@ class Session:
   # --- The notebook -----------------------------------------------------
 
   def _write(
-      self, kind: str, text: str, year: int | None = None
+      self, kind: str, text: str, year: int | None = None, **extra: Any
   ) -> dict[str, Any]:
     """Adds an entry; the oldest of the session's own go past the bound."""
     with self._rows_lock:
@@ -1151,6 +1217,7 @@ class Session:
           'year': self._year if year is None else year,
           'kind': kind,
           'text': text,
+          **extra,
       }
       self._notebook.append(entry)
       own = [e for e in self._notebook if e['kind'] not in NOTE_KINDS]
@@ -1324,28 +1391,114 @@ class Session:
           )
     self._standing = standing
 
-  def note(self, kind: str, text: str) -> dict[str, Any]:
+  def note(
+      self, kind: str, text: str, check: Mapping[str, Any] | None = None
+  ) -> dict[str, Any]:
     """Writes the person's entry in the notebook, dated this year.
+
+    A hypothesis may say how to check it: a census measure (`CHECKABLE`),
+    that it will `rise` or `fall`, and within how many years. The session
+    reads the measure now and when that many years have passed, and notes
+    whether it held (`_check_hypotheses`).
 
     Args:
       kind: One of `NOTE_KINDS`.
       text: What the person writes.
+      check: Optional, for a hypothesis: `measure`, `direction`, `years`.
 
     Returns:
       The entry.
 
     Raises:
-      ValueError: If the kind is not one, or the text is empty or too long.
+      ValueError: If the kind is not one, the text is empty or too long, or
+        the check is not one the census can make.
     """
     text = str(text).strip()
     if kind not in NOTE_KINDS:
       raise ValueError(f'An entry is a {", ".join(NOTE_KINDS)}.')
     if not text or len(text) > NOTE_LENGTH:
       raise ValueError(f'Write 1 to {NOTE_LENGTH} characters.')
+    extra = {}
+    if check:
+      extra['check'] = self._check_of(kind, check)
     self._last_action = time.time()
-    entry = self._write(kind, text)
+    entry = self._write(kind, text, **extra)
     self._save_if_paused()
     return entry
+
+  def _check_of(self, kind: str, check: Mapping[str, Any]) -> dict[str, Any]:
+    """A hypothesis's check as kept: what, which way, when, and from what."""
+    measure = str(check.get('measure', ''))
+    direction = str(check.get('direction', ''))
+    try:
+      years = int(check.get('years', 0))
+    except (TypeError, ValueError):
+      years = 0
+    if kind != 'hypothesis':
+      raise ValueError('Only a hypothesis checks itself.')
+    if measure not in CHECKABLE or direction not in DIRECTIONS:
+      raise ValueError(
+          f'A check names one of {", ".join(CHECKABLE)} and'
+          f' {" or ".join(DIRECTIONS)}.'
+      )
+    if not 1 <= years <= CHECK_MOST:
+      raise ValueError(f'A check is due within 1 to {CHECK_MOST} years.')
+    with self._rows_lock:
+      now = _mean_of(self._rows, measure)
+      year = self._year
+    if now is None:
+      raise ValueError('The census has nothing to check against yet.')
+    return {
+        'measure': measure,
+        'direction': direction,
+        'years': years,
+        'due': year + years,
+        'from': now[0],
+        'from_years': now[1],
+    }
+
+  def _check_hypotheses(self, closed: int) -> None:
+    """Notes whether each hypothesis due by this year held.
+
+    Called as a year closes, its row kept.
+
+    Args:
+      closed: The year that closed.
+    """
+    with self._rows_lock:
+      due = [
+          e
+          for e in self._notebook
+          if 'check' in e
+          and 'result' not in e['check']
+          and e['check']['due'] <= closed
+      ]
+      found = [(e, _mean_of(self._rows, e['check']['measure'])) for e in due]
+    for entry, now in found:
+      check = entry['check']
+      if now is None:
+        continue
+      to, years = now
+      went = (
+          'rose' if to > check['from'] else 'fell' if to < check['from'] else ''
+      )
+      held = went == {'rise': 'rose', 'fall': 'fell'}[check['direction']]
+      result = {'held': held, 'to': to, 'to_years': years}
+      with self._rows_lock:  # A new check: copies the page holds stay whole.
+        entry['check'] = {**check, 'result': result}
+      words = CHECKABLE[check['measure']]
+      went = went or 'stayed the same'
+      self._write(
+          EVENT,
+          f'Your hypothesis of year {entry["year"]} ("{entry["text"]}")'
+          f' {"held" if held else "did not hold"}: {words}'
+          f' {went}, from {_amount(check["from"])} on average (years'
+          f' {_span(check["from_years"])}) to {_amount(to)} (years'
+          f' {_span(years)}); you said it would {check["direction"]}.',
+          closed,
+          # The page, which has the hypothesis already, learns how it came out.
+          checked={'id': entry['id'], 'result': result},
+      )
 
   def notebook(self, since: int = 0) -> list[dict[str, Any]]:
     """The notebook's entries after an id, oldest first.
@@ -1690,6 +1843,8 @@ class Session:
             for kind in culture_lib.KINDS
         },
         'grown_age': world_lib.ADULT_AGE,
+        'checkable': dict(CHECKABLE),
+        'check_years': CHECK_YEARS,
         'child_acts_age': world_lib.CHILD_ACTS_AGE,
         'disaster_kinds': list(world_lib.DISASTERS),
         'disaster_radius': int(

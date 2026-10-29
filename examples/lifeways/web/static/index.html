@@ -412,6 +412,18 @@ limitations under the License.
         <textarea id="note-text" maxlength="1000" rows="2"
           placeholder="Where shrines stand, sharing spreads faster."></textarea>
       </label>
+      <fieldset id="note-check" class="wide">
+        <legend>Let the census check it (if you like)</legend>
+        <label>What <select id="check-measure"></select></label>
+        <label>will <select id="check-direction">
+          <option value="rise">rise</option>
+          <option value="fall">fall</option>
+        </select></label>
+        <label class="years">within <input id="check-years"
+          inputmode="numeric" size="4" value="50"> years</label>
+        <p class="hint">The census reads it as its average over five years,
+          now and when due; the notebook says whether it held.</p>
+      </fieldset>
       <button type="submit">Write it down</button>
     </form>
     <p id="note-error" class="hint" role="alert"></p>

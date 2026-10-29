@@ -780,6 +780,77 @@ class NotebookTest(absltest.TestCase):
     finally:
       session.close()
 
+  def test_a_hypothesis_checks_itself_when_due(self):
+    session = session_lib.Session(years_per_second=40)
+    fields = {'measure': 'fields', 'direction': 'rise', 'years': 10}
+    try:
+      with self.assertRaisesRegex(ValueError, 'nothing to check'):
+        session.note('hypothesis', 'Fields grow.', fields)
+      session._rows.extend(
+          {'year': y, 'fields': y, 'peoples': {'peoples': 2}}
+          for y in range(1, 9)
+      )
+      session._year = 9
+      for kind, check, error in (
+          ('note', fields, 'Only a hypothesis'),
+          ('hypothesis', {**fields, 'measure': 'gold'}, 'names one of'),
+          ('hypothesis', {**fields, 'years': 0}, 'within 1 to'),
+      ):
+        with self.assertRaisesRegex(ValueError, error):
+          session.note(kind, 'Hm.', check)
+
+      grow = session.note('hypothesis', 'Fields grow.', fields)
+      split = session.note(
+          'hypothesis',
+          'The peoples split.',
+          {'measure': 'peoples', 'direction': 'rise', 'years': '3'},
+      )
+      self.assertEqual(
+          grow['check'],
+          {
+              'measure': 'fields',
+              'direction': 'rise',
+              'years': 10,
+              'due': 19,
+              'from': 6.0,  # Years 4-8.
+              'from_years': [4, 8],
+          },
+      )
+      for year in range(9, 20):  # A row a year, each checked as it closes.
+        session._rows.append(
+            {'year': year, 'fields': 30, 'peoples': {'peoples': 2}}
+        )
+        session._check_hypotheses(year)
+
+      checked = {e['id']: e for e in session.notebook()}
+      self.assertEqual(
+          checked[split['id']]['check']['result'],
+          {'held': False, 'to': 2.0, 'to_years': [8, 12]},
+      )
+      self.assertTrue(checked[grow['id']]['check']['result']['held'])
+      self.assertEqual(
+          [e['checked']['id'] for e in session.notebook() if 'checked' in e],
+          [split['id'], grow['id']],
+      )
+      said = [e['text'] for e in session.notebook() if e['kind'] == 'event']
+      self.assertEqual(
+          said,
+          [
+              (
+                  'Your hypothesis of year 9 ("The peoples split.") did not'
+                  ' hold: peoples stayed the same, from 2 on average (years'
+                  ' 4–8) to 2 (years 8–12); you said it would rise.'
+              ),
+              (
+                  'Your hypothesis of year 9 ("Fields grow.") held: fields sown'
+                  ' rose, from 6 on average (years 4–8) to 30 (years 15–19);'
+                  ' you said it would rise.'
+              ),
+          ],
+      )
+    finally:
+      session.close()
+
   def test_the_notebook_notes_lasting_changes_not_flicker(self):
     session = session_lib.Session(years_per_second=40)
     try:

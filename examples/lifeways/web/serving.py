@@ -42,7 +42,7 @@ Everything it does with the world is read the simulation
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
-| `POST /api/note` `{"kind": ..., "text": ...}` | write in the notebook |
+| `POST /api/note` `{"kind": ..., "text": ..., "check": ...}` | write in the notebook; a hypothesis may check itself (`{"measure", "direction", "years"}`) |
 | `POST /api/new` `{"scenario": ..., "play_as": ...}` | begin a new world, once this one stops; play a founder in it if `play_as` |
 | `POST /api/me` `{"id": ..., "answer": ...}` | answer the played person's question |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
@@ -369,7 +369,12 @@ def handler(
         self._me(session, body)
       elif path == '/api/note':
         try:
-          entry = session.note(str(body.get('kind', '')), body.get('text', ''))
+          check = body.get('check')
+          entry = session.note(
+              str(body.get('kind', '')),
+              body.get('text', ''),
+              check if isinstance(check, Mapping) else None,
+          )
         except ValueError as error:
           self._json(400, {'error': str(error)})
           return
