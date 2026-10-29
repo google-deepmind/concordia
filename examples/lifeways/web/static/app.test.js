@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
+  anatomyLines, answerText, askedNote, askMove, cameBy, letGoText, mapText,
+  tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
   statusLines,
@@ -233,6 +234,19 @@ test('folded sections are remembered, and only known ones', () => {
       ['notebook', 'built']);
   assert.deepEqual([...parseFolded('not json')], []);
   assert.deepEqual([...parseFolded('{"notebook": 1}')], []);
+});
+
+test('the map is said in words: who is where, what stands there', () => {
+  const world = {rows: 16, cols: 24, fields: [[1, 1]],
+    people: [{name: 'Ada', tile: [2, 3]}, {name: 'Bo', tile: [2, 3]},
+      {name: 'Cy', tile: [12, 20]}],
+    places: [{kind: 'library', tile: [2, 3]}, {kind: 'court', tile: [9, 9]},
+      {kind: 'library', tile: [4, 4]}]};
+  assert.equal(mapText(world), 'On the map: 3 people, most in the ' +
+      'north-west (2); 2 libraries, 1 court; 1 field.');
+  assert.equal(tileText(world, [2, 3]),
+      'Row 2, column 3: Ada and Bo; a library.');
+  assert.equal(tileText(world, [0, 0]), 'Row 0, column 0: nobody.');
 });
 
 test('a panel says when its person is no longer alive', () => {

@@ -81,6 +81,17 @@ section { scroll-margin-top: 88px; }
 .fold::after { content: ' ▾'; color: var(--muted); }
 section.folded .fold::after { content: ' ▸'; }
 .fold:focus-visible { outline: 2px solid var(--accent); border-radius: 4px; }
+/* Every control shows where the keyboard is. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Read aloud, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 section.folded > :not(h2) { display: none !important; }
 h2 { font-size: 1.1rem; margin: 18px 0 6px; }
 h3 { font-size: 1rem; margin: 14px 0 4px; }

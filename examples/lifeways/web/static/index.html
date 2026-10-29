@@ -38,7 +38,8 @@ limitations under the License.
         <option value="built">How it's built</option>
       </select>
     </div>
-    <div id="year" aria-live="polite">…</div>
+    <div id="year">…</div>
+    <p id="announce" class="visually-hidden" aria-live="polite"></p>
   </header>
   <p id="intro" class="hint">People in this valley are born, learn their ways
     from one another, and die. Tap the map where many people are (pause
@@ -98,7 +99,12 @@ limitations under the License.
   </section>
 
   <section id="valley" aria-label="The valley">
-    <canvas id="map" width="480" height="320"></canvas>
+    <canvas id="map" width="480" height="320" tabindex="0" role="img"
+      aria-label="The valley's map: tap a person or place; with a keyboard,
+        arrows move the ring and Enter opens what stands there"
+      aria-describedby="map-text"></canvas>
+    <p id="map-text" class="hint"></p>
+    <p id="map-live" class="visually-hidden" aria-live="polite"></p>
     <p id="at-note" class="hint" aria-live="polite"></p>
     <p id="map-key" class="hint"></p>
     <label class="filter">Colour people by

@@ -638,11 +638,59 @@ function reachNote(world, at, how = 'song') {
       'People move, so this can change by next year.';
 }
 
+/** The map's quarters, by where a tile lies. */
+const QUARTERS = [['north-west', 'north-east'], ['south-west', 'south-east']];
+
+/**
+ * The map in a sentence: who is where, the places and fields.
+ * @param {!Object} world The state: rows, cols, people, places, fields.
+ * @return {string} E.g. 'On the map: 52 people, most in the north-west
+ *     (30); 3 schools, 1 court; 4 fields.'
+ */
+function mapText(world) {
+  const quarter = ([r, c]) =>
+    QUARTERS[r < world.rows / 2 ? 0 : 1][c < world.cols / 2 ? 0 : 1];
+  const counts = new Map();
+  for (const p of world.people) {
+    counts.set(quarter(p.tile), (counts.get(quarter(p.tile)) || 0) + 1);
+  }
+  const most = [...counts].sort((a, b) => b[1] - a[1])[0];
+  const kinds = new Map();
+  for (const p of world.places) kinds.set(p.kind, (kinds.get(p.kind) || 0) + 1);
+  const places = [...kinds].map(([kind, n]) =>
+    `${n} ${n === 1 ? kind : kind === 'library' ? 'libraries' : `${kind}s`}`);
+  const n = world.people.length;
+  const fields = (world.fields || []).length;
+  return `On the map: ${n} ${n === 1 ? 'person' : 'people'}` +
+      (most ? `, most in the ${most[0]} (${most[1]})` : '') +
+      (places.length ? `; ${places.join(', ')}` : '; no places yet') +
+      (fields ? `; ${fields} ${fields === 1 ? 'field' : 'fields'}` : '') + '.';
+}
+
+/**
+ * What stands on a tile, in words (said as the keyboard moves the ring).
+ * @param {!Object} world The state.
+ * @param {!Array<number>} at [row, col].
+ * @return {string} E.g. 'Row 3, column 4: Kaka and Lira; a school.'
+ */
+function tileText(world, at) {
+  const here = world.people.filter(
+      (p) => p.tile[0] === at[0] && p.tile[1] === at[1]).map((p) => p.name);
+  const place = world.places.find(
+      (p) => p.tile[0] === at[0] && p.tile[1] === at[1]);
+  const parts = [];
+  if (here.length) parts.push(namesText(here, 4));
+  if (place) parts.push(`a ${place.kind}`);
+  return `Row ${at[0]}, column ${at[1]}: ` +
+      (parts.length ? parts.join('; ') : 'nobody') + '.';
+}
+
 /**
  * Says where a release would go, and who would hear a song there.
  * @param {!Object} world The state.
  */
 function drawAt(world) {
+  document.getElementById('map-text').textContent = mapText(world);
   const note = document.getElementById('at-note');
   if (!page.at) {
     note.textContent = '';
@@ -1406,8 +1454,18 @@ function onMapTap(event) {
   const scale = (page.world.cols * page.tile) / canvas.clientWidth;
   const x = event.offsetX * scale;
   const y = event.offsetY * scale;
-  const row = Math.floor(y / page.tile);
-  const col = Math.floor(x / page.tile);
+  selectAt(Math.floor(y / page.tile), Math.floor(x / page.tile), x, y);
+}
+
+/**
+ * Chooses a tile (for a release) and opens what stands there: a place on
+ * it, unless the point is nearer a person; else the nearest person.
+ * @param {number} row The tile's row.
+ * @param {number} col Its column.
+ * @param {number} x The point chosen, in the map's CSS pixels.
+ * @param {number} y The same.
+ */
+function selectAt(row, col, x, y) {
   document.getElementById('at').value = `${row},${col}`;
   page.at = [row, col];
   page.atChosen = true;
@@ -1431,6 +1489,37 @@ function onMapTap(event) {
     showPlace(place.id);
   } else if (nearest) {
     showPerson(nearest.name);
+  }
+}
+
+/** How the arrow keys move the ring on the map: [rows, columns]. */
+const MAP_KEYS = {
+  ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1],
+};
+
+/**
+ * The map by keyboard: arrows move the ring a tile (said aloud), Enter or
+ * Space opens what stands there.
+ * @param {!KeyboardEvent} event The key.
+ */
+function onMapKey(event) {
+  if (!page.world) return;
+  const world = page.world;
+  const [r, c] = page.at || [Math.floor(world.rows / 2),
+    Math.floor(world.cols / 2)];
+  if (MAP_KEYS[event.key]) {
+    event.preventDefault();
+    const [dr, dc] = MAP_KEYS[event.key];
+    page.at = [(r + dr + world.rows) % world.rows,
+      (c + dc + world.cols) % world.cols];
+    page.atChosen = true;
+    document.getElementById('at').value = page.at.join(',');
+    drawMap(world);
+    drawAt(world);
+    document.getElementById('map-live').textContent = tileText(world, page.at);
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    selectAt(r, c, (c + 0.5) * page.tile, (r + 0.5) * page.tile);
   }
 }
 
@@ -1634,8 +1723,15 @@ async function refreshOnce() {
     if (entries.length) {
       page.entries = appendNew(page.entries, entries, 'id', page.entrySince,
           1000);
+      const first = page.entrySince === 0;
       page.entrySince = entries[entries.length - 1].id;
       drawNotebook();
+      // The valley's news, said aloud (not the backlog on opening).
+      const news = entries.filter((e) => e.kind !== 'move');
+      if (!first && news.length) {
+        document.getElementById('announce').textContent =
+            entryText(news[news.length - 1]);
+      }
     }
   } catch (error) {
     document.getElementById('error').textContent = String(error);
@@ -2182,6 +2278,7 @@ async function start() {
   document.getElementById('build').textContent =
       `Lifeways, build ${build.commit || '?'} (the code's version)`;
   document.getElementById('map').addEventListener('click', onMapTap);
+  document.getElementById('map').addEventListener('keydown', onMapKey);
   document.getElementById('at').addEventListener('change', (event) => {
     const at = event.target.value.split(',').map((n) => parseInt(n, 10));
     page.at = at.length === 2 && at.every(Number.isFinite) ? at : null;
@@ -2405,7 +2502,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
+    anatomyLines, answerText, askedNote, askMove, cameBy, letGoText, mapText,
+    tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,
     tongueRanks,
     statusLines,
