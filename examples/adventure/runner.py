@@ -37,7 +37,7 @@ from concordia.language_model import retry_wrapper
 from concordia.utils import sampling
 from concordia.utils import text
 
-DEFAULT_MODEL_NAME = 'gemini-2.5-flash'
+DEFAULT_MODEL_NAME = 'gemini-flash-latest'
 
 
 class RichLocalMockModel(language_model.LanguageModel):
@@ -66,8 +66,15 @@ class RichLocalMockModel(language_model.LanguageModel):
     if 'Frontier Architect' in prompt:
       self._room_seq += 1
       idx = self._room_seq
+      room_name = f'Glassharbor Sector {idx}'
+      for line in prompt.splitlines():
+        if line.startswith('Target Location to Expand:'):
+          raw_target = line.split(':', 1)[1].split(' (id:', 1)[0].strip()
+          if raw_target:
+            room_name = raw_target
+          break
       return json.dumps({
-          'name': f'Glassharbor Sector {idx}',
+          'name': room_name,
           'description': (
               f'Vaulted basalt passage {idx} where pressurized steam pipes '
               'hiss above tidewater sluices and locked guild lockers.'
@@ -318,21 +325,26 @@ class GenaiLanguageModel(language_model.LanguageModel):
               return text.truncate(sample, delimiters=terminators)
           except Exception:  # pylint: disable=broad-exception-caught
             pass
+        retry_model = self._model_name
+        if '404' in err_text or 'NOT_FOUND' in err_text:
+          retry_model = DEFAULT_MODEL_NAME
         logging.warning(
             'Primary call to %s failed (%s); retrying with %s',
             self._model_name,
             err,
-            self._model_name,
+            retry_model,
         )
         config_no_thinking = self._genai_types.GenerateContentConfig(
             max_output_tokens=effective_max_tokens,
             temperature=temp,
         )
         response = self._client.models.generate_content(
-            model=self._model_name,
+            model=retry_model,
             contents=prompt,
             config=config_no_thinking,
         )
+        if retry_model != self._model_name:
+          self._model_name = retry_model
         sample = (response.text or '') if response else ''
         return text.truncate(sample, delimiters=terminators)
       except Exception as backup_err:  # pylint: disable=broad-exception-caught
@@ -376,7 +388,7 @@ def setup_language_model(
     *,
     use_mock: bool = False,
     disable_language_model: bool = False,
-    api_type: str = 'google_aistudio_model',
+    api_type: str = 'google_aistudio',
     model_name: str = DEFAULT_MODEL_NAME,
     api_key: str = '',
     max_calls: int = 2000,
@@ -387,7 +399,13 @@ def setup_language_model(
     return RichLocalMockModel()
 
   clean_api_type = api_type.strip().lower()
-  if clean_api_type in ('genai', 'google_aistudio_model', 'aistudio'):
+  if clean_api_type in (
+      'genai',
+      'google_aistudio',
+      'google_aistudio_model',
+      'aistudio',
+      'gemini',
+  ):
     effective_key = (
         api_key
         or os.environ.get('GEMINI_API_KEY', '')
@@ -405,18 +423,14 @@ def setup_language_model(
           temperature=0.4,
       )
     except ModuleNotFoundError:
-      lm_setup = importlib.import_module(
-          'concordia.contrib.language_models.language_model_setup'
-      )
+      lm_setup = importlib.import_module('concordia.contrib.language_models')
       base_model = lm_setup.language_model_setup(
-          api_type='google_aistudio_model',
+          api_type='google_aistudio',
           model_name=model_name,
           api_key=effective_key,
       )
   else:
-    lm_setup = importlib.import_module(
-        'concordia.contrib.language_models.language_model_setup'
-    )
+    lm_setup = importlib.import_module('concordia.contrib.language_models')
     base_model = lm_setup.language_model_setup(
         api_type=clean_api_type,
         model_name=model_name,
