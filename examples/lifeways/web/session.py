@@ -1672,6 +1672,37 @@ class Session:
         ],
     }
 
+  def customs(self, ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Customs' words by id: the living culture's, or one the page keeps.
+
+    Args:
+      ids: The customs' ids (at most `SEARCH_SHOWN` * 4 are answered).
+
+    Returns:
+      Each known id's kind, domain, text and params.
+    """
+    wanted = set(list(ids)[: SEARCH_SHOWN * 4])
+    with self._rows_lock:
+      known = {i: c for i, c in self._forgotten.items() if i in wanted}
+    known.update({
+        str(c['id']): c
+        for c in self.run.world_state()['culture']['customs']
+        if str(c['id']) in wanted
+    })
+    return {
+        i: {
+            'kind': c['kind'],
+            'domain': c['domain'],
+            'text': c['text'],
+            'params': {
+                k: v
+                for k, v in dict(c.get('params', {})).items()
+                if k != 'words'
+            },
+        }
+        for i, c in known.items()
+    }
+
   def search(self, query: str, most: int = SEARCH_SHOWN) -> dict[str, Any]:
     """The living whose names, and the customs whose words, hold a query.
 

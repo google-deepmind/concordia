@@ -685,6 +685,80 @@ function chartSeries(rows, maxLevel) {
       maxLevel : Math.max(...rows.map(line.value), floor[line.name])}));
 }
 
+/** Colours for lines of many things (customs, peoples), by place. */
+const MANY_COLOURS = ['--chart-many0', '--chart-many1', '--chart-many2',
+  '--chart-many3', '--chart-many4'];
+
+/**
+ * The most widely held customs over the years shown: those most often near
+ * the top, each its share of the living (one scale, 0 to 100%).
+ * @param {!Array<!Object>} rows The census rows (`held.top`).
+ * @param {!Object} texts Customs' words by id, as known.
+ * @param {number=} most How many lines.
+ * @return {!Array<!Object>} Lines for `drawLines`, with `id` and `text`.
+ */
+function prevalenceSeries(rows, texts, most = 5) {
+  const total = new Map();
+  for (const row of rows) {
+    for (const [id, share] of (row.held && row.held.top) || []) {
+      total.set(id, (total.get(id) || 0) + share);
+    }
+  }
+  const short = (text) =>
+    text.length > 14 ? `${text.slice(0, 13).trimEnd()}…` : text;
+  return [...total].sort((a, b) => b[1] - a[1]).slice(0, most)
+      .map(([id], i) => {
+        const text = (texts[id] || {}).text || id;
+        return {
+          name: MANY_COLOURS[i].slice(8), id, text, label: short(text),
+          colour: ['#2d6a4f', '#b0182b', '#6a2c91', '#9c4a12', '#1f6f8b'][i],
+          most: 1, format: (v) => `${Math.round(v * 100)}%`,
+          // Unknown (null) a year it was not among the five recorded.
+          value: (row) => ((row.held && row.held.top) || [])
+              .find(([top]) => top === id)?.[1] ?? null,
+        };
+      });
+}
+
+/**
+ * Each people over the years shown, named by the descent most of its
+ * members share: how many grown are of it (one scale for all).
+ * @param {!Array<!Object>} rows The census rows (`peoples.descents`).
+ * @return {!Array<!Object>} Lines for `drawLines`.
+ */
+function peoplesSeries(rows) {
+  const size = (row, descent) => {
+    const p = row.peoples || {};
+    return (p.descents || []).reduce((sum, d, i) =>
+      d === descent ? sum + (p.sizes[i] || 0) : sum, 0);
+  };
+  const descents = [...new Set(rows.flatMap(
+      (row) => (row.peoples && row.peoples.descents) || []))].slice(0, 5);
+  const most = Math.max(1, ...rows.flatMap(
+      (row) => descents.map((d) => size(row, d))));
+  return descents.map((descent, i) => ({
+    name: MANY_COLOURS[i].slice(8), label: descent || 'the valley',
+    colour: ['#2d6a4f', '#b0182b', '#6a2c91', '#9c4a12', '#1f6f8b'][i],
+    most, value: (row) => size(row, descent),
+  }));
+}
+
+/** Customs' words fetched for the charts, by id. */
+const chartTexts = {};
+
+/**
+ * Fetches the words of customs the charts name but the page lacks, then
+ * draws again.
+ * @param {!Array<string>} ids The ids.
+ */
+async function fetchTexts(ids) {
+  const missing = ids.filter((id) => !(id in chartTexts));
+  if (!missing.length) return;
+  for (const id of missing) chartTexts[id] = {text: id};  // Asked once.
+  Object.assign(chartTexts, await api(`api/customs?ids=${missing.join(',')}`));
+  drawChart(page.rows, page.twinRows);
+}
+
 /**
  * Spreads labels down a column so none overlaps another, keeping each as
  * near its own height as it can, all between `top` and `bottom`.
@@ -714,7 +788,8 @@ function spreadLabels(labels, gap, top, bottom) {
  * @param {string} canvasId The canvas.
  * @param {!Array<!Object>} rows The census rows.
  * @param {!Array<!Object>} twinRows The twin's rows.
- * @param {!Array<!Object>} lines {name, colour, value, most} of each.
+ * @param {!Array<!Object>} lines {name, colour, value, most} of each, and
+ *     optionally `label` (else `CHART_NAMES`) and `format` (of its value).
  */
 function drawLines(canvasId, rows, twinRows, lines) {
   const canvas = /** @type {!HTMLCanvasElement} */ (
@@ -728,9 +803,11 @@ function drawLines(canvasId, rows, twinRows, lines) {
   const first = rows[0].year;
   const lastYear = Math.max(...both.map((row) => row.year));
   const last = rows[rows.length - 1];
-  const endText = ({name, value}) => {
+  const endText = ({name, value, label, format}) => {
     const v = value(last);
-    return `${Number.isInteger(v) ? v : v.toFixed(2)} ${CHART_NAMES[name]}`;
+    const shown = v === null ? '—' : format ? format(v) :
+      Number.isInteger(v) ? v : v.toFixed(2);
+    return `${shown} ${label ?? CHART_NAMES[name]}`;
   };
   ctx.font = 'bold 12px system-ui';
   // Room at the right for each line's value and name, as wide as they are.
@@ -742,13 +819,16 @@ function drawLines(canvasId, rows, twinRows, lines) {
   for (const [drawn, dash] of [[rows, []], [twinRows, [5, 4]]]) {
     for (const {colour, value, most} of series) {
       ctx.beginPath();
-      drawn.forEach((row, i) => {
-        const at = y(value(row), most);
-        if (i === 0) {
-          ctx.moveTo(x(row.year), at);
-        } else {
-          ctx.lineTo(x(row.year), at);
+      let gap = true;  // A value not known (null) breaks the line.
+      drawn.forEach((row) => {
+        const v = value(row);
+        if (v === null) {
+          gap = true;
+          return;
         }
+        const at = y(v, most);
+        if (gap) ctx.moveTo(x(row.year), at); else ctx.lineTo(x(row.year), at);
+        gap = false;
       });
       ctx.setLineDash(dash);
       ctx.strokeStyle = colour;
@@ -759,7 +839,7 @@ function drawLines(canvasId, rows, twinRows, lines) {
   ctx.setLineDash([]);
   // Each line's value now, at its end, kept apart so none hides another.
   const ends = series.map((line) => ({colour: line.colour,
-    text: endText(line), at: y(line.value(last), line.most)}));
+    text: endText(line), at: y(line.value(last) ?? 0, line.most)}));
   spreadLabels(ends, 13, 7, height - 7);
   ctx.textBaseline = 'middle';
   for (const end of ends) {
@@ -779,6 +859,25 @@ function drawChart(rows, twinRows = []) {
   const both = rows.concat(twinRows);
   drawLines('chart', rows, twinRows, chartSeries(both, page.world.max_level));
   drawLines('fairness', rows, twinRows, fairnessSeries(both));
+  const held = prevalenceSeries(rows, chartTexts);
+  fetchTexts(held.map((line) => line.id)).catch(() => {});
+  drawLines('prevalence', rows, [], held);
+  document.getElementById('prevalence-key').replaceChildren(
+      ...held.map((line) => {
+        const item = document.createElement('li');
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = themeColour(`--chart-${line.name}`,
+            line.colour);
+        const now = line.value(rows[rows.length - 1]);
+        item.append(swatch, now === null ?
+          `"${line.text}" (not among the five most held now)` :
+          `${line.format(now)} hold "${line.text}"`);
+        return item;
+      }));
+  const peoples = peoplesSeries(rows);
+  document.getElementById('peoples-chart-box').hidden = !peoples.length;
+  if (peoples.length) drawLines('peoples-chart', rows, [], peoples);
   const last = rows[rows.length - 1];
   document.getElementById('legend').textContent =
       `Years ${yearText(rows[0].year)}–${yearText(last.year)}, each line` +
@@ -2958,7 +3057,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-    fairnessSeries, kinLayout, previewText, spreadLabels, treeLayout,
+    fairnessSeries, kinLayout, peoplesSeries, prevalenceSeries, previewText,
+    spreadLabels, treeLayout,
     wordChange,
     letGoText, mapText,
     tileText,

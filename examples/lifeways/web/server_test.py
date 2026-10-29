@@ -699,6 +699,22 @@ class SearchTest(absltest.TestCase):
       holders = [c['holders'] for c in by_words['customs']]
       self.assertEqual(holders, sorted(holders, reverse=True))
       self.assertEqual(session.search('x'), {'people': [], 'customs': []})
+      custom = session.run.world_state()['culture']['customs'][0]
+      self.assertEqual(
+          session.customs([str(custom['id']), 'c999999']),
+          {
+              str(custom['id']): {
+                  'kind': custom['kind'],
+                  'domain': custom['domain'],
+                  'text': custom['text'],
+                  'params': {
+                      k: v
+                      for k, v in custom.get('params', {}).items()
+                      if k != 'words'
+                  },
+              }
+          },
+      )
     finally:
       session.close()
 

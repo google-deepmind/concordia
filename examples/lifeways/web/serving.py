@@ -31,6 +31,7 @@ Everything it does with the world is read the simulation
 | `GET /api/anatomy[?name=<name>]` | how Concordia builds a person, or the World GM |
 | `GET /api/place?id=<place>` | a place: who keeps it, what it holds |
 | `GET /api/search?q=<words>` | the living and the customs that match |
+| `GET /api/customs?ids=<id,id,...>` | customs' words by id |
 | `GET /api/release_preview?kind=..&domain=..&at=r,c[&level=n]` | who a song would reach, and what they would let go for it |
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
@@ -260,6 +261,9 @@ def handler(
                   level,
               ),
           )
+      elif path == '/api/customs':
+        ids = [i for i in query.get('ids', [''])[0].split(',') if i]
+        self._json(200, session.customs(ids))
       elif path == '/api/search':
         self._json(200, session.search(query.get('q', [''])[0]))
       elif path == '/api/place':

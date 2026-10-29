@@ -31,6 +31,12 @@
   --chart-shares: #2d6a4f;
   --chart-breaches: #9c4a12;
   --chart-judged: #6a2c91;
+  /* Lines of many things (customs, peoples), at least 4.5:1 on paper. */
+  --chart-many0: #2d6a4f;
+  --chart-many1: #b0182b;
+  --chart-many2: #6a2c91;
+  --chart-many3: #9c4a12;
+  --chart-many4: #1f6f8b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +56,11 @@
     --chart-shares: #74c69d;
     --chart-breaches: #e9a15b;
     --chart-judged: #c9a2e0;
+    --chart-many0: #74c69d;
+    --chart-many1: #f28b82;
+    --chart-many2: #c9a2e0;
+    --chart-many3: #e9a15b;
+    --chart-many4: #7cc4e3;
   }
 }
 
@@ -274,7 +285,8 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
 #releases .meta { color: var(--muted); font-size: 0.95rem; }
 #releases canvas { width: 160px; height: 28px; border: none; margin-top: 2px; }
 
-#map-key .swatch, #people-key .swatch {
+#prevalence-key { list-style: none; padding-left: 0; }
+#map-key .swatch, #people-key .swatch, #prevalence-key .swatch {
   display: inline-block;
   width: 0.9em;
   height: 0.9em;

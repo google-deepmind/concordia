@@ -23,7 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-  fairnessSeries, kinLayout, previewText, spreadLabels, treeLayout,
+  fairnessSeries, kinLayout, peoplesSeries, prevalenceSeries, previewText,
+  spreadLabels, treeLayout,
   wordChange,
   letGoText, mapText,
   tileText,
@@ -334,6 +335,25 @@ test('labels at the same height spread up from the bottom', () => {
   const apart = [{at: 10}, {at: 60}];
   spreadLabels(apart, 13, 7, 100);
   assert.deepEqual(apart.map((l) => l.at), [10, 60]);
+});
+
+test('what most hold, and each people, over the years', () => {
+  const rows = [
+    {held: {top: [['c1', 0.9], ['c2', 0.5]]},
+      peoples: {sizes: [10, 4], descents: ['River people', 'Hill people']}},
+    {held: {top: [['c2', 0.6], ['c3', 0.2]]},
+      peoples: {sizes: [12], descents: ['River people']}},
+  ];
+  const held = prevalenceSeries(rows, {c2: {text: 'We share our food.'}});
+  assert.deepEqual(held.map((l) => [l.id, l.label]), [['c2', 'We share our…'],
+    ['c1', 'c1'], ['c3', 'c3']]);
+  assert.equal(held[0].value(rows[1]), 0.6);
+  assert.equal(held[1].value(rows[1]), null);  // Not among the five then.
+  assert.equal(held[0].format(0.6), '60%');
+  const peoples = peoplesSeries(rows);
+  assert.deepEqual(peoples.map((l) => [l.label, l.most]),
+      [['River people', 12], ['Hill people', 12]]);
+  assert.equal(peoples[1].value(rows[1]), 0);
 });
 
 test('a panel says when its person is no longer alive', () => {
