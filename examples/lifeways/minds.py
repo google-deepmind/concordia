@@ -46,7 +46,8 @@ from examples.lifeways import sweep
 
 _SCENARIO = flags.DEFINE_string('scenario', 'first_farmers', 'Scenario.')
 _YEARS = flags.DEFINE_integer('years', 24, 'Years each run plays.')
-_SEEDS = flags.DEFINE_integer('seeds', 1, 'How many seeds (0, 1, ...).')
+_SEEDS = flags.DEFINE_integer('seeds', 1, 'How many seeds.')
+_FIRST_SEED = flags.DEFINE_integer('first_seed', 0, 'The first seed.')
 _MINDS = flags.DEFINE_list(
     'minds',
     ['mock'],
@@ -65,7 +66,7 @@ def main(argv: Sequence[str]) -> None:
   del argv
   results: dict[str, list[dict[str, Any]]] = {}
   for mind in _MINDS.value:
-    for seed in range(_SEEDS.value):
+    for seed in range(_FIRST_SEED.value, _FIRST_SEED.value + _SEEDS.value):
       label = 'MOCK' if mind == simulation.MOCK else f'LIVE ({mind})'
       logging.info(
           '%s: %s, seed %d, %d years',
