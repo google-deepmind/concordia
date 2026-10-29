@@ -605,6 +605,25 @@ class MockMindTest(absltest.TestCase):
     self.assertEqual(mind(1), f'{world_lib.GATHER} c1 c2')
     self.assertEqual(mind(0), f'{world_lib.GATHER} c1')
 
+  def test_a_custom_for_lean_years_is_kept_in_lean_years(self):
+    def mind(year):
+      return _ask_mock(
+          '\n'.join([
+              '(food) [c1]: In lean years, gather before anything else.',
+              f'The year is {year}: the land will grow back little.',
+              'Food stored: 5.0',
+          ]),
+          '\n'.join([
+              'What do you do?',
+              f'- {world_lib.GATHER}',
+              f'- {world_lib.TEACH}',
+              f'- {world_lib.REST}',
+          ]),
+      )
+
+    self.assertEqual(mind('lean'), f'{world_lib.GATHER} c1')
+    self.assertNotEqual(mind('good'), f'{world_lib.GATHER} c1')
+
   def test_a_custom_of_property_spares_others_fields(self):
     moves = [world_lib.GATHER, world_lib.SPARE, world_lib.REST]
     fishing = (culture_lib.FOOD, 'c1', 'Smoking fish.')

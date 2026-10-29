@@ -242,15 +242,17 @@ test('folded sections are remembered, and only known ones', () => {
 });
 
 test('the map is said in words: who is where, what stands there', () => {
-  const world = {rows: 16, cols: 24, fields: [[1, 1]],
+  const world = {rows: 16, cols: 24, fields: [[1, 1, 'Gone'], [2, 3, 'Bo']],
     people: [{name: 'Ada', tile: [2, 3]}, {name: 'Bo', tile: [2, 3]},
       {name: 'Cy', tile: [12, 20]}],
     places: [{kind: 'library', tile: [2, 3]}, {kind: 'court', tile: [9, 9]},
       {kind: 'library', tile: [4, 4]}]};
   assert.equal(mapText(world), 'On the map: 3 people, most in the ' +
-      'north-west (2); 2 libraries, 1 court; 1 field.');
+      'north-west (2); 2 libraries, 1 court; 2 fields.');
   assert.equal(tileText(world, [2, 3]),
-      'Row 2, column 3: Ada and Bo; a library.');
+      'Row 2, column 3: Ada and Bo; a library; Bo\'s field.');
+  assert.equal(tileText(world, [1, 1]),
+      'Row 1, column 1: a field once Gone\'s, going wild.');
   assert.equal(tileText(world, [0, 0]), 'Row 0, column 0: nobody.');
 });
 

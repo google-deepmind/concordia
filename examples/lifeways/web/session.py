@@ -70,6 +70,7 @@ from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.components import played as played_lib
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.web import lab as lab_lib
+from examples.lifeways.web import report as report_lib
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import world as world_lib
@@ -372,6 +373,8 @@ class PageInput:
     # more will come): what a twin follows.
     self._answers: collections.OrderedDict[int, str] = collections.OrderedDict()
     self._finished = False
+    # Every move made (not watching), by year: a replay's plan.
+    self._moves: list[list[Any]] = []
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
     with self._changed:
@@ -389,6 +392,8 @@ class PageInput:
 
   def _answered(self, year: int, answer: str) -> None:
     """Remembers the answer given for a year (in the condition's lock)."""
+    if answer.strip() and answer.strip() != world_lib.WATCH:
+      self._moves.append([year, answer])
     self._answers[year] = answer
     while len(self._answers) > ANSWERS_KEPT:
       self._answers.popitem(last=False)
@@ -430,6 +435,16 @@ class PageInput:
     with self._changed:
       self._finished = True
       self._changed.notify_all()
+
+  def moves(self) -> list[list[Any]]:
+    """Every move made (not watching), as [year, move], oldest first."""
+    with self._changed:
+      return [list(m) for m in self._moves]
+
+  def set_moves(self, moves: Sequence[Sequence[Any]]) -> None:
+    """Restores the moves made (a save's)."""
+    with self._changed:
+      self._moves = [[int(year), str(move)] for year, move in moves]
 
   def queue(self, move: str) -> None:
     """Queues a move the person chose, for the next year.
@@ -777,6 +792,9 @@ class Session:
         max_workers=1, thread_name_prefix='lifeways-save'
     )
     self._written: futures.Future[bool] | None = None
+    # The first year from which every move made is known (a replay is exact
+    # only from year 0).
+    self._moves_from = 0
     # The lab, made when first asked for (a twin never is).
     self._lab: lab_lib.Lab | None = None
     self._lab_workers = lab_workers
@@ -1002,6 +1020,8 @@ class Session:
         'tops': tops,
         'releases': releases,
         'pace': self.input.settings(),
+        'moves': self.input.moves(),
+        'moves_from': self._moves_from,
         'checkpoint': checkpoint,
     }
 
@@ -1143,6 +1163,9 @@ class Session:
       self._tops = {str(t) for t in saved.get('tops', ())}
       self._releases = [dict(r) for r in saved.get('releases', ())]
     self._year = int(saved['year'])
+    self.input.set_moves(saved.get('moves', ()))
+    # A save from before moves were kept knows them only from its year on.
+    self._moves_from = int(saved.get('moves_from', saved['year']))
     pace = saved.get('pace', {})
     self.input.pace(pace.get('years_per_second'), pace.get('paused'))
     if pace.get('paused'):
@@ -1613,6 +1636,59 @@ class Session:
 
   # --- Data to keep -----------------------------------------------------
 
+  def replay(self) -> dict[str, Any]:
+    """This world, to play again exactly: its settings and every move made.
+
+    `run.py --replay` plays it (MOCK, tick mode) to this year. It is exact
+    when every move is known from year 0 (`moves_from`), no person was
+    played (a player's moves are their own) and the world was in tick mode.
+
+    Returns:
+      The scenario, seed and settings over the scenario's, the moves made by
+      year (`plan`, as the Experimenter's), the years played, and since
+      when the moves are known.
+    """
+    return {
+        'scenario': self.scenario,
+        'seed': self._seed,
+        'overrides': json.loads(json.dumps(self._overrides, default=str)),
+        'plan': {str(year): move for year, move in self.input.moves()},
+        'years': self._year,
+        'moves_from': self._moves_from,
+        'played': self.played is not None,
+    }
+
+  def report_html(self) -> str:
+    """The world on one page, to keep or share (`report.page`).
+
+    Returns:
+      A self-contained HTML page.
+    """
+    rows = self.census()
+    world = self.run.world_state()
+    top_text = ''
+    top = ((rows[-1].get('held') or {}).get('top') or []) if rows else []
+    if top:
+      with self.run.world_lock():
+        culture_now = self.run.world().culture
+        if top[0][0] in culture_now:
+          top_text = culture_now.get(top[0][0]).text
+    name = (
+        'The Sandbox'
+        if self.scenario == 'sandbox'
+        else self.scenario.replace('_', ' ').title()
+    )
+    return report_lib.page(
+        title=f'{name}, seed {self._seed}, year {world["year"]}',
+        rows=rows,
+        notebook=self.notebook(),
+        releases=self.releases(),
+        surveys=list(world.get('surveys', ())),
+        lab=self.lab_status(),
+        written=time.strftime('%d %B %Y'),
+        top_text=top_text,
+    )
+
   def census_csv(self) -> str:
     """The census rows kept, a row a year, as CSV.
 
@@ -1889,12 +1965,16 @@ class Session:
         'kinds': list(land_lib.TERRAIN),
         'terrain': land['terrain'],
         'food': [[round(f, 1) for f in row] for row in land['food']],
-        'fields': [[r, c] for r, c, *_ in land.get('fields', ())],
+        # Each field: where, and whose (its latest tender, or an heir).
+        'fields': [
+            [r, c, tender] for r, c, _, _, tender in land.get('fields', ())
+        ],
         'people': people,
         'places': places,
         'pace': self.input.settings(),
         'running': self.running,
         'error': self.error,
+        'lean': bool(world.get('lean')),
         'idle_seconds': (
             round(time.time() - self._last_action)
             if self._last_action

@@ -1835,6 +1835,94 @@ class ReleaseTest(_PlaceTest):
     self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
 
 
+class SeasonsTest(absltest.TestCase):
+
+  def test_lean_years_come_in_spells_and_grow_back_less(self):
+    seasons = {'start': 0.2, 'stay': 0.5, 'lean': 0.4}
+    world = world_lib.World({'seed': 0, 'founders': 2, 'seasons': seasons})
+    leans = []
+    for _ in range(400):
+      world.actions = {n: 'rest' for n in world.participants()}
+      world.close_year()
+      leans.append(world.history[-1]['lean'])
+
+    share = sum(leans) / len(leans)
+    self.assertBetween(share, 0.2, 0.37)  # 2/7 in the long run.
+    stayed = sum(a and b for a, b in zip(leans, leans[1:])) / sum(leans[:-1])
+    self.assertBetween(stayed, 0.35, 0.65)
+    # Over the years, as much grows back as with no seasons.
+    world.lean = True
+    lean = world._season()
+    world.lean = False
+    good = world._season()
+    self.assertAlmostEqual(lean, 0.4)
+    self.assertAlmostEqual((2 / 7) * lean + (5 / 7) * good, 1.0)
+
+  def test_the_status_says_the_year_and_a_save_keeps_it(self):
+    always = {'start': 1.0, 'stay': 1.0, 'lean': 0.4}
+    world = world_lib.World({'seed': 0, 'founders': 0, 'seasons': always})
+    world.people['Ada'] = world_lib.Person(
+        name='Ada', born=-30, sex='f', tile=(2, 2), food=5.0
+    )
+    self.assertIn('The year is good', world.status('Ada'))
+    world.actions = {'Ada': 'rest', world_lib.EXPERIMENTER: 'watch'}
+    world.close_year()
+
+    self.assertIn('The year is lean: the land will grow', world.status('Ada'))
+    restored = world_lib.World({'seed': 0, 'founders': 0})
+    restored.set_state(world.get_state())
+    self.assertTrue(restored.lean)
+    self.assertNotIn('The year is', restored.status('Ada'))  # No seasons.
+
+
+class InheritanceTest(absltest.TestCase):
+
+  def _world(self, inherit):
+    world = world_lib.World({
+        'seed': 0,
+        'founders': 0,
+        'farming': {'yield': 1.0, 'fallow': 10, 'inherit': inherit},
+    })
+    for name, born in (('Ada', -60), ('Bo', -30), ('Cy', -20), ('Dee', -58)):
+      world.people[name] = world_lib.Person(
+          name=name, born=born, sex='f', tile=(2, 2), food=5.0
+      )
+    world.people['Ada'].children = ['Cy', 'Bo']
+    world.people['Ada'].partner = 'Dee'
+    world.land.fields = {(2, 2): (3, 0, 'Ada'), (5, 5): (1, 0, 'Bo')}
+    return world
+
+  def test_the_eldest_living_child_inherits_the_fields(self):
+    world = self._world(world_lib.ELDEST)
+
+    world._die('Ada')
+
+    self.assertEqual(world.land.fields[(2, 2)], (3, 0, 'Bo'))  # Bo is eldest.
+    self.assertEqual(world._inherited, 1)
+    self.assertIn(
+        f"Bo inherits Ada's field at {world_lib.where((2, 2))}.",
+        world.queued['Bo'],
+    )
+    world._die('Bo')  # Bo's two fields: no child, no partner.
+    self.assertEqual(world.land.fields[(5, 5)][2], 'Bo')
+
+  def test_a_partner_inherits_when_no_child_lives(self):
+    world = self._world(world_lib.ELDEST)
+    del world.people['Bo'], world.people['Cy']
+
+    world._die('Ada')
+
+    self.assertEqual(world.land.fields[(2, 2)][2], 'Dee')
+
+  def test_with_no_rule_the_fields_stay_the_deads(self):
+    world = self._world(None)
+
+    world._die('Ada')
+
+    self.assertEqual(world.land.fields[(2, 2)][2], 'Ada')
+    self.assertEqual(world._inherited, 0)
+
+
 class LandTest(absltest.TestCase):
 
   def test_ridges_part_the_land_and_a_pass_crosses_one(self):

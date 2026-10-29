@@ -60,6 +60,13 @@ _FOUNDERS = flags.DEFINE_integer(
 _SETTINGS = flags.DEFINE_string(
     'settings', '{}', 'More settings, as JSON (e.g. an Experimenter plan).'
 )
+_REPLAY = flags.DEFINE_string(
+    'replay',
+    None,
+    "A world to play again (the page's data/replay.json): its scenario,"
+    ' seed, settings and moves, to the year it reached; replaces --scenario,'
+    ' --seed and --years.',
+)
 
 
 def _model() -> (
@@ -131,9 +138,13 @@ def _run(
     for record in records:
       customs.write(json.dumps(record) + '\n')
 
-  settings = scenarios.settings(
-      _SCENARIO.value, seed=_SEED.value, max_years=_YEARS.value
-  )
+  if _REPLAY.value:
+    with open(_REPLAY.value, encoding='utf-8') as f:
+      settings = scenarios.replayed(json.load(f))
+  else:
+    settings = scenarios.settings(
+        _SCENARIO.value, seed=_SEED.value, max_years=_YEARS.value
+    )
   if _FOUNDERS.value is not None:
     if settings.get('groups'):
       raise app.UsageError(

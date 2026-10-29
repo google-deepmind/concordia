@@ -36,8 +36,10 @@ Everything it does with the world is read the simulation
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
 | `GET /notebook.md` | the notebook, to keep |
+| `GET /report.html` | the world on one page, to keep or share |
 | `GET /data/census.csv` | the census rows kept, a row a year |
 | `GET /data/people.csv` | who holds what now: a row per living person and custom |
+| `GET /data/replay.json` | the world to play again: `run.py --replay` |
 | `GET /data/surveys.csv` | each survey answer kept, with the customs it named |
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
@@ -303,6 +305,12 @@ def handler(
             200,
             session.notebook_markdown().encode(),
             'text/markdown; charset=utf-8',
+        )
+      elif path == '/data/replay.json':
+        self._json(200, session.replay())
+      elif path == '/report.html':
+        self._send(
+            200, session.report_html().encode(), 'text/html; charset=utf-8'
         )
       elif path in _DATA:
         self._send(

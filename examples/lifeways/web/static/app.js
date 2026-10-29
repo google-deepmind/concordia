@@ -790,8 +790,10 @@ function spreadLabels(labels, gap, top, bottom) {
  * @param {!Array<!Object>} twinRows The twin's rows.
  * @param {!Array<!Object>} lines {name, colour, value, most} of each, and
  *     optionally `label` (else `CHART_NAMES`) and `format` (of its value).
+ * @param {!Array<number>=} shaded Years drawn behind the lines as bands
+ *     (lean years).
  */
-function drawLines(canvasId, rows, twinRows, lines) {
+function drawLines(canvasId, rows, twinRows, lines, shaded = []) {
   const canvas = /** @type {!HTMLCanvasElement} */ (
       document.getElementById(canvasId));
   const width = canvas.clientWidth || 480;
@@ -816,6 +818,11 @@ function drawLines(canvasId, rows, twinRows, lines) {
   const x = (year) => 4 + ((year - first) / Math.max(1, lastYear - first)) *
       (width - 8 - labels);
   const y = (value, most) => height - 6 - (value / most) * (height - 14);
+  const step = (width - 8 - labels) / Math.max(1, lastYear - first);
+  ctx.fillStyle = themeColour('--chart-lean', '#e7e0cc');
+  for (const year of shaded) {
+    ctx.fillRect(x(year) - step / 2, 0, Math.max(1, step), height);
+  }
   for (const [drawn, dash] of [[rows, []], [twinRows, [5, 4]]]) {
     for (const {colour, value, most} of series) {
       ctx.beginPath();
@@ -857,7 +864,9 @@ function drawLines(canvasId, rows, twinRows, lines) {
 function drawChart(rows, twinRows = []) {
   if (rows.length < 2) return;
   const both = rows.concat(twinRows);
-  drawLines('chart', rows, twinRows, chartSeries(both, page.world.max_level));
+  const lean = rows.filter((row) => row.lean).map((row) => row.year);
+  drawLines('chart', rows, twinRows, chartSeries(both, page.world.max_level),
+      lean);
   drawLines('fairness', rows, twinRows, fairnessSeries(both));
   const held = prevalenceSeries(rows, chartTexts);
   fetchTexts(held.map((line) => line.id)).catch(() => {});
@@ -891,6 +900,8 @@ function drawChart(rows, twinRows = []) {
       ' most it reached in these years. Skill: the mean level of the' +
       ' know-how people work by (the top is the highest level there is).' +
       ' Peoples: groups who would marry one another. Fields: fields sown.' +
+      (lean.length ? ' Shaded: lean years, when the land grew back little.' :
+        '') +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
       .sort(([, a], [, b]) => b - a)
@@ -1461,9 +1472,17 @@ function tileText(world, at) {
       (p) => p.tile[0] === at[0] && p.tile[1] === at[1]).map((p) => p.name);
   const place = world.places.find(
       (p) => p.tile[0] === at[0] && p.tile[1] === at[1]);
+  const field = (world.fields || []).find(([r, c]) => r === at[0] &&
+      c === at[1]);
   const parts = [];
   if (here.length) parts.push(namesText(here, 4));
   if (place) parts.push(`a ${place.kind}`);
+  if (field) {
+    const [, , whose] = field;
+    const living = world.people.some((p) => p.name === whose);
+    parts.push(!whose ? 'a field' : living ? `${whose}'s field` :
+      `a field once ${whose}'s, going wild`);
+  }
   return `Row ${at[0]}, column ${at[1]}: ` +
       (parts.length ? parts.join('; ') : 'nobody') + '.';
 }
@@ -2565,6 +2584,7 @@ async function refreshOnce() {
     document.getElementById('year').textContent =
         `${worldName(world.scenario)}, year ${yearText(world.year)}: ` +
         `${world.people.length} people alive` +
+        (world.lean ? ', a lean year' : '') +
         (world.running ? '' : ' (the world has stopped)');
     document.getElementById('anew-box').hidden = world.running;
     document.getElementById('play-as-box').hidden = !world.playable;

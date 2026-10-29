@@ -302,7 +302,12 @@ limitations under the License.
       download="lifeways-people.csv">who holds what</a>, a row for each living
       person and custom they hold now; <a href="data/surveys.csv"
       download="lifeways-surveys.csv">survey answers</a>, with the customs
-      each named.</p>
+      each named; and <a href="data/replay.json"
+      download="lifeways-replay.json">a replay</a>, this world's settings and
+      every move you made, to play it again exactly to this year:
+      <code>python -m examples.lifeways.run --replay=lifeways-replay.json</code>
+      (as you left it, with people who think by simple rules; a life you
+      played is not replayed).</p>
     <h3>How fair</h3>
     <canvas id="fairness" width="480" height="180"></canvas>
     <p class="hint">Inequality: how unevenly food is stored (0, all alike;
@@ -433,7 +438,9 @@ limitations under the License.
       valley did by itself (fires, raids, places built and left to ruin),
       year by year.
       <a href="notebook.md" download="lifeways-notebook.md">Keep a copy</a>
-      (a text file).</p>
+      (a text file), or <a href="report.html" target="_blank">the world on one
+      page</a>: its census drawn, your releases and notes, what the valley
+      did, your surveys and the last experiment, to keep or share.</p>
     <form id="note">
       <label>Kind
         <select id="note-kind">

@@ -84,6 +84,9 @@ SOW = 'sow a field'
 # are some within a day's walk): taking from them is no breach of the
 # World's, but a people's norms may make it one.
 SPARE = 'gather food, sparing the fields of others'
+# Whom a tender's fields pass to at death (the `farming` setting `inherit`):
+# its eldest living child, else its partner.
+ELDEST = 'eldest'
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
 # The kinds of question the World GM asks (what an answer answers).
@@ -383,6 +386,10 @@ class World:
     # person gives when sharing.
     self.sight = int(settings.get('sight', 2))
     self.hoard = float(settings.get('hoard', 6.0))
+    # Good years and lean (`scenarios.SANDBOX`'s `seasons`; None: all alike),
+    # and whether this year is lean.
+    self.seasons: Mapping[str, float] | None = settings.get('seasons') or None
+    self.lean = False
     self.share = float(settings.get('share', 1.5))
     # Libraries, if the setting allows them: what founding one costs, how
     # far apart they stand, how many texts a shelf holds, the years unused
@@ -458,6 +465,8 @@ class World:
     self.breaches: dict[str, list[str]] = {}
     # Who was judged at a court this year (one judgment a year each).
     self._judged: set[str] = set()
+    # Fields passed on at death this year (the census's).
+    self._inherited = 0
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
@@ -1304,11 +1313,21 @@ class World:
         if person.age(self.year) >= ADULT_AGE and best != person.tile
         else ''
     )
+    season = (
+        (
+            ' The year is lean: the land will grow back little.'
+            if self.lean
+            else ' The year is good: the land will grow back well.'
+        )
+        if self.seasons
+        else ''
+    )
     return (
         f'Year {self.year}. {name} is {person.age(self.year)} years old and'
         f' lives on {self.land.kind(person.tile)} land at'
         f' {person.tile[0]},{person.tile[1]}; the land around holds'
-        f' {self.land.around_food(person.tile):.1f} food.{better} Food stored:'
+        f' {self.land.around_food(person.tile):.1f} food.{better}{season}'
+        ' Food stored:'
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'
@@ -1384,6 +1403,7 @@ class World:
     self._released = 0
     self._sown = 0
     self._judged = set()
+    self._inherited = 0
     self._shares = 0
     self._fed = set()
     self._releases = []
@@ -1442,7 +1462,7 @@ class World:
     self.land.fallow(
         self.year, int((self.farming or {}).get('fallow', land_lib.FALLOW))
     )
-    self.land.regrow()
+    self.land.regrow(self._season())
     self.places.decay(self._rng('decay'), self.year)
     arrived = brought + self._arrive()
     extinct = self.culture.prune(
@@ -1465,6 +1485,7 @@ class World:
     kept = int(self.settings.get('history_kept', 200))
     del self.history[: max(0, len(self.history) - kept)]
     self.actions = {}
+    self.lean = self._next_lean()
     self.year += 1
     for name in self.participants():
       self._tell(name, self.status(name))
@@ -1474,6 +1495,25 @@ class World:
         extinct=[custom.to_dict() for custom in extinct],
         stopped=stopped,
     )
+
+  def _season(self) -> float:
+    """How much the land grows back this year: less if lean, else a little
+    more, so that over many years it is as much as with no seasons."""
+    if not self.seasons:
+      return 1.0
+    start, stay = float(self.seasons['start']), float(self.seasons['stay'])
+    lean = float(self.seasons['lean'])
+    share = start / (1.0 - stay + start)  # Of years, lean in the long run.
+    if self.lean or share >= 1.0:
+      return lean if self.lean else 1.0
+    return (1.0 - share * lean) / (1.0 - share)
+
+  def _next_lean(self) -> bool:
+    """Whether next year is lean: spells of lean years, drawn by the seed."""
+    if not self.seasons:
+      return False
+    chance = self.seasons['stay'] if self.lean else self.seasons['start']
+    return bool(self._rng('season').random() < float(chance))
 
   def _rng(self, *keys: Any) -> np.random.Generator:
     return np.random.default_rng(seed_of(self.seed, self.year, *keys))
@@ -2570,6 +2610,7 @@ class World:
         'descent': person.descent,
     })
     del self.dead[:-DEAD_KEPT]
+    self._bequeath(person)
     if person.partner in self.people:
       self.people[person.partner].partner = ''
     for kin in {*person.parents, *person.children, person.partner}:
@@ -2588,6 +2629,35 @@ class World:
         for survey in self.surveys
     ):
       self._report(f'{name} died before answering.')
+
+  def _bequeath(self, person: Person) -> None:
+    """Passes a dead tender's fields on, as the `farming` setting says.
+
+    To its eldest living child, else its living partner; with neither, or
+    no rule, they stay the dead's, and go wild untended. The heir is told.
+
+    Args:
+      person: The one who died.
+    """
+    if (self.farming or {}).get('inherit') != ELDEST:
+      return
+    children = sorted(
+        (self.people[c].born, c) for c in person.children if c in self.people
+    )
+    heir = children[0][1] if children else ''
+    if not heir and person.partner in self.people:
+      heir = person.partner
+    if not heir:
+      return
+    passed = self.land.pass_on(person.name, heir)
+    if passed:
+      self._inherited += len(passed)
+      fields = 'field' if len(passed) == 1 else 'fields'
+      self._tell(
+          heir,
+          f"{heir} inherits {person.name}'s {fields} at"
+          f' {"; ".join(where(t) for t in passed)}.',
+      )
 
   def _census(
       self,
@@ -2640,12 +2710,14 @@ class World:
             for name in barren[:UNREAD_KEPT]
         ],
         'breaches': len(self.breaches),
+        'lean': self.lean,  # The year that closed.
         # How unequal food stores are (Gini, 0 all alike to 1 one has all),
         # food shares given, who others fed, and judgments at courts.
         'gini': gini([p.food for p in self.people.values()]),
         'shares': self._shares,
         'fed': len(self._fed),
         'judged': len(self._judged),
+        'inherited': self._inherited,
         'libraries': sum(
             1
             for p in self.places.all()
@@ -2738,6 +2810,7 @@ class World:
         'queued': {k: list(v) for k, v in self.queued.items()},
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
+        'lean': self.lean,
         'norm_acts': {k: list(v) for k, v in self.norm_acts.items()},
         'courting': dict(self.courting),
         'interviews': dict(self.interviews),
@@ -2778,6 +2851,7 @@ class World:
         str(k): [bool(v[0]), *(str(c) for c in v[1:])]
         for k, v in state.get('norm_acts', {}).items()
     }
+    self.lean = bool(state.get('lean', False))
     self.courting = {
         str(k): str(v) for k, v in state.get('courting', {}).items()
     }

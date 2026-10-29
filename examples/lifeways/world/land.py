@@ -157,6 +157,16 @@ class Land:
     best = max(level, self.fields.get(tile, (0, year, ''))[0])
     self.fields[tile] = (best, year, tender)
 
+  def pass_on(self, tender: str, heir: str) -> list[Tile]:
+    """Makes a tender's fields an heir's, as they stand; returns them."""
+    passed = sorted(
+        t for t, (_, _, who) in self.fields.items() if who == tender
+    )
+    for tile in passed:
+      level, tended, _ = self.fields[tile]
+      self.fields[tile] = (level, tended, heir)
+    return passed
+
   def fields_of_others(self, tile: Tile, name: str) -> list[Tile]:
     """The fields within a day's walk of a tile that others tend."""
     return [
@@ -242,9 +252,10 @@ class Land:
       taken += got
     return taken
 
-  def regrow(self) -> None:
+  def regrow(self, season: float = 1.0) -> None:
+    """Food grows back, `season` times as much as in a usual year."""
     capacity = self._capacities()
-    self.food += (
+    self.food += season * (
         self.regrowth * self.food * (1.0 - self.food / capacity)
         + self.seed_bank * capacity
     )

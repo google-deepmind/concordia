@@ -37,6 +37,7 @@
   --chart-many2: #6a2c91;
   --chart-many3: #9c4a12;
   --chart-many4: #1f6f8b;
+  --chart-lean: #e7e0cc;  /* Lean years, behind the lines. */
   --chart-own_seen: #2d6a4f;
   --chart-own_unseen: #1f6f8b;
   --chart-known_seen: #9c4a12;
@@ -65,6 +66,7 @@
     --chart-many2: #c9a2e0;
     --chart-many3: #e9a15b;
     --chart-many4: #7cc4e3;
+    --chart-lean: #33362f;
     --chart-own_seen: #74c69d;
     --chart-own_unseen: #7cc4e3;
     --chart-known_seen: #e9a15b;
@@ -73,6 +75,8 @@
 }
 
 * { box-sizing: border-box; }
+/* A command shown in a sentence wraps on a phone. */
+code { overflow-wrap: anywhere; }
 /* What the page hides stays hidden, whatever display a rule gives it. */
 [hidden] { display: none !important; }
 

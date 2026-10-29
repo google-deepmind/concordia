@@ -34,6 +34,12 @@ SANDBOX: Mapping[str, Any] = {
     'richness': 0.2,
     'regrowth': 0.5,
     'seed_bank': 0.06,
+    # Good years and lean (DESIGN §2): a good year turns lean with chance
+    # `start`, a lean one stays lean with chance `stay`, and a lean year's
+    # land grows back `lean` times as much as usual (a good year's a little
+    # more, so that over many years the land feeds as many). None: every
+    # year alike.
+    'seasons': {'start': 0.2, 'stay': 0.4, 'lean': 0.6},
     # What a person forages in a year whatever else it does (a child half);
     # gathering is the year's work on top of it.
     'subsistence': 1.0,
@@ -92,9 +98,15 @@ SANDBOX: Mapping[str, Any] = {
     },
     # Farming: one given a farming skill may sow the land it lives on, which
     # then carries `yield` more food per level of the skill (times the
-    # richness) while tended; untended for `fallow` years, it goes wild. No
+    # richness) while tended; untended for `fallow` years, it goes wild. A
+    # tender's fields pass at death to its eldest living child, else its
+    # partner (`inherit`; None: they stay the dead's, and go wild). No
     # founder of the Sandbox knows how; a song may teach it.
-    'farming': {'yield': land_lib.FIELD_YIELD, 'fallow': land_lib.FALLOW},
+    'farming': {
+        'yield': land_lib.FIELD_YIELD,
+        'fallow': land_lib.FALLOW,
+        'inherit': world_lib.ELDEST,
+    },
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.
@@ -547,6 +559,29 @@ def settings(name: str = 'sandbox', **overrides: Any) -> dict[str, Any]:
   merged['scenario'] = name
   merged.update(overrides)
   return merged
+
+
+def replayed(replay: Mapping[str, Any]) -> dict[str, Any]:
+  """A world's settings to play it again, its moves as the Experimenter's plan.
+
+  Args:
+    replay: A world's replay (`web.session.Session.replay`): its scenario,
+      seed, settings over the scenario's, moves by year and years played.
+
+  Returns:
+    The settings, in tick mode, for as many years as it played.
+  """
+  overrides = {k: v for k, v in replay.get('overrides', {}).items()}
+  overrides.pop('free', None)  # A year closed by the clock is not replayed.
+  return settings(
+      str(replay['scenario']),
+      **{
+          **overrides,
+          'seed': int(replay['seed']),
+          'plan': {str(y): str(m) for y, m in replay.get('plan', {}).items()},
+          'max_years': int(replay['years']),
+      },
+  )
 
 
 def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:

@@ -40,6 +40,7 @@ _LABEL = re.compile(r'(?:Question|Exercise): ')
 _CUSTOM = re.compile(r'\(([a-z]+)\) \[(c\d+)\]: ([^\n]*)')
 _EXPECTED = re.compile(r'others expect of us \(([a-z]+)\) \[(c\d+)\]')
 _SIGHT = re.compile(r'(\d+) other people are within sight')
+_SEASON = re.compile(r'The year is (lean|good)')
 _ASKED = re.compile(r'The Experimenter asks [^:]+: "(.*)"')
 _WORD = re.compile(r'[a-z]{4,}')
 _SPEECH = frozenset({'spea', 'tong', 'word', 'lang', 'talk'})  # _stems
@@ -228,7 +229,11 @@ def _choose(
         if food >= 0.5
         else follow(world_lib.GATHER, culture_lib.FOOD)
     )
-  if food < 2.5 or ('lean' in texts and food < 4.0):
+  # A custom for lean years is kept in the years the status calls lean (or,
+  # where no year is, when stores run low).
+  seasons = _SEASON.findall(prompt)
+  lean = seasons[-1] == 'lean' if seasons else food < 4.0
+  if food < 2.5 or ('lean' in texts and lean):
     return follow(world_lib.GATHER, culture_lib.FOOD)
   farming = [cid for domain, cid, _ in customs if domain == culture_lib.FARMING]
   # A custom of tending calls for sowing every year one can spare the food.

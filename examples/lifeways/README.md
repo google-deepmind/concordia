@@ -129,6 +129,21 @@ rows when it is written and when it is due, and notes in the notebook
 whether it held. It is the page's reading of the census, as the charts
 are.
 
+**The world on one page.** `GET report.html` (linked from the notebook)
+writes the world as one self-contained page to keep or share: the census
+drawn (lean years shaded), the releases and their fates, the notes and
+checked hypotheses, what the valley did, the surveys and the last
+experiment. It reads what the session keeps (`web/report.py`).
+
+**Replays.** The session keeps every move the Experimenter made, by year,
+in its save. `data/replay.json` gives the world's scenario, seed and
+settings with those moves as the Experimenter's plan, and
+`python -m examples.lifeways.run --replay=lifeways-replay.json` plays it
+again to the same year (MOCK, tick mode), census row for census row
+(`scenarios.replayed`; `ReplayTest`). A world restored from a save made
+before moves were kept is known only from then (`moves_from`), and a life
+someone played is not replayed: its moves were theirs.
+
 **Data to keep.** The census section links three CSV files, for analysis
 outside the page: `data/census.csv` (the census rows kept, a column for
 each number, nested ones spread out), `data/people.csv` (a row for each
@@ -500,6 +515,15 @@ it. One who moves looks for better land within a few steps (`roam`). The
 land regrows each year, and its richness sets how many it feeds: in the
 Sandbox, about 40 (20-60), with hardly anyone arriving.
 
+**Good years and lean** (`seasons`). A year is good or lean, drawn by the
+seed: lean years come in spells (a good year turns lean with chance
+`start`, a lean one stays lean with chance `stay`). In a lean year the land
+grows back less (`lean` times as much), in a good year a little more, so
+that over many years it feeds as many. Each person's status says which the
+year is, so a custom for lean years ("In lean years, gather before anything
+else") is kept in the years it names; the page says so in its header and
+shades lean years on the census.
+
 **Interviews.** The Experimenter may ask a person a question (`ask <name>:
 <question>`). The next year the GM puts it to the person before its move,
 and the answer goes into the world's transcripts (and to the Experimenter, and
@@ -538,14 +562,17 @@ a century or so). The Experimenter may send one (`send a <kind> at
 row keeps each disaster (`disasters`), and the Experimenter hears what it
 took.
 
-**Farming.** The `farming` setting (`yield`, `fallow`) lets one whom the
+**Farming.** The `farming` setting (`yield`, `fallow`, `inherit`) lets one
+whom the
 World gave a farming skill sow the land it lives on (`sow a field`, naming
 the skill; hills are never sown). The field then carries `yield` more food
 per level of the skill (times the richness) for whoever forages there, and
 is its latest tender's; untended for `fallow` years it goes wild. A sowing
 that names no skill grows nothing (the sower is told). Where fields others
 tend lie within a day's walk, one may gather sparing them (`gather food,
-sparing the fields of others`); a dead tender's field is nobody's. Sowing
+sparing the fields of others`). A dead tender's fields pass to its eldest
+living child, else its partner, who is told (`inherit`; the census counts
+them, `inherited`); with no heir, or no rule, they are nobody's. Sowing
 and sparing are seen and may be copied. Which deeds are seen at all is a
 setting too (`seen_deeds`, all by default), for onlookers (observation) and
 children (upbringing) alike. No founder of the Sandbox knows how to farm (a

@@ -17,7 +17,6 @@
 # The tests read the session's and components' private state.
 # pylint: disable=protected-access
 
-import collections
 import csv
 import dataclasses
 import io
@@ -35,6 +34,7 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.lifeways import scenarios
+from examples.lifeways import simulation
 from examples.lifeways.components import culture as culture_components
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.components import played as played_lib
@@ -291,8 +291,11 @@ class SaveTest(absltest.TestCase):
     )
     first.start()
     try:
-      # Fifteen years of First Farmers take ~10 s alone, longer under load.
-      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 15, 90))
+      # Until fields stand (a few years of First Farmers, longer under
+      # load), then a save made after.
+      self.assertTrue(_wait(lambda: first.state()['fields'], 120))
+      sown = first.state()['year']
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) > sown, 60))
     finally:
       first.close()
     with open(self.path, encoding='utf-8') as f:
@@ -981,6 +984,40 @@ class NotebookTest(absltest.TestCase):
     self.assertEqual(written['year'], second.restored_year)
 
 
+class ReplayTest(absltest.TestCase):
+
+  def test_a_world_is_played_again_exactly(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+    session = session_lib.Session(
+        years_per_second=100, save_path=path, save_seconds=0
+    )
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      row, col, _ = session.state()['reach'][0]
+      session.move(f'release habit food as a song at {row},{col}: Eat fish.')
+      session.move('survey 3: Why do you share?')
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 12))
+      session.pace(paused=True)
+      time.sleep(0.3)
+      replay = json.loads(json.dumps(session.replay()))
+      rows = [r for r in session.census() if r['year'] < replay['years']]
+    finally:
+      session.close()
+
+    self.assertLen(replay['plan'], 2)
+    self.assertEqual(replay['moves_from'], 0)
+    restored = session_lib.Session(save_path=path)  # A save keeps the moves.
+    self.assertEqual(restored.replay()['plan'], replay['plan'])
+    self.assertEqual(restored.replay()['moves_from'], 0)
+    restored.close()
+    run = simulation.build_simulation(scenarios.replayed(replay))
+    again = []
+    run.lifecycle.year_closed = lambda year: again.append(run.census_row(year))
+    run.play()
+    self.assertEqual(json.dumps(again), json.dumps(rows))
+
+
 class ReleasesTest(absltest.TestCase):
 
   def test_the_page_follows_each_release_until_it_dies_out(self):
@@ -990,10 +1027,10 @@ class ReleasesTest(absltest.TestCase):
     )
     session.start()
     try:
-      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
-      people = session.state()['people']
-      crowd = collections.Counter(tuple(p['tile']) for p in people)
-      (row, col), _ = crowd.most_common(1)[0]
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 8))
+      state = session.state()
+      people = state['people']
+      row, col, _ = state['reach'][0]  # Where the most would hear a song.
       taken = {tuple(p['tile']) for p in people}
       empty = next(
           (i, j)
@@ -1001,7 +1038,8 @@ class ReleasesTest(absltest.TestCase):
           for j in range(24)
           if all(abs(i - a) + abs(j - b) > 6 for a, b in taken)
       )
-      session.move(f'release belief sacred as a song at {row},{col}: Heard.')
+      # A habit about food, as released ways people act on spread (README).
+      session.move(f'release habit food as a song at {row},{col}: Heard.')
       session.move(
           f'release belief sacred as a song at {empty[0]},{empty[1]}: Unheard.'
       )
@@ -1158,6 +1196,9 @@ class ServerTest(absltest.TestCase):
     surveys = table('surveys')
     self.assertLen(surveys, 3)
     self.assertEqual({r['question'] for r in surveys}, {'Why do you share?'})
+    page = self._get('/report.html')
+    self.assertIn('<h2>Over the years</h2>', page)
+    self.assertIn('"Why do you share?"', page)
 
   def test_bad_requests_are_refused_and_the_bare_prefix_redirects(self):
     for path, data in (
