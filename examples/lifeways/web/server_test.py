@@ -1027,32 +1027,42 @@ class ReleasesTest(absltest.TestCase):
     )
     session.start()
     try:
-      self.assertTrue(_wait(lambda: session.state()['year'] >= 8))
-      state = session.state()
-      people = state['people']
-      row, col, _ = state['reach'][0]  # Where the most would hear a song.
-      taken = {tuple(p['tile']) for p in people}
-      empty = next(
-          (i, j)
-          for i in range(16)
-          for j in range(24)
-          if all(abs(i - a) + abs(j - b) > 6 for a, b in taken)
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      taken = {tuple(p['tile']) for p in session.state()['people']}
+
+      def apart(i, j):  # Steps on the torus to the nearest person.
+        return min(
+            max(
+                min(abs(i - a), 16 - abs(i - a)),
+                min(abs(j - b), 24 - abs(j - b)),
+            )
+            for a, b in taken
+        )
+
+      # Where nobody would hear, even after a move (`roam` 3, sight 2), while
+      # the founders still keep together.
+      empty = max(
+          ((i, j) for i in range(16) for j in range(24)),
+          key=lambda t: apart(*t),
       )
-      # A habit about food, as released ways people act on spread (README).
-      session.move(f'release habit food as a song at {row},{col}: Heard.')
+      self.assertGreater(apart(*empty), 5)
       session.move(
           f'release belief sacred as a song at {empty[0]},{empty[1]}: Unheard.'
       )
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 8))
+      row, col, _ = session.state()['reach'][0]  # Where the most would hear.
+      # A habit about food, as released ways people act on spread (README).
+      session.move(f'release habit food as a song at {row},{col}: Heard.')
       self.assertTrue(
           _wait(
               lambda: len(session.releases()) == 2
-              and len(session.releases()[0]['holders']) >= 10
+              and len(session.releases()[1]['holders']) >= 10
           )
       )
     finally:
       session.close()
 
-    heard, unheard = session.releases()
+    unheard, heard = session.releases()
     self.assertEqual((heard['text'], unheard['text']), ('Heard.', 'Unheard.'))
     self.assertGreaterEqual(heard['heard'], 1)
     years = [year for year, _ in heard['holders']]
@@ -1070,7 +1080,7 @@ class ReleasesTest(absltest.TestCase):
     )
     restored = session_lib.Session(save_path=path)
     self.assertEqual(
-        [r['id'] for r in restored.releases()], [heard['id'], unheard['id']]
+        [r['id'] for r in restored.releases()], [unheard['id'], heard['id']]
     )
 
 

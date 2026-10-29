@@ -1431,6 +1431,13 @@ class CourtTest(_PlaceTest):
         delta=0.5,
     )
     self.assertIn((self.norm, 'sanction', 'Ada'), self._offers('Bo'))
+    # Ada has judged: what she passes on says so (her standing).
+    self.assertEqual(self.world.judgments, {'Ada': 1})
+    self.assertIn('from=Ada stores=', '\n'.join(self.world.queued['Bo']))
+    self.assertIn(' judged=1]', '\n'.join(self.world.queued['Bo']))
+    restored = world_lib.World({'seed': 0, 'founders': 0})
+    restored.set_state(self.world.get_state())
+    self.assertEqual(restored.judgments, {'Ada': 1})
     # Those near see it done: the rule as what is expected (its known form).
     ((seen, via, by),) = self._offers('Cy')
     self.assertEqual((via, by), ('observation', 'Ada'))

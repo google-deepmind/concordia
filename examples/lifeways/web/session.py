@@ -2305,6 +2305,8 @@ class Session:
         'descent': body.get('descent', ''),
         'customs': sorted(customs, key=lambda c: (c['domain'], c['kind'])),
         'let_go': learner.let_go(),
+        # Its standing: how often it has judged at a court.
+        'judged': int(world.get('judgments', {}).get(name, 0)),
     }
 
   def lineage(self, custom_id: str) -> dict[str, Any] | None:

@@ -1870,7 +1870,10 @@ async function showPerson(name) {
   const age = page.world.year - person.born;
   document.getElementById('person-body').textContent =
       `${age} years old, born of the ${person.descent || 'valley'}; food ` +
-      `stored ${person.food} (a year's eating is 1).`;
+      `stored ${person.food} (a year's eating is 1).` +
+      (person.judged ? ` Has judged at a court ${person.judged === 1 ?
+        'once' : `${person.judged} times`}: those who heed judges take up ` +
+        `${person.name}'s ways more readily.` : '');
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
   const list = document.getElementById('person-customs');

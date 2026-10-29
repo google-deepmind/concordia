@@ -478,6 +478,9 @@ class World:
     self._judged: set[str] = set()
     # Fields passed on at death this year (the census's).
     self._inherited = 0
+    # How often each has judged at a court, ever (its standing): what
+    # offers from it say, for learners who defer to judges.
+    self.judgments: dict[str, int] = {}
     # Know-how sold at markets this year (the census's).
     self._sold = 0
     # Food shares given this year, and who others fed (the census's).
@@ -1295,7 +1298,8 @@ class World:
           self.places.use(market, self.year)
 
   def _before_court(self, person: Person) -> dict[str, places_lib.Place]:
-    """Those seen hoarding last year within reach of a court near a person.
+    """Those seen hoarding last year within reach of a court a person is in
+    reach of (a court's reach is the valley it serves, judge and judged).
 
     Args:
       person: Who would judge.
@@ -1305,7 +1309,9 @@ class World:
     """
     reach = int((self.court or {}).get('reach', 3))
     heard = {}
-    for court in self._standing(person, places_lib.COURT):
+    for court in self.places.near(person.tile, reach, places_lib.COURT):
+      if self.places.ruined(court, self.year):
+        continue
       for other in self.breaches:
         if other in self.people and other not in heard:
           if self.places.distance(court.tile, self.people[other].tile) <= reach:
@@ -2244,6 +2250,7 @@ class World:
       self._tell(person.name, f'No law of the court judges {other}.')
       return
     self._judged.add(other)
+    self.judgments[person.name] = self.judgments.get(person.name, 0) + 1
     judged = self.people[other]
     fine = float(court_setting.get('fine', 1.0))
     needy = [n for n in self.breaches.get(other, ()) if n in self.people]
@@ -2421,6 +2428,7 @@ class World:
         via,
         source,
         self.people[source].food if source in self.people else None,
+        self.judgments.get(source, 0),
     )
     self._tell(receiver, f'{scene}: {line}')
 
@@ -2970,6 +2978,7 @@ class World:
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
         'lean': self.lean,
+        'judgments': dict(self.judgments),
         'norm_acts': {k: list(v) for k, v in self.norm_acts.items()},
         'courting': dict(self.courting),
         'interviews': dict(self.interviews),
@@ -3011,6 +3020,9 @@ class World:
         for k, v in state.get('norm_acts', {}).items()
     }
     self.lean = bool(state.get('lean', False))
+    self.judgments = {
+        str(k): int(v) for k, v in state.get('judgments', {}).items()
+    }
     self.courting = {
         str(k): str(v) for k, v in state.get('courting', {}).items()
     }

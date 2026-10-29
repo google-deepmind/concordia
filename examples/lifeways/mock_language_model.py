@@ -203,6 +203,10 @@ def _choose(
       return ' '.join([world_lib.SPARE, *ids, *sparing])
     return ' '.join([move, *ids])
 
+  # One who holds a sharing norm judges a hoarder before a court near it:
+  # a duty, before its own affairs.
+  if judge and sharing and draw < 0.6:
+    return ' '.join([judge[0], *sharing])
   if world_lib.MOVE in moves and land < 4.0 and draw > 0.4:
     return world_lib.MOVE
   if world_lib.APPRENTICE in moves and food >= 1.0 and draw < 0.6:
@@ -268,8 +272,6 @@ def _choose(
       return follow(world_lib.CHILD, culture_lib.KINSHIP)
   if share and sharing and food >= 4.0:
     return ' '.join([share[0], *sharing])
-  if judge and sharing and draw < 0.6:
-    return ' '.join([judge[0], *sharing])
   if shame and sharing and draw < 0.5:
     return ' '.join([shame[0], *sharing])
   if world_lib.TEACH in moves and food >= 4.0 and draw < 0.35:
@@ -292,9 +294,10 @@ def _choose(
   if world_lib.BUILD_SHRINE in moves and sacred and food >= 6.0 and draw < 0.15:
     return ' '.join([world_lib.BUILD_SHRINE, *sacred])
   # A court is built on other draws than a shrine (a sharing norm makes
-  # both possible).
+  # both possible), and more readily by one who has seen a hoarder.
   if world_lib.BUILD_COURT in moves and sharing and food >= 6.0:
-    if 0.15 <= draw < 0.25:
+    seen_hoarding = 'kept full stores and gave nothing' in prompt
+    if 0.15 <= draw < 0.25 or (seen_hoarding and draw < 0.5):
       return ' '.join([world_lib.BUILD_COURT, *sharing])
   # A market is built on draws of its own.
   if world_lib.BUILD_MARKET in moves and food >= 6.0 and 0.25 <= draw < 0.3:

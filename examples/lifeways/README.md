@@ -463,9 +463,10 @@ rite (`lead the rite`) sets the customs it is led by, and all who join it
 (`join the rite`) are offered them as their own (the `rite` channel). A
 rite nobody leads offers nothing.
 
-**Courts.** An adult may `build a court`. Within its reach (3 steps in the
+**Courts.** An adult may `build a court`. Within its reach (5 steps in the
 Sandbox), anyone seen last year keeping full stores while a neighbour went
-hungry may be judged there: a grown person nearby may `judge <name>`, naming
+hungry may be judged there: a grown person within its reach may `judge
+<name>`, naming
 the rules it judges by (else the court's law, the rules it last judged by).
 The judged is offered those rules to hold as its own (the `sanction`
 channel), those within reach see it done and are offered them as what is
@@ -473,6 +474,16 @@ expected (`observation`), the court keeps them as its law, and the judged
 gives each of the needy it passed over some food (`fine`). One is judged at
 most once a year. Where shaming is one neighbour's word, a court is the
 valley's: it reaches all who stand near, and it takes food.
+
+**Authority.** The World counts how often each has judged at a court (its
+standing, `World.judgments`), and an offer from one who has judged says so
+(`judged=N`, beside the stores a success-biased learner reads). A learner
+who holds a custom of deference (a bias in the `authority` domain: "We heed
+those who judge at the court", held by a third of the Sandbox's founders)
+takes up a judge's ways the more readily the more it has judged (up to 3
+times). The census counts the customs the living hold from judges
+(`from_judges`), and a person's panel says how often they have judged.
+Deference itself spreads or dies like any custom.
 
 **Markets.** An adult may `build a market` (the `market` setting). Within
 its reach the grown may `sell know-how at the market`, naming skills the

@@ -435,6 +435,15 @@ class Run:
           self.holds(name, culture_lib.SKILL, culture_lib.FARMING)
           for name in row['barren_names']
       )
+    # Customs the living hold from one who has judged at a court (its
+    # standing): how far the judges' ways reach (measurement only).
+    judges = set(world.judgments)
+    row['from_judges'] = sum(
+        1
+        for held in self.holdings().values()
+        for custom in held
+        if custom['from'] in judges
+    )
     return {
         **row,
         'held': self.customs_census(),

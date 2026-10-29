@@ -87,7 +87,7 @@ SANDBOX: Mapping[str, Any] = {
     # Courts: building one costs food; they stand apart; a court hears those
     # seen hoarding within `reach` of it, and one judged gives each of the
     # needy it passed over up to `fine` food.
-    'court': {'cost': 3.0, 'spacing': 6, 'reach': 3, 'fine': 1.0},
+    'court': {'cost': 3.0, 'spacing': 6, 'reach': 5, 'fine': 1.0},
     # Markets: building one costs `cost` food; they stand `spacing` apart.
     # Within `reach` of one, the grown may sell the know-how they were given
     # or buy it: a buyer pays `price` food to the best seller there, who
@@ -231,6 +231,14 @@ SANDBOX: Mapping[str, Any] = {
             'domain': 'learning',
             'text': 'Learn from those whose stores are full.',
             'held_by': 0.5,
+        },
+        # Authority: a third defer to those who judge at a court, taking up
+        # their ways the more readily the more they have judged.
+        {
+            'kind': 'bias',
+            'domain': 'authority',
+            'text': 'We heed those who judge at the court.',
+            'held_by': 1 / 3,
         },
         {
             'kind': 'skill',

@@ -138,6 +138,11 @@ def offer_chance(
   stores = offer.group('stores')
   if 'stores are full' in biases and stores is not None:
     chance *= 0.5 + float(stores) / 8.0
+  # Deference: one who heeds those who judge at the court takes up a
+  # judge's ways the more readily the more it has judged (up to 3 times).
+  judged = int(offer.group('judged') or 0)
+  if 'who judge' in biases and judged:
+    chance *= 1.0 + 0.5 * min(judged, 4)
   return min(1.0, chance)
 
 

@@ -148,7 +148,8 @@ INTERNALIZED = 'internalized'
 OFFER = re.compile(
     r'\[custom id=(?P<id>c\d+) kind=(?P<kind>\w+) domain=(?P<domain>\w+)'
     r'(?: level=(?P<level>\d+))?(?: form=(?P<form>\w+))? via=(?P<via>\w+)'
-    r'(?: from=(?P<source>[^ \]]+) stores=(?P<stores>\d+(?:\.\d+)?))?\]'
+    r'(?: from=(?P<source>[^ \]]+) stores=(?P<stores>\d+(?:\.\d+)?)'
+    r'(?: judged=(?P<judged>\d+))?)?\]'
     r' (?P<text>[^\n]*?)(?: \|params=(?P<params>\{[^\n]*\}))?$',
     re.MULTILINE,
 )
@@ -159,6 +160,7 @@ def offer_line(
     via: str,
     source: str = '',
     stores: float | None = None,
+    judged: int = 0,
 ) -> str:
   """An observation line offering a custom (what a Learner reads).
 
@@ -167,6 +169,8 @@ def offer_line(
     via: The channel it comes by.
     source: Who is seen holding it, if anyone.
     stores: That person's food stores (for success-biased learners).
+    judged: How often that person has judged at a court (its standing, for
+      learners who defer to judges).
 
   Returns:
     The line.
@@ -179,6 +183,7 @@ def offer_line(
     detail += f' form={form_of(spec)}'
   seen = (
       f' from={source} stores={stores:.1f}'
+      + (f' judged={judged}' if judged else '')
       if source and stores is not None
       else ''
   )

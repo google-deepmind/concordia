@@ -1132,6 +1132,24 @@ class LearnerTest(absltest.TestCase):
     self.assertGreater(chance(12.0, biased), chance(1.0, biased))
     self.assertEqual(chance(12.0, ''), chance(1.0, ''))
 
+  def test_those_who_heed_judges_take_up_a_judges_ways_more(self):
+    spec = _spec('c9', 'habit', 'food')
+
+    def chance(judged: int, biases: str) -> float:
+      line = culture_lib.offer_line(spec, 'observation', 'Bo', 2.0, judged)
+      offer = culture_lib.OFFER.search(line)
+      assert offer is not None
+      return culture.offer_chance(offer, {'observation': 0.2}, biases)
+
+    heeds = 'we heed those who judge at the court.'
+    self.assertAlmostEqual(chance(2, heeds), 2 * chance(0, heeds))
+    self.assertAlmostEqual(chance(9, heeds), 3 * chance(0, heeds))  # At most.
+    self.assertEqual(chance(2, ''), chance(0, ''))
+    self.assertIn(
+        'from=Bo stores=2.0 judged=2]',
+        culture_lib.offer_line(spec, 'observation', 'Bo', 2.0, 2),
+    )
+
   def test_an_offer_by_an_unknown_channel_is_not_taken_up(self):
     entity = self._person(uptake={})
     spec = {
