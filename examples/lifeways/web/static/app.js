@@ -686,26 +686,56 @@ function chartSeries(rows, maxLevel) {
 }
 
 /**
- * Draws the census: the living, the skill worked by, tongues, peoples and
- * fields,
- * year by year; a twin's census, if any, dashed over its world's, on the
- * same scales.
- * @param {!Array<!Object>} rows The census rows.
- * @param {!Array<!Object>=} twinRows The twin's rows after its fork.
+ * Spreads labels down a column so none overlaps another, keeping each as
+ * near its own height as it can, all between `top` and `bottom`.
+ * @param {!Array<!Object>} labels Each with `at`, its wanted height; set
+ *     in place (and sorted by it).
+ * @param {number} gap The least distance between two.
+ * @param {number} top The highest a label may stand.
+ * @param {number} bottom The lowest.
  */
-function drawChart(rows, twinRows = []) {
+function spreadLabels(labels, gap, top, bottom) {
+  labels.sort((a, b) => a.at - b.at);
+  labels.forEach((label, i) => {
+    label.at = Math.max(label.at, top, i ? labels[i - 1].at + gap : top);
+  });
+  const over = labels.length ? labels[labels.length - 1].at - bottom : 0;
+  if (over > 0) {  // Too low: the stack moves up, as one.
+    for (let i = labels.length - 1; i >= 0; i--) {
+      const below = i < labels.length - 1 ? labels[i + 1].at - gap : bottom;
+      labels[i].at = Math.min(labels[i].at, below);
+    }
+  }
+}
+
+/**
+ * Draws lines of the census, each to its own scale, each labelled at its
+ * end with its value and name; a twin's dashed.
+ * @param {string} canvasId The canvas.
+ * @param {!Array<!Object>} rows The census rows.
+ * @param {!Array<!Object>} twinRows The twin's rows.
+ * @param {!Array<!Object>} lines {name, colour, value, most} of each.
+ */
+function drawLines(canvasId, rows, twinRows, lines) {
   const canvas = /** @type {!HTMLCanvasElement} */ (
-      document.getElementById('chart'));
+      document.getElementById(canvasId));
   const width = canvas.clientWidth || 480;
   const height = Math.round(width * 0.375);
   const ctx = crisp(canvas, width, height);
-  if (rows.length < 2) return;
   const both = rows.concat(twinRows);
-  const series = chartSeries(both, page.world.max_level).map((line) => ({
+  const series = lines.map((line) => ({
     ...line, colour: themeColour(`--chart-${line.name}`, line.colour)}));
   const first = rows[0].year;
   const lastYear = Math.max(...both.map((row) => row.year));
-  const labels = 78;  // Room at the right for each line's value and name.
+  const last = rows[rows.length - 1];
+  const endText = ({name, value}) => {
+    const v = value(last);
+    return `${Number.isInteger(v) ? v : v.toFixed(2)} ${CHART_NAMES[name]}`;
+  };
+  ctx.font = 'bold 12px system-ui';
+  // Room at the right for each line's value and name, as wide as they are.
+  const labels = Math.max(40, ...series.map(
+      (line) => ctx.measureText(endText(line)).width + 8));
   const x = (year) => 4 + ((year - first) / Math.max(1, lastYear - first)) *
       (width - 8 - labels);
   const y = (value, most) => height - 6 - (value / most) * (height - 14);
@@ -728,19 +758,27 @@ function drawChart(rows, twinRows = []) {
   }
   ctx.setLineDash([]);
   // Each line's value now, at its end, kept apart so none hides another.
-  const ends = series.map(({name, colour, value, most}) => ({
-    colour, text: `${value(rows[rows.length - 1])} ${CHART_NAMES[name]}`,
-    at: y(value(rows[rows.length - 1]), most)}))
-      .sort((a, b) => a.at - b.at);
-  ends.forEach((end, i) => {
-    if (i) end.at = Math.max(end.at, ends[i - 1].at + 13);
-  });
-  ctx.font = 'bold 12px system-ui';
+  const ends = series.map((line) => ({colour: line.colour,
+    text: endText(line), at: y(line.value(last), line.most)}));
+  spreadLabels(ends, 13, 7, height - 7);
   ctx.textBaseline = 'middle';
   for (const end of ends) {
     ctx.fillStyle = end.colour;
-    ctx.fillText(end.text, width - labels + 2, Math.min(end.at, height - 6));
+    ctx.fillText(end.text, width - labels + 4, end.at);
   }
+}
+
+/**
+ * Draws the census and "How fair", year by year (`drawLines`); a twin's
+ * census, if any, dashed over its world's, on the same scales.
+ * @param {!Array<!Object>} rows The census rows.
+ * @param {!Array<!Object>=} twinRows The twin's rows after its fork.
+ */
+function drawChart(rows, twinRows = []) {
+  if (rows.length < 2) return;
+  const both = rows.concat(twinRows);
+  drawLines('chart', rows, twinRows, chartSeries(both, page.world.max_level));
+  drawLines('fairness', rows, twinRows, fairnessSeries(both));
   const last = rows[rows.length - 1];
   document.getElementById('legend').textContent =
       `Years ${yearText(rows[0].year)}–${yearText(last.year)}, each line` +
@@ -891,7 +929,28 @@ const CHART_NAMES = {
   tongues: 'tongues',
   peoples: 'peoples',
   fields: 'fields',
+  gini: 'inequality',
+  shares: 'shares',
+  breaches: 'hoarders',
+  judged: 'judged',
 };
+
+/**
+ * The lines of "How fair": inequality of food stores (0 to 1), shares
+ * given to the hungry, hoarders seen, and hoarders judged at a court.
+ * @param {!Array<!Object>} rows The census rows (older ones lack these).
+ * @return {!Array<!Object>} {name, colour, value, most} of each.
+ */
+function fairnessSeries(rows) {
+  const line = (name, colour, value, most) => ({name, colour, value,
+    most: most ?? Math.max(1, ...rows.map(value))});
+  return [
+    line('gini', '#b0182b', (row) => row.gini || 0, 1),
+    line('shares', '#2d6a4f', (row) => row.shares || 0),
+    line('breaches', '#9c4a12', (row) => row.breaches || 0),
+    line('judged', '#6a2c91', (row) => row.judged || 0),
+  ];
+}
 
 /**
  * Draws how many held a release, year by year.
@@ -2899,7 +2958,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-    kinLayout, previewText, treeLayout, wordChange,
+    fairnessSeries, kinLayout, previewText, spreadLabels, treeLayout,
+    wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

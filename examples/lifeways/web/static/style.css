@@ -27,6 +27,10 @@
   --chart-tongues: #6a2c91;
   --chart-peoples: #b0182b;
   --chart-fields: #8a6500;
+  --chart-gini: #b0182b;
+  --chart-shares: #2d6a4f;
+  --chart-breaches: #9c4a12;
+  --chart-judged: #6a2c91;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +46,10 @@
     --chart-tongues: #c9a2e0;
     --chart-peoples: #f28b82;
     --chart-fields: #e9c46a;
+    --chart-gini: #f28b82;
+    --chart-shares: #74c69d;
+    --chart-breaches: #e9a15b;
+    --chart-judged: #c9a2e0;
   }
 }
 

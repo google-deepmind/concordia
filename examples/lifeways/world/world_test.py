@@ -1018,6 +1018,26 @@ class TransmissionTest(absltest.TestCase):
         restored.history[-1]['reports'],
     )
 
+  def test_inequality_is_a_gini_of_food_stores(self):
+    self.assertEqual(world_lib.gini([]), 0.0)
+    self.assertEqual(world_lib.gini([3.0, 3.0, 3.0]), 0.0)
+    self.assertEqual(world_lib.gini([0.0, 0.0, 9.0]), 0.667)
+    self.assertEqual(world_lib.gini([0.0, 0.0]), 0.0)
+
+  def test_the_census_counts_shares_and_who_was_fed(self):
+    self._person('Ada', 30, (5, 5)).food = 9.0
+    self._person('Bo', 30, (5, 6)).food = 0.2
+    self.world.actions = {
+        'Ada': f'{world_lib.SHARE} Bo',
+        'Bo': 'rest',
+        world_lib.EXPERIMENTER: 'watch',
+    }
+    self.world.close_year()
+
+    census = self.world.history[-1]
+    self.assertEqual((census['shares'], census['fed']), (1, 1))
+    self.assertGreater(census['gini'], 0.0)
+
   def test_the_census_keeps_what_it_could_not_read_and_counts_citing(self):
     self._person('Ada', 30, (5, 5))
     self._person('Bo', 30, (5, 6))

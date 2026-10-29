@@ -444,6 +444,9 @@ class World:
     self.breaches: dict[str, list[str]] = {}
     # Who was judged at a court this year (one judgment a year each).
     self._judged: set[str] = set()
+    # Food shares given this year, and who others fed (the census's).
+    self._shares = 0
+    self._fed: set[str] = set()
     # Questions the Experimenter put, by person, to answer this year; and
     # the answers given (the latest few).
     self.interviews: dict[str, str] = {}
@@ -1351,6 +1354,8 @@ class World:
     self._released = 0
     self._sown = 0
     self._judged = set()
+    self._shares = 0
+    self._fed = set()
     self._releases = []
     self._disasters = []
     # The moves each was offered, as the year began.
@@ -1478,6 +1483,8 @@ class World:
       if other is not None and person.food >= self.share + 1.0:
         person.food -= self.share
         other.food += self.share
+        self._shares += 1
+        self._fed.add(other.name)
         self._tell(other.name, f'{name} shares food with {other.name}.')
     elif move.startswith(f'{SHAME} '):
       other = move.removeprefix(f'{SHAME} ')
@@ -1889,6 +1896,7 @@ class World:
         break
       judged.food -= amount
       self.people[name].food += amount
+      self._fed.add(name)
       given.append(name)
     self.places.keep(court, person.name, rules, self.year)
     scene = f'{person.name} judges {other} at the court'
@@ -2460,6 +2468,12 @@ class World:
             for name in barren[:UNREAD_KEPT]
         ],
         'breaches': len(self.breaches),
+        # How unequal food stores are (Gini, 0 all alike to 1 one has all),
+        # food shares given, who others fed, and judgments at courts.
+        'gini': gini([p.food for p in self.people.values()]),
+        'shares': self._shares,
+        'fed': len(self._fed),
+        'judged': len(self._judged),
         'libraries': sum(
             1
             for p in self.places.all()
@@ -2710,6 +2724,23 @@ def _forms(move: str, past: bool) -> set[str]:
   else:
     forms = forms[2:] if past else forms[:2]
   return {f'{form} {rest}' if rest else form for form in forms} - {move}
+
+
+def gini(values: Sequence[float]) -> float:
+  """How unequal amounts are: 0 if all alike, near 1 if one has all.
+
+  Args:
+    values: The amounts (none negative).
+
+  Returns:
+    The Gini coefficient, to three places (0 for none, or all zero).
+  """
+  ordered = sorted(max(0.0, float(v)) for v in values)
+  n, total = len(ordered), sum(ordered)
+  if not n or total <= 0:
+    return 0.0
+  weighted = sum((i + 1) * v for i, v in enumerate(ordered))
+  return round(2 * weighted / (n * total) - (n + 1) / n, 3)
 
 
 def said_by(name: str, answer: str) -> bool:

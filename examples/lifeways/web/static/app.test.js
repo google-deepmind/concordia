@@ -23,7 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
-  kinLayout, previewText, treeLayout, wordChange,
+  fairnessSeries, kinLayout, previewText, spreadLabels, treeLayout,
+  wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -316,6 +317,23 @@ test('a release says who would hear it and what they would let go', () => {
       'one holds one of each kind about kinship).');
   assert.equal(previewText({hearers: 0, room: 0, push: 0, no: 0,
     pushed: []}, 'food'), 'Nobody would hear it there now.');
+});
+
+test('fairness lines: inequality on 0 to 1, the rest on their own', () => {
+  const rows = [{gini: 0.4, shares: 3, breaches: 1}, {shares: 6}];
+  const lines = fairnessSeries(rows);
+  assert.deepEqual(lines.map((l) => [l.name, l.most]),
+      [['gini', 1], ['shares', 6], ['breaches', 1], ['judged', 1]]);
+  assert.equal(lines[0].value(rows[1]), 0);  // Older rows lack the field.
+});
+
+test('labels at the same height spread up from the bottom', () => {
+  const labels = [{at: 100}, {at: 100}, {at: 100}, {at: 20}];
+  spreadLabels(labels, 13, 7, 100);
+  assert.deepEqual(labels.map((l) => l.at), [20, 74, 87, 100]);
+  const apart = [{at: 10}, {at: 60}];
+  spreadLabels(apart, 13, 7, 100);
+  assert.deepEqual(apart.map((l) => l.at), [10, 60]);
 });
 
 test('a panel says when its person is no longer alive', () => {
