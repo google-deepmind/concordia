@@ -178,7 +178,10 @@ settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
 - **What stays the world's.** Questions and stops reach the first world
   only, and the person's pace reaches both.
 - **The page** draws the twin's census dashed over its world's, and says
-  how each release fares in the twin.
+  how each release fares in the twin. "The twin, side by side" reads both
+  censuses over the years both have lived since the fork: each measure's
+  mean a year in each world, and how much the twin differs, the largest
+  differences first (the page's own reading of the two censuses).
 - **Exactness.** With no lever changed, a twin's census is its world's,
   year by year, moves and all (tick mode is exact).
 - A twin is not saved.

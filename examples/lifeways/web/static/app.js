@@ -970,6 +970,125 @@ function twinNote(twin) {
 }
 
 /**
+ * Shows the twin report, or hides it while there is none.
+ * @param {?{head: string, lines: !Array<string>}} report `twinReport`'s.
+ */
+function drawTwinReport(report) {
+  document.getElementById('twin-report-box').hidden = !report;
+  if (!report) return;
+  document.getElementById('twin-report-head').textContent = report.head;
+  document.getElementById('twin-report').replaceChildren(
+      ...report.lines.map((line) => {
+        const item = document.createElement('li');
+        item.textContent = line;
+        return item;
+      }));
+}
+
+/**
+ * A norm-kept share over rows: all their kept over all their held.
+ * @param {string} key A `norms_kept` key (e.g. 'own_unseen').
+ * @return {function(!Array<!Object>): ?number} The share (null: none held).
+ */
+function keptOver(key) {
+  return (rows) => {
+    let kept = 0;
+    let held = 0;
+    for (const row of rows) {
+      const [k, n] = (row.norms_kept || {})[key] || [0, 0];
+      kept += k;
+      held += n;
+    }
+    return held ? kept / held : null;
+  };
+}
+
+/**
+ * The measures the twin report compares: a name, its value over rows (by
+ * default the mean a year of `value`), and whether it is a share.
+ */
+const TWIN_MEASURES = [
+  {name: 'alive', value: (r) => r.population},
+  {name: 'fields', value: (r) => r.fields},
+  {name: 'skill worked by', value: (r) => r.skill_worked, places: 2},
+  {name: 'tongues', value: (r) => r.tongues},
+  {name: 'peoples', value: (r) => r.peoples && r.peoples.peoples},
+  {name: 'different versions held', value: (r) => r.held && r.held.distinct},
+  {name: 'variety of customs held', value: (r) => r.held && r.held.diversity,
+    places: 2},
+  {name: 'inequality', value: (r) => r.gini, places: 2},
+  {name: 'food shares given', value: (r) => r.shares},
+  {name: 'hoarders seen', value: (r) => r.breaches},
+  {name: 'own norms kept unseen', over: keptOver('own_unseen'), share: true},
+  {name: 'expected norms kept unseen', over: keptOver('known_unseen'),
+    share: true},
+];
+
+/**
+ * The twin, read beside its world: each measure over the years both have
+ * lived since the fork (a mean a year; shares over all those years), and
+ * how the twin differs, the largest differences first.
+ * @param {!Array<!Object>} rows The world's census rows.
+ * @param {!Array<!Object>} twinRows The twin's.
+ * @return {?{head: string, lines: !Array<string>}} null if no year is
+ *     shared yet.
+ */
+function twinReport(rows, twinRows) {
+  const twinOf = new Map(twinRows.map((row) => [row.year, row]));
+  const here = rows.filter((row) => twinOf.has(row.year));
+  if (!here.length) return null;
+  const there = here.map((row) => twinOf.get(row.year));
+  const mean = (value) => (shared) => {
+    const known = shared.map(value).filter((v) => typeof v === 'number');
+    return known.length ? known.reduce((a, b) => a + b, 0) / known.length :
+      null;
+  };
+  const differ = [];
+  const same = [];
+  const apart = [];  // Known in one world only.
+  for (const measure of TWIN_MEASURES) {
+    const over = measure.over || mean(measure.value);
+    const [a, b] = [over(here), over(there)];
+    if (a === null && b === null) continue;
+    const show = (v) => v === null ? 'none held' : measure.share ?
+      `${Math.round(v * 100)}%` : v.toFixed(measure.places ?? 1)
+          .replace(/\.0+$/, '');
+    const said = `${measure.name[0].toUpperCase()}${measure.name.slice(1)}: ` +
+        `${show(a)} here, ${show(b)} in the twin`;
+    if (a === null || b === null) {
+      apart.push(`${said}.`);
+      continue;
+    }
+    // A share by its points; a count by how much of it, if any.
+    const size = measure.share ? Math.abs(b - a) :
+      a ? Math.abs((b - a) / a) : Infinity;
+    if (show(a) === show(b) || size < 0.01) {
+      same.push(measure.name);
+      continue;
+    }
+    const by = measure.share ? `${Math.round(Math.abs(b - a) * 100)} points` :
+      a ? `${Math.round(size * 100)}%` : '';
+    differ.push({size,
+      text: `${said}${by ? ` (${b > a ? '+' : '−'}${by})` : ''}.`});
+  }
+  differ.sort((x, y) => y.size - x.size);
+  const years = here.length === 1 ? `year ${yearText(here[0].year)}` :
+    `the ${here.length} years ${yearText(here[0].year)}–` +
+      `${yearText(here[here.length - 1].year)}`;
+  return {
+    head: `Over ${years}, a year on average` +
+        (differ.length ? `; the twin differs most in ` +
+          `${differ.slice(0, 3).map((d) => d.text.split(':')[0]
+              .toLowerCase()).join(', ')}.` : apart.length ?
+          ': the same in every measure both worlds have.' :
+          ': the same in every measure.'),
+    lines: [...differ.map((d) => d.text),
+      ...(same.length ? [`The same in both (within 1%): ` +
+        `${same.join(', ')}.`] : []), ...apart],
+  };
+}
+
+/**
  * The lever's choices for the fork form: each lever, then each channel the
  * world could go without.
  * @param {!Object} world The state.
@@ -2382,6 +2501,7 @@ async function refreshOnce() {
       page.since = rows[rows.length - 1].year;
     }
     if (rows.length || twinRows.length) drawChart(page.rows, page.twinRows);
+    drawTwinReport(world.twin ? twinReport(page.rows, page.twinRows) : null);
     const entries = await api(`api/notebook?since=${page.entrySince}`);
     if (entries.length) {
       page.entries = appendNew(page.entries, entries, 'id', page.entrySince,
@@ -3232,7 +3352,7 @@ if (typeof document !== 'undefined') {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
     fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
     prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
-    treeLayout, wordChange,
+    treeLayout, twinReport, wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

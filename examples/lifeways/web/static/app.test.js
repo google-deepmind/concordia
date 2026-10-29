@@ -25,7 +25,7 @@ const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
   fairnessSeries, keptSeries, keptText, kinLayout, peoplesSeries,
   prevalenceSeries, previewText, spreadLabels, surveyMove, surveyText,
-  treeLayout, wordChange,
+  treeLayout, twinReport, wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -371,6 +371,37 @@ test('a survey is asked in the World\'s form and read in words', () => {
       'Named none of their customs: 5 (25%)']});
   assert.deepEqual(surveyText({year: 12, question: 'Why?', asked: 3,
     answered: 0, tally: [], none: 0}).lines, []);
+});
+
+test('the twin report reads each measure in both worlds', () => {
+  const row = (year, population, fields, kept) => ({year, population, fields,
+    tongues: 2, gini: 0.3, norms_kept: {own_unseen: kept}});
+  const rows = [row(9, 30, 4, [0, 0]), row(10, 40, 4, [1, 4]),
+    row(11, 40, 4, [1, 4])];
+  const twin = [row(10, 50, 0, [3, 4]), row(11, 70, 0, [3, 4]),
+    row(12, 99, 0, [0, 0])];
+  assert.deepEqual(twinReport(rows, twin), {
+    // A tie (50% and 50 points) keeps the measures' order.
+    head: 'Over the 2 years 10–11, a year on average; the twin differs most ' +
+        'in fields, alive, own norms kept unseen.',
+    lines: [
+      'Fields: 4 here, 0 in the twin (−100%).',
+      'Alive: 40 here, 60 in the twin (+50%).',
+      'Own norms kept unseen: 25% here, 75% in the twin (+50 points).',
+      'The same in both (within 1%): tongues, inequality.',
+    ],
+  });
+  const one = twinReport([row(10, 100, 1, [0, 0])],
+      [row(10, 100.5, 1, [1, 2])]);
+  assert.equal(one.head, 'Over year 10, a year on average: the same in ' +
+      'every measure both worlds have.');
+  assert.deepEqual(one.lines, [
+    'The same in both (within 1%): alive, fields, tongues, inequality.',
+    'Own norms kept unseen: none held here, 50% in the twin.']);
+  assert.equal(twinReport(rows, [row(12, 1, 1, [0, 0])]), null);
+  assert.equal(twinReport([row(10, 5, 1, [0, 0])],
+      [row(10, 5, 1, [0, 0])]).head,
+  'Over year 10, a year on average: the same in every measure.');
 });
 
 test('labels at the same height spread up from the bottom', () => {
