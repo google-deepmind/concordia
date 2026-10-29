@@ -707,6 +707,54 @@ class NormsKeptTest(absltest.TestCase):
     self.assertEqual(total['known_unseen'][0], 0)
 
 
+class MindsTest(absltest.TestCase):
+
+  def test_minds_are_measured_from_the_census_and_set_side_by_side(self):
+    rows = [
+        {
+            'population': 6,
+            'moves': {'': 1, world_lib.SOW: 2, world_lib.GATHER: 3},
+            'cited': 4,
+            'sown': 1,
+            'barren': 1,
+            'deaths': 0,
+            'norms_kept': {'own_unseen': [1, 4], 'known_unseen': [0, 0]},
+        },
+        {'population': 5, 'moves': {world_lib.SOW: 1}, 'deaths': 1},
+    ]
+
+    measured = sweep.mind_measures(rows)
+
+    self.assertEqual(
+        measured,
+        {
+            'answers': 7,
+            'unread': 1,
+            'cited': 4,
+            'sow': 3,
+            'fields': 1,
+            'barren': 1,
+            'deaths': 1,
+            'living': 5,
+            'own_unseen': 0.25,
+            'known_unseen': None,
+        },
+    )
+    table = sweep.minds_report(
+        {'mock': [{**measured, 'seconds_a_year': 0.5, 'calls': 0}]}, 'T'
+    )
+    self.assertIn(
+        '| mock | 1 | 7 | 1 | 4 | 3 | 1 | 1 | 1 | 5 | 25% | – |', table
+    )
+
+  def test_a_mind_plays_a_scenario(self):
+    played = sweep.play_mind('mock', 'first_farmers', 0, 3)
+
+    self.assertLen(played['rows'], 3)
+    self.assertEqual(played['calls'], 0)
+    self.assertGreater(played['answers'], 0)
+
+
 class PlotTest(absltest.TestCase):
 
   def test_it_draws_a_census(self):

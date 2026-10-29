@@ -16,18 +16,23 @@
 
 For each seed, `play` runs the control (the scenario's settings) and the
 treatment (`scenarios.with_lever`) in MOCK tick mode, which is exact, and
-`summarize` compares the measures over their later years, seed by seed. The
-harness only builds, plays and reads simulations: each run is the stock
-simulation of `simulation.build_simulation`, read through its census.
+`summarize` compares the measures over their later years, seed by seed;
+`spread` reads one setting played on several seeds (the page's lab). Minds
+compared (`minds.py`): `play_mind` plays a scenario with one mind, and
+`minds_report` sets minds side by side. The harness only builds, plays and
+reads simulations: each run is the stock simulation of
+`simulation.build_simulation`, read through its census.
 """
 
 from collections.abc import Mapping, Sequence
 import dataclasses
 import statistics
+import time
 from typing import Any
 
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
+from examples.lifeways.world import world as world_lib
 
 # The measures compared, each read from a census row.
 MEASURES: Mapping[str, Any] = {
@@ -225,3 +230,114 @@ def report(summary: Mapping[str, Any], title: str) -> str:
         f' {m["above"]}/{m["below"]} |'
     )
   return '\n'.join(lines) + '\n'
+
+
+# Minds compared: the table's columns, a key of `mind_measures` and its
+# heading.
+MIND_COLUMNS = (
+    ('answers', 'answers'),
+    ('unread', 'not read'),
+    ('cited', 'named a custom'),
+    ('sow', '"sow a field"'),
+    ('fields', 'fields grown'),
+    ('barren', 'grew nothing'),
+    ('deaths', 'deaths'),
+    ('living', 'alive at the end'),
+    ('own_unseen', 'own norms kept unseen'),
+    ('known_unseen', 'expected norms kept unseen'),
+    ('seconds_a_year', 'seconds a year'),
+    ('calls', 'model calls'),
+)
+
+
+def mind_measures(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+  """A run's measures, from its census rows.
+
+  Args:
+    rows: A census row a year (`Run.census_row`).
+
+  Returns:
+    Answers, those not read and those that named a custom; "sow a field"
+    moves, fields grown and sowings that grew nothing; deaths; the living
+    at the end; own and expected norms kept unseen (shares, None if none
+    were held).
+  """
+  moves = [row.get('moves', {}) for row in rows]
+
+  def kept(key: str) -> float | None:
+    k = sum(row.get('norms_kept', {}).get(key, [0, 0])[0] for row in rows)
+    n = sum(row.get('norms_kept', {}).get(key, [0, 0])[1] for row in rows)
+    return round(k / n, 3) if n else None
+
+  return {
+      'answers': sum(sum(m.values()) for m in moves),
+      'unread': sum(m.get('', 0) for m in moves),
+      'cited': sum(row.get('cited', 0) for row in rows),
+      'sow': sum(m.get(world_lib.SOW, 0) for m in moves),
+      'fields': sum(row.get('sown', 0) for row in rows),
+      'barren': sum(row.get('barren', 0) for row in rows),
+      'deaths': sum(row.get('deaths', 0) for row in rows),
+      'living': rows[-1]['population'] if rows else 0,
+      'own_unseen': kept('own_unseen'),
+      'known_unseen': kept('known_unseen'),
+  }
+
+
+def minds_report(
+    results: Mapping[str, Sequence[Mapping[str, Any]]], title: str
+) -> str:
+  """The minds side by side, as a Markdown table.
+
+  Args:
+    results: Each mind's runs' measures (`mind_measures`, with `seconds_a_year`
+      and `calls`).
+    title: The table's title.
+
+  Returns:
+    The table: each measure's mean over a mind's runs (shares as %, a run
+    with none held left out).
+  """
+  lines = [
+      f'# {title}',
+      '',
+      '| minds | runs | ' + ' | '.join(h for _, h in MIND_COLUMNS) + ' |',
+      '|---|---|' + '---|' * len(MIND_COLUMNS),
+  ]
+  for mind, runs in results.items():
+    cells = []
+    for key, _ in MIND_COLUMNS:
+      values = [r[key] for r in runs if r.get(key) is not None]
+      if not values:
+        cells.append('–')
+      elif key in ('own_unseen', 'known_unseen'):
+        cells.append(f'{round(100 * statistics.fmean(values))}%')
+      else:
+        mean = statistics.fmean(values)
+        cells.append(f'{mean:.1f}'.removesuffix('.0'))
+    lines.append(f'| {mind} | {len(runs)} | ' + ' | '.join(cells) + ' |')
+  return '\n'.join(lines) + '\n'
+
+
+def play_mind(
+    mind: str, scenario: str, seed: int, years: int
+) -> dict[str, Any]:
+  """One run by one mind: its measures, seconds a year and model calls."""
+  model, counts = simulation.make_model(mind)
+  settings = scenarios.settings(scenario, seed=seed, max_years=years)
+  run = simulation.build_simulation(
+      settings, model=model, archive=simulation.Archive(keep=0)
+  )
+  rows: list[dict[str, Any]] = []
+  run.lifecycle.year_closed = lambda year: rows.append(run.census_row(year))
+  start = time.monotonic()
+  run.play(log_retention=0)
+  seconds = time.monotonic() - start
+  out = mind_measures(rows)
+  out['seconds_a_year'] = round(seconds / max(1, len(rows)), 2)
+  out['calls'] = (
+      len(counts.get_stats()['values'].get('llm_prompt_tokens', ()))
+      if counts is not None
+      else 0
+  )
+  out['rows'] = rows
+  return out
