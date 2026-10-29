@@ -518,7 +518,14 @@ class Run:
           if module.startswith('concordia.')
           else 'lifeways'
       )
-      return {'key': key, 'class': type(component).__name__, 'source': source}
+      found_part = {
+          'key': key,
+          'class': type(component).__name__,
+          'source': source,
+      }
+      if isinstance(component, culture.QuestionCustom):
+        found_part['wraps'] = component.stock  # The stock part it is.
+      return found_part
 
     components = found.get_all_context_components()  # pyrefly: ignore[missing-attribute]
     for _ in range(5):  # A live view: a person may add a custom meanwhile.

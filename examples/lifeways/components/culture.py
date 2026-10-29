@@ -141,6 +141,11 @@ class QuestionCustom(Custom, entity_component.ComponentWithLogging):
     super().set_entity(entity)
     self._question.set_entity(entity)
 
+  @property
+  def stock(self) -> str:
+    """The stock Concordia component that asks the question."""
+    return type(self._question).__name__
+
   @override
   def set_logging_channel(self, logging_channel: Any) -> None:
     """Logs the question and its answer on the custom's channel."""

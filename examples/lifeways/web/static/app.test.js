@@ -177,12 +177,17 @@ test('an entity says how Concordia builds it, customs counted once', () => {
       {key: 'learner', class: 'Learner', source: 'lifeways'},
       {key: 'custom c1', class: 'Custom', source: 'lifeways'},
       {key: 'custom c2', class: 'Custom', source: 'lifeways'},
+      {key: 'custom c3', class: 'QuestionCustom', source: 'lifeways',
+        wraps: 'QuestionOfRecentMemories'},
     ]}), [
     'EntityAgentWithLogging (stock Concordia): the entity',
     'AssociativeMemory (stock Concordia): remembers what it has seen',
     'Learner (this example): takes up customs it is offered, and lets old ' +
         'ones go',
     'Custom × 2 (this example): a custom: a text it reads when it decides',
+    'QuestionCustom (this example, around the stock ' +
+        'QuestionOfRecentMemories): a custom of reasoning: a question it ' +
+        'asks itself before it acts',
     'It acts through ConcatActComponent (stock Concordia): asks its mind (a ' +
         'language model, or the simple rules) what it does, in one ' +
         'document of all the parts above',

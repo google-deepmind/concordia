@@ -1795,6 +1795,9 @@ const PART_WORDS = {
   Constant: 'a fixed text it reads: who it is',
   Learner: 'takes up customs it is offered, and lets old ones go',
   Custom: 'a custom: a text it reads when it decides',
+  QuestionCustom: 'a custom of reasoning: a question it asks itself ' +
+      'before it acts',
+  Now: 'its situation this year, as the World last told it, read first',
   ConcatActComponent: 'asks its mind (a language model, or the simple ' +
       'rules) what it does, in one document of all the parts above',
   PlayedAct: 'you answer for this person; unanswered, it acts by habit',
@@ -1826,7 +1829,8 @@ const SOURCE_WORDS = {
 function anatomyLines(anatomy) {
   const line = (part, count = 1) => `${part.class}` +
       (count > 1 ? ` × ${count}` : '') +
-      ` (${SOURCE_WORDS[part.source] || part.source}): ` +
+      ` (${SOURCE_WORDS[part.source] || part.source}` +
+      (part.wraps ? `, around the stock ${part.wraps}` : '') + '): ' +
       (PART_WORDS[part.class] || 'a part of this entity');
   const counts = new Map();
   const first = new Map();

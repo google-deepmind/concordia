@@ -814,6 +814,24 @@ class MindsTest(absltest.TestCase):
     self.assertGreater(played['answers'], 0)
 
 
+class AnatomyTest(absltest.TestCase):
+
+  def test_a_person_shows_its_question_custom_around_the_stock_part(self):
+    run = simulation.build_simulation(
+        scenarios.settings('two_valleys', max_years=1)
+    )
+    name = next(e.name for e in run.sim.entities if e.name != 'Experimenter')
+
+    anatomy = run.anatomy(name)
+    assert anatomy is not None
+
+    parts = {p['class']: p for p in anatomy['components']}
+    self.assertEqual(
+        parts['QuestionCustom']['wraps'], 'QuestionOfRecentMemories'
+    )
+    self.assertEqual(parts['Now']['source'], 'lifeways')
+
+
 class PlotTest(absltest.TestCase):
 
   def test_it_draws_a_census(self):
