@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-  queuedNote,
+  overlayKey, personColour, queuedNote, tongueRanks,
   statusLines,
   goneFromPanel, paceNote,
   peoplesText,
@@ -179,6 +179,33 @@ test('an entity says how Concordia builds it, customs counted once', () => {
         'language model, or the simple rules) what it does, in one ' +
         'document of all the parts above',
   ]);
+});
+
+test('the map colours people by the overlay chosen, and keys it', () => {
+  const people = [
+    {name: 'A', descent: 'River people', speech: 'c1', food: 0.5, age: 30,
+      people: 0},
+    {name: 'B', descent: 'River people', speech: 'c1', food: 7, age: 60,
+      people: 0},
+    {name: 'C', descent: 'Hill people', speech: 'c2', food: 2, age: 5,
+      people: -1},
+  ];
+  const world = {people, grown_age: 16};
+  const tongues = tongueRanks(people);
+  assert.equal(tongues.get('c1'), 0);
+  assert.equal(personColour(people[0], 'food', world, tongues), '#d62828');
+  assert.equal(personColour(people[1], 'food', world, tongues), '#ffffff');
+  assert.equal(personColour(people[2], 'people', world, tongues), '#9a9a9a');
+  assert.deepEqual(overlayKey(world, 'age').map(([, words]) => words),
+      ['grown (1)', 'elders (1)', 'children (1)']);
+  assert.deepEqual(overlayKey(world, 'people').map(([, words]) => words),
+      ['a people of 2, mostly of the River people',
+        'children and newcomers, of no people yet (1)']);
+  assert.deepEqual(overlayKey(world, 'tongue').map(([, words]) => words),
+      ['a tongue spoken by 2, mostly of the River people',
+        'a tongue spoken by 1, mostly of the Hill people']);
+  assert.deepEqual(overlayKey(world, 'descent').map(([, words]) => words),
+      ['the River people (2)', 'the Hill people (1)']);
 });
 
 test('a panel says when its person is no longer alive', () => {

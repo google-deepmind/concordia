@@ -1483,6 +1483,7 @@ class Session:
     with self.run.world_lock():
       reach = self.run.world().song_reach()
     land = world['land']
+    people_of = dict(self.run.people_of)  # The last census's peoples.
     people = [
         {
             'name': p['name'],
@@ -1493,6 +1494,7 @@ class Session:
             'partner': p['partner'],
             'descent': p.get('descent', ''),
             'speech': p.get('speech', ''),
+            'people': people_of.get(p['name'], -1),  # -1: a child, or new.
         }
         for p in world['people']
     ]

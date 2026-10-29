@@ -275,6 +275,9 @@ class Run:
   archive: Archive
   # The stock engine the simulation runs on (its `pause` / `play`).
   engine: asynchronous.Asynchronous
+  # Which people (by the census's order, largest first) each grown person
+  # was of when `peoples` last measured them (the page colours by it).
+  people_of: dict[str, int] = dataclasses.field(default_factory=dict)
 
   def world_state(self) -> Mapping[str, Any]:
     """A copy of the world's state, taken under the World GM's lock.
@@ -576,6 +579,9 @@ class Run:
     for name in grown:
       clusters[find(name)].append(name)
     ordered = sorted(clusters.values(), key=len, reverse=True)
+    self.people_of = {
+        name: i for i, members in enumerate(ordered) for name in members
+    }
     return {
         'peoples': len(ordered),
         'sizes': [len(members) for members in ordered],

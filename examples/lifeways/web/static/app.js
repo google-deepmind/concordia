@@ -60,6 +60,8 @@ const page = {
   lineageYear: -1,
   /** @type {!Array<!Array<number>>} [ms, year] seen while running. */
   paceSeen: [],
+  /** How the map colours people (`personColour`), remembered if it may. */
+  overlay: remembered('lifeways.overlay', 'descent'),
   /** @type {?string} The played person's question shown, if any. */
   asked: null,
   /** @type {?Array<number>} The place chosen for a release: [row, col]. */
@@ -112,6 +114,34 @@ function peopleColour(name) {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return PEOPLE_COLOURS[hash % PEOPLE_COLOURS.length];
+}
+
+/**
+ * A choice this browser remembers, if it may (private windows may not).
+ * @param {string} key The storage key.
+ * @param {string} fallback The value if none is kept.
+ * @return {string} The value.
+ */
+function remembered(key, fallback) {
+  try {
+    return (typeof localStorage !== 'undefined' &&
+        localStorage.getItem(key)) || fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+/**
+ * Keeps a choice in this browser, if it may.
+ * @param {string} key The storage key.
+ * @param {string} value The value.
+ */
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    // Not kept: the page works the same without it.
+  }
 }
 
 /**
@@ -216,6 +246,7 @@ function drawMap(world) {
     ctx.stroke();
   }
   const crowd = {};
+  const tongues = tongueRanks(world.people);
   for (const person of world.people) {
     const key = person.tile.join(',');
     const n = (crowd[key] = (crowd[key] || 0) + 1) - 1;
@@ -226,7 +257,7 @@ function drawMap(world) {
     ctx.beginPath();
     ctx.arc(person.x, person.y,
         page.tile * (person.age < world.grown_age ? 0.2 : 0.3), 0, 2 * Math.PI);
-    ctx.fillStyle = peopleColour(person.descent || 'valley');
+    ctx.fillStyle = personColour(person, page.overlay, world, tongues);
     ctx.fill();
     // A dark ring and a light one: a dot shows on any land, light or dark.
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
@@ -1766,19 +1797,104 @@ function drawMapKey(kinds) {
  */
 function drawPeopleKey(world) {
   const key = document.getElementById('people-key');
-  const counts = new Map();
-  for (const person of world.people) {
-    const descent = person.descent || 'valley';
-    counts.set(descent, (counts.get(descent) || 0) + 1);
-  }
-  key.replaceChildren(counts.size ? 'By descent:' : '');
-  [...counts].sort((a, b) => b[1] - a[1]).forEach(([descent, n], i) => {
-    const swatch = document.createElement('span');
-    swatch.className = 'swatch';
-    swatch.style.background = peopleColour(descent);
-    key.append(i ? ', ' : ' ', swatch, `the ${descent} (${n})`);
-  });
+  key.replaceChildren();
+  overlayKey(world, page.overlay).forEach(([colour, label], i) => {
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = colour;
+        key.append(i ? ', ' : '', swatch, label);
+      });
   document.getElementById('key-you').hidden = !world.played;
+}
+
+/** Food stored, in bands, for the food overlay: [below, colour, words]. */
+const FOOD_BANDS = [
+  [1, '#d62828', 'starving (under 1)'],
+  [3, '#f77f00', 'short (1 to 3)'],
+  [6, '#fcbf49', 'enough (3 to 6)'],
+  [Infinity, '#ffffff', 'plenty (6 or more)'],
+];
+/** The age from which a person is an elder (the World's `ELDER_AGE`). */
+const ELDER_AGE = 56;
+
+/**
+ * Ranks the tongues spoken, most speakers first.
+ * @param {!Array<!Object>} people The living, with `speech`.
+ * @return {!Map<string, number>} Each tongue's rank.
+ */
+function tongueRanks(people) {
+  const counts = new Map();
+  for (const p of people) counts.set(p.speech, (counts.get(p.speech) || 0) + 1);
+  return new Map([...counts].sort((a, b) => b[1] - a[1])
+      .map(([speech], i) => [speech, i]));
+}
+
+/**
+ * A person's colour on the map, by the overlay chosen.
+ * @param {!Object} person The person, as the state gives them.
+ * @param {string} overlay 'descent', 'people', 'tongue', 'food' or 'age'.
+ * @param {!Object} world The state (its `grown_age`).
+ * @param {!Map<string, number>} tongues The tongues' ranks.
+ * @return {string} The colour.
+ */
+function personColour(person, overlay, world, tongues) {
+  const ranked = (i) => i < 0 ? '#9a9a9a' :
+    PEOPLE_COLOURS[i % PEOPLE_COLOURS.length];
+  if (overlay === 'people') return ranked(person.people ?? -1);
+  if (overlay === 'tongue') return ranked(tongues.get(person.speech) ?? -1);
+  if (overlay === 'food') {
+    return FOOD_BANDS.find(([below]) => person.food < below)[1];
+  }
+  if (overlay === 'age') {
+    return person.age < world.grown_age ? '#ffffff' :
+        person.age >= ELDER_AGE ? '#1a1a1a' : '#d62828';
+  }
+  return peopleColour(person.descent || 'valley');
+}
+
+/**
+ * The key to the map's colours for the overlay chosen.
+ * @param {!Object} world The state.
+ * @param {string} overlay As `personColour`'s.
+ * @return {!Array<!Array<string>>} [colour, words] of each, most first.
+ */
+function overlayKey(world, overlay) {
+  const tongues = tongueRanks(world.people);
+  const groups = new Map();
+  for (const p of world.people) {
+    const colour = personColour(p, overlay, world, tongues);
+    if (!groups.has(colour)) groups.set(colour, []);
+    groups.get(colour).push(p);
+  }
+  const mostly = (people) => {
+    const counts = new Map();
+    for (const p of people) {
+      counts.set(p.descent, (counts.get(p.descent) || 0) + 1);
+    }
+    return [...counts].sort((a, b) => b[1] - a[1])[0][0] || 'valley';
+  };
+  const label = (colour, people) => {
+    const n = people.length;
+    const one = people[0];
+    if (overlay === 'people') {
+      return one.people < 0 ?
+        `children and newcomers, of no people yet (${n})` :
+        `a people of ${n}, mostly of the ${mostly(people)}`;
+    }
+    if (overlay === 'tongue') {
+      return `a tongue spoken by ${n}, mostly of the ${mostly(people)}`;
+    }
+    if (overlay === 'food') {
+      return `${FOOD_BANDS.find(([, c]) => c === colour)[2]} (${n})`;
+    }
+    if (overlay === 'age') {
+      return `${one.age < world.grown_age ? 'children' :
+        one.age >= ELDER_AGE ? 'elders' : 'grown'} (${n})`;
+    }
+    return `the ${one.descent || 'valley'} (${n})`;
+  };
+  return [...groups].sort((a, b) => b[1].length - a[1].length)
+      .map(([colour, people]) => [colour, label(colour, people)]);
 }
 
 /**
@@ -1984,6 +2100,16 @@ async function start() {
       (event) => {
         if (event.target.open) showAnatomy('world-anatomy-list', '');
       });
+  const overlay = document.getElementById('overlay');
+  overlay.value = page.overlay;
+  overlay.addEventListener('change', () => {
+    page.overlay = overlay.value;
+    remember('lifeways.overlay', page.overlay);
+    if (page.world) {
+      drawMap(page.world);
+      drawPeopleKey(page.world);
+    }
+  });
   document.getElementById('lineage-update').addEventListener('click', () => {
     if (page.lineage) showLineage(page.lineage, false);
   });
@@ -2139,7 +2265,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-    queuedNote,
+    overlayKey, personColour, queuedNote, tongueRanks,
     statusLines,
     goneFromPanel, paceNote,
     peoplesText,

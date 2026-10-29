@@ -87,9 +87,18 @@ limitations under the License.
     <canvas id="map" width="480" height="320"></canvas>
     <p id="at-note" class="hint" aria-live="polite"></p>
     <p id="map-key" class="hint"></p>
+    <label class="filter">Colour people by
+      <select id="overlay">
+        <option value="descent">descent</option>
+        <option value="people">people (who would marry one another)</option>
+        <option value="tongue">tongue</option>
+        <option value="food">food stored</option>
+        <option value="age">age</option>
+      </select>
+    </label>
     <p id="people-key" class="hint"></p>
     <ul class="hint key-list">
-      <li>A dot is a person, coloured by descent (above); small dots are
+      <li>A dot is a person, coloured as chosen above; small dots are
         children. Tap one to see their customs.</li>
       <li>Squares are places: L library, S school, ✦ shrine, C court.</li>
       <li>Golden furrows are fields; a dashed amber outline is a disaster of
