@@ -624,6 +624,28 @@ class MockMindTest(absltest.TestCase):
     self.assertEqual(mind('lean'), f'{world_lib.GATHER} c1')
     self.assertNotEqual(mind('good'), f'{world_lib.GATHER} c1')
 
+  def test_an_elder_tells_of_what_it_saw(self):
+    def mind(died):
+      return _ask_mock(
+          '\n'.join([
+              '(identity) [c1]: We are the River people.',
+              f'{died} has died, aged 70.',
+              'Food stored: 5.0',
+          ]),
+          '\n'.join([
+              'What do you do?',
+              f'- {world_lib.TELL_PAST}',
+              f'- {world_lib.REST}',
+          ]),
+      )
+
+    # The prompt's draw decides whether it tells (here it does), and what
+    # it tells is what it saw, in the past.
+    self.assertEqual(
+        mind('Eli'),
+        f'{world_lib.TELL_PAST}: We remember when Eli died, aged 70.',
+    )
+
   def test_a_custom_of_property_spares_others_fields(self):
     moves = [world_lib.GATHER, world_lib.SPARE, world_lib.REST]
     fishing = (culture_lib.FOOD, 'c1', 'Smoking fish.')

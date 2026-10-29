@@ -1560,6 +1560,41 @@ class MarketTest(_PlaceTest):
     self.assertEqual(self.world.history[-1]['sold'], 0)
 
 
+class StoryTest(_PlaceTest):
+
+  def test_an_elder_tells_of_the_old_days_in_its_own_words(self):
+    self._person('Ada', 60, (5, 5))
+    self._person('Bo', 30, (5, 6))
+    self._person('Kid', 2, (5, 6))  # Too young to listen.
+    self.assertIn(world_lib.TELL_PAST, self.world.moves('Ada'))
+    self.assertNotIn(world_lib.TELL_PAST, self.world.moves('Bo'))
+
+    self._year(
+        Ada=(
+            f'Ada will {world_lib.TELL_PAST}: "We remember when the river'
+            ' rose and took the fields."'
+        ),
+        Bo='rest',
+        Kid='play',
+    )
+
+    ((told, via, by),) = self._offers('Bo')
+    self.assertEqual((via, by), ('story', 'Ada'))
+    story = self.world.culture.get(told)
+    self.assertEqual(story.kind, culture_lib.STORY)
+    self.assertEqual(story.domain, culture_lib.IDENTITY)
+    self.assertEqual(self._offers('Kid'), [])
+    self.assertEqual(self.world.history[-1]['stories'], 1)
+
+  def test_a_few_words_tell_nothing(self):
+    self._person('Ada', 60, (5, 5))
+    self._person('Bo', 30, (5, 6))
+
+    self._year(Ada=f'{world_lib.TELL_PAST}: Long ago.', Bo='rest')
+
+    self.assertEqual(self._offers('Bo'), [])
+
+
 class SchoolTest(_PlaceTest):
 
   def test_a_school_teaches_any_child_nearby_for_a_term(self):

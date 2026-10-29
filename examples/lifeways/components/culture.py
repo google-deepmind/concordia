@@ -57,6 +57,7 @@ _LABELS = {
     culture_lib.DIALECT: 'How we speak',
     culture_lib.MARRIAGE: 'Whom we marry',
     culture_lib.QUESTION: 'A question we ask ourselves',
+    culture_lib.STORY: 'A story we tell of the old days',
 }
 # How many recent memories a question custom reads.
 QUESTION_MEMORIES = 10

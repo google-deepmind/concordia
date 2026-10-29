@@ -2017,6 +2017,7 @@ const EXAMPLE_SAYS = {
   marriage: 'We marry only our own people.',
   bias: 'Learn from the eldest.',
   question: 'What would my elders do in a situation such as this?',
+  story: 'In the year of the great fire, we fled to the hills.',
 };
 
 /** What each kind of custom is, in words. */
@@ -2030,6 +2031,7 @@ const KIND_WORDS = {
   dialect: 'a way of speaking',
   marriage: 'whom to marry',
   question: 'a question asked before acting',
+  story: 'a story of the old days',
 };
 
 /** The world's levers, in words. */
@@ -2271,6 +2273,7 @@ const ARISEN_BY = {
   improvement: 'improved by a careful learner',
   known: 'came to be only expected of people, not held as their own',
   internalized: 'came to be held as people\'s own',
+  story: 'told by an elder, of the old days',
 };
 
 /**

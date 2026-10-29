@@ -71,7 +71,21 @@ MARRIAGE = 'marriage'
 # A step of decision logic: a question the person asks itself before it
 # acts (DESIGN 3), built as the stock `QuestionOfRecentMemories`.
 QUESTION = 'question'
-KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT, MARRIAGE, QUESTION)
+# A story of the old days, in an elder's own words (who we are is what we
+# remember).
+STORY = 'story'
+KINDS = (
+    NORM,
+    VALUE,
+    BELIEF,
+    SKILL,
+    HABIT,
+    BIAS,
+    DIALECT,
+    MARRIAGE,
+    QUESTION,
+    STORY,
+)
 
 # What a marriage rule's `within` param asks of a partner: to speak as one
 # does (understanding at least `SAME_TONGUE`), or to be of one's people.
@@ -86,6 +100,7 @@ KIND_DOMAINS: Mapping[str, tuple[str, ...]] = {
     DIALECT: (LANGUAGE,),
     MARRIAGE: (KINSHIP,),
     QUESTION: (REASONING,),
+    STORY: (IDENTITY,),
 }
 
 

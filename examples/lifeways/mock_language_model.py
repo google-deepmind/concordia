@@ -47,6 +47,18 @@ _SPEECH = frozenset({'spea', 'tong', 'word', 'lang', 'talk'})  # _stems
 _LEVEL = re.compile(r' \(level \d+\)$')
 _TEND = re.compile(r'\btend\b', re.IGNORECASE)
 _SKILLED = re.compile(r'\(level [2-9]\)$')  # Know-how worth paying for.
+# What an elder remembers as worth a story: deaths, buildings, judgments
+# and heirs it saw; told in the past.
+_PAST = (
+    (' has died,', ' died,'),
+    (' builds ', ' built '),
+    (' judges ', ' judged '),
+    (' inherits ', ' inherited '),
+)
+_NOTABLE = re.compile(
+    r'[A-Z][a-z]+ (?:has died, aged \d+|builds an? [a-z]+(?: at row \d+,'
+    r' column \d+)?|judges [A-Z][a-z]+|inherits [^.\n]+)'
+)
 _DESCENT = re.compile(r'is of the ([^.]+)\.')
 _SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
 _SUITOR = re.compile(
@@ -284,6 +296,13 @@ def _choose(
       if domain
       in (culture_lib.SACRED, culture_lib.IDENTITY, culture_lib.SHARING)
   ]
+  # An elder tells of the latest notable thing it saw, as a story.
+  notable = _NOTABLE.findall(prompt)
+  if world_lib.TELL_PAST in moves and notable and draw < 0.3:
+    told_of = notable[-1]
+    for now, then in _PAST:
+      told_of = told_of.replace(now, then)
+    return f'{world_lib.TELL_PAST}: We remember when {told_of}.'
   if world_lib.TELL in moves and told and draw < 0.4:
     return ' '.join([world_lib.TELL, *told])
   believed = [cid for domain, cid, _ in customs if domain == culture_lib.SACRED]

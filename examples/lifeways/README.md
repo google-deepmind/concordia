@@ -514,6 +514,15 @@ stories breed variants. Anyone may `preach` one custom to all within sight:
 the `preaching` channel is content-biased, moving beliefs and values more
 readily than other kinds, and skills not at all.
 
+**Stories of the old days.** An elder may also `tell of the old days`, in
+its own words: what it remembers condenses into a story. The World makes
+those words (at most 200 characters, at least four words) a new custom of
+the `story` kind, about identity, as it makes a release's words one, and
+all within sight hear it by the `story` channel, which retells with errors.
+The mock tells of the latest notable thing it saw ("We remember when Arne
+died, aged 67."); a live mind tells what it will. The census counts the
+stories told (`stories`).
+
 **The custom designer.** The Experimenter never edits a mind. It may
 release a custom it designed into the world:
 

@@ -80,6 +80,10 @@ JUDGE = (  # ... a name: one seen keeping full stores while others starved.
 LEAD_RITE = 'lead the rite'
 JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
+# An elder's: tell of the old days, in its own words (a new story).
+TELL_PAST = 'tell of the old days'
+STORY_LENGTH = 200  # The most of an elder's words a story keeps.
+_STORY_WORDS = re.compile(r'[A-Za-z]+')
 PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
 SOW = 'sow a field'
@@ -481,8 +485,10 @@ class World:
     # How often each has judged at a court, ever (its standing): what
     # offers from it say, for learners who defer to judges.
     self.judgments: dict[str, int] = {}
-    # Know-how sold at markets this year (the census's).
+    # Know-how sold at markets this year, and stories of the old days told
+    # (the census's).
     self._sold = 0
+    self._stories = 0
     # Food shares given this year, and who others fed (the census's).
     self._shares = 0
     self._fed: set[str] = set()
@@ -1060,7 +1066,7 @@ class World:
         culture_lib.STORY in self.channels
         and person.age(self.year) >= ELDER_AGE
     ):
-      found.append(TELL)
+      found.extend([TELL, TELL_PAST])
     if culture_lib.PREACHING in self.channels:
       found.append(PREACH)
     if person.food >= self.share + 1.0:
@@ -1561,6 +1567,7 @@ class World:
     self._judged = set()
     self._inherited = 0
     self._sold = 0
+    self._stories = 0
     self._shares = 0
     self._fed = set()
     self._releases = []
@@ -1755,6 +1762,8 @@ class World:
       self._hold_court(person, move, enacted)
     elif move in (TELL, PREACH):
       self._speak(person, move, enacted)
+    elif move == TELL_PAST:
+      self._tell_past(person, action)
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -2165,6 +2174,41 @@ class World:
           self._offer(
               listener, person.name, custom_id, via, f'{person.name} {scene}'
           )
+
+  def _tell_past(self, person: Person, answer: str) -> None:
+    """An elder tells of the old days: its words become a story, retold.
+
+    The words after the move (its own account of what it remembers, at most
+    `STORY_LENGTH`) are a new custom of the `story` kind, as a release's
+    words are; all within sight hear it by the `story` channel, which
+    retells with errors. Fewer than four words tell nothing.
+
+    Args:
+      person: The elder.
+      answer: Its answer.
+    """
+    at = answer.lower().find(TELL_PAST)
+    words = ' '.join(answer[at + len(TELL_PAST) :].split()).strip(' :-"\'')
+    words = CUSTOM_ID.sub('', words)[:STORY_LENGTH].strip()
+    if len(_STORY_WORDS.findall(words)) < 4:
+      return
+    story = self.culture.add(
+        culture_lib.STORY,
+        culture_lib.IDENTITY,
+        words,
+        origin='story',
+        year=self.year,
+    )
+    self._stories += 1
+    for listener in self._in_sight(person):
+      if self.people[listener].age(self.year) >= CHILD_ACTS_AGE:
+        self._offer(
+            listener,
+            person.name,
+            story.id,
+            culture_lib.STORY,
+            f'{person.name} tells of the old days',
+        )
 
   def _lead_rite(
       self, person: Person, move: str, enacted: Sequence[str]
@@ -2879,6 +2923,7 @@ class World:
         'judged': len(self._judged),
         'inherited': self._inherited,
         'sold': self._sold,
+        'stories': self._stories,
         'libraries': sum(
             1
             for p in self.places.all()
