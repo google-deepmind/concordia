@@ -342,8 +342,11 @@ part, read from the running entities (`Run.anatomy`, `GET /api/anatomy`).
 **People** (`prefabs/person.py`) are entities with these components:
 - `AssociativeMemory`, `ObservationToMemory`, `LastNObservations`;
 - a `Constant` identity;
+- `Now` (`components/situation.py`): the World's latest status line, shown
+  right after the identity, so a small mind reads its situation first;
 - the `Learner` (`components/culture.py`);
-- their **customs**, one `Custom` component each.
+- their **customs**, one `Custom` component each (a question custom wraps
+  the stock `QuestionOfRecentMemories`).
 
 Customs are added and removed while a person lives (`EntityAgent.add_component`
 / `remove_component`). They are rebuilt on restore through the entity's
@@ -639,12 +642,11 @@ setting too (`seen_deeds`, all by default), for onlookers (observation) and
 children (upbringing) alike. No founder of the Sandbox knows how to farm (a
 song may teach it); in First Farmers a third do.
 
-**Institutions.** The Experimenter may found a library, school, shrine or
-court at a place (`found a <kind> at <row>,<col>`), where the world has that
-kind and none stands within its spacing; it stands empty until people use
-it.
-It may also close one (`close the <kind> at <row>,<col>`): the place and
-what it held are gone.
+**Institutions.** The Experimenter may found a library, school, shrine,
+court or market at a place (`found a <kind> at <row>,<col>`), where the
+world has that kind and none stands within its spacing; it stands empty
+until people use it. It may also close one (`close the <kind> at
+<row>,<col>`): the place and what it held are gone.
 
 **Partners.** One who looks for a partner looks until paired, with the
 nearest who is looking too. Parents and children, and siblings, never pair.
@@ -727,4 +729,11 @@ Answer: Kaka gather food c4 c7
 
 ```bash
 pytest examples/lifeways
+node --test examples/lifeways/web/static/app.test.js
 ```
+
+About 250 Python tests (the World's rules, the components, the session,
+the server, the lab, the report) run in a few minutes with the project's
+`-n auto`; the page's pure functions have node tests. The flags live only
+in the binaries (`run.py`, `experiment.py`, `minds.py`), so every module
+the tests import can share one process with the other examples.
