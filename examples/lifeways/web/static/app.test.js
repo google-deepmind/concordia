@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  anatomyLines, answerText, askedNote, askMove, cameBy, letGoText, mapText,
+  anatomyLines, answerText, askedNote, askMove, awayLines, cameBy,
+  letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -247,6 +248,20 @@ test('the map is said in words: who is where, what stands there', () => {
   assert.equal(tileText(world, [2, 3]),
       'Row 2, column 3: Ada and Bo; a library.');
   assert.equal(tileText(world, [0, 0]), 'Row 0, column 0: nobody.');
+});
+
+test('a return says what happened since, the latest first', () => {
+  const entries = [
+    {id: 1, year: 3, kind: 'event', text: 'Only 9 people are left.'},
+    {id: 2, year: 4, kind: 'move', text: 'You queue a move: stop the world'},
+    {id: 3, year: 9, kind: 'event', text: 'Kaka built a court at row 1, ' +
+        'column 2.'},
+  ];
+  assert.deepEqual(awayLines(entries, 1),
+      ['Year 9: Kaka built a court at row 1, column 2.']);
+  assert.deepEqual(awayLines(entries, 0, 1),
+      ['Year 9: Kaka built a court at row 1, column 2.']);
+  assert.deepEqual(awayLines(entries, 3), []);
 });
 
 test('a panel says when its person is no longer alive', () => {

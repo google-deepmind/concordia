@@ -144,6 +144,15 @@ button.link {
   color: var(--accent);
   text-decoration: underline;
 }
+.card {
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+.card h2 { margin-top: 4px; }
+#away-list { padding-left: 18px; }
+#away-list li { margin: 3px 0; }
 #place {
   border: 1px solid var(--line);
   border-radius: 8px;

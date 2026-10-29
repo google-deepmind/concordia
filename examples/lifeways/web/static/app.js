@@ -60,6 +60,8 @@ const page = {
   lineageYear: -1,
   /** @type {!Array<!Array<number>>} [ms, year] seen while running. */
   paceSeen: [],
+  /** The tour's step shown (only on a first visit). */
+  tourStep: 0,
   /** How the map colours people (`personColour`), remembered if it may. */
   overlay: remembered('lifeways.overlay', 'descent'),
   /** @type {?string} The played person's question shown, if any. */
@@ -116,9 +118,70 @@ function peopleColour(name) {
   return PEOPLE_COLOURS[hash % PEOPLE_COLOURS.length];
 }
 
+/** The first-visit tour: [what it says, the section it shows]. */
+const TOUR_STEPS = [
+  ['Each dot on the map is a person. They are born, learn their ways ' +
+      'from one another, and die; the valley runs on without you.', 'valley'],
+  ['Tap a person to see the customs they live by, how they came by each, ' +
+      'and their family. Tap a square to see a place.', 'valley'],
+  ['You never edit a mind: release a custom of your own, as a song or a ' +
+      'text, and watch whether it spreads or dies out.', 'designer'],
+  ['The notebook keeps what you did and what the valley did. "How it\'s ' +
+      'built" shows the Concordia parts behind it all.', 'notebook'],
+];
+
+/**
+ * What happened since a visit, the latest first, at most `most` lines.
+ * @param {!Array<!Object>} entries The notebook, oldest first.
+ * @param {number} since The last entry id the reader saw.
+ * @param {number=} most How many to list.
+ * @return {!Array<string>} Lines ('Year 40: ...'); none if nothing new.
+ */
+function awayLines(entries, since, most = 5) {
+  return entries.filter((e) => e.id > since && e.kind !== 'move')
+      .slice(-most).reverse()
+      .map((e) => `Year ${yearText(e.year)}: ${entryText(e)}`);
+}
+
 /** The sections whose heading folds them away. */
 const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
   'notebook', 'built'];
+
+/**
+ * On return: what happened since this browser last saw the notebook.
+ * @param {!Array<!Object>} entries The notebook, oldest first.
+ */
+function showAway(entries) {
+  const seen = Number(remembered('lifeways.seen', '0')) || 0;
+  const lines = seen ? awayLines(entries, seen) : [];
+  if (!lines.length) return;
+  const count = entries.filter((e) => e.id > seen && e.kind !== 'move').length;
+  document.getElementById('away-title').textContent =
+      `Since you were last here: ${count} ` +
+      `${count === 1 ? 'thing' : 'things'} happened`;
+  document.getElementById('away-list').replaceChildren(...lines.map((text) => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  document.getElementById('away').hidden = false;
+}
+
+/** Shows the tour's current step, or ends it. */
+function showTour() {
+  const step = page.tourStep;
+  const box = document.getElementById('tour');
+  if (step >= TOUR_STEPS.length) {
+    box.hidden = true;
+    remember('lifeways.toured', 'yes');
+    return;
+  }
+  document.getElementById('tour-text').textContent =
+      `${step + 1} of ${TOUR_STEPS.length}. ${TOUR_STEPS[step][0]}`;
+  document.getElementById('tour-next').textContent =
+      step === TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+  box.hidden = false;
+}
 
 /**
  * The sections a reader folded, as remembered (anything else: none).
@@ -1726,6 +1789,8 @@ async function refreshOnce() {
       const first = page.entrySince === 0;
       page.entrySince = entries[entries.length - 1].id;
       drawNotebook();
+      if (first) showAway(page.entries);
+      remember('lifeways.seen', String(page.entrySince));
       // The valley's news, said aloud (not the backlog on opening).
       const news = entries.filter((e) => e.kind !== 'move');
       if (!first && news.length) {
@@ -2346,6 +2411,33 @@ async function start() {
       remember('lifeways.folded', JSON.stringify([...folded]));
     });
   }
+  if (remembered('lifeways.toured', '') !== 'yes') showTour();
+  document.getElementById('tour-next').addEventListener('click', () => {
+    page.tourStep += 1;
+    showTour();
+  });
+  document.getElementById('tour-skip').addEventListener('click', () => {
+    page.tourStep = TOUR_STEPS.length;
+    showTour();
+  });
+  document.getElementById('tour-show').addEventListener('click', () => {
+    const section = document.getElementById(TOUR_STEPS[page.tourStep][1]);
+    if (section.classList.contains('folded')) {
+      section.querySelector('.fold').click();
+    }
+    section.scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
+  document.getElementById('away-close').addEventListener('click', () => {
+    document.getElementById('away').hidden = true;
+  });
+  document.getElementById('away-notebook').addEventListener('click', () => {
+    document.getElementById('away').hidden = true;
+    const notebook = document.getElementById('notebook');
+    if (notebook.classList.contains('folded')) {
+      notebook.querySelector('.fold').click();
+    }
+    notebook.scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
   document.getElementById('jump').addEventListener('change', (event) => {
     const section = document.getElementById(event.target.value);
     event.target.value = '';
@@ -2502,7 +2594,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    anatomyLines, answerText, askedNote, askMove, cameBy, letGoText, mapText,
+    anatomyLines, answerText, askedNote, askMove, awayLines, cameBy,
+    letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,
     tongueRanks,
