@@ -186,6 +186,191 @@ async function find(query) {
         'living matches.'})]));
 }
 
+/**
+ * Lays out a custom's family tree: a row a version, indented by depth, a
+ * dot sized by its holders; dead versions are marked `gone`.
+ * @param {!Array<!Object>} variants The lineage's tree, depth first:
+ *     {id, parent, depth, living, holders, text}.
+ * @return {!Object} {height, nodes: [{id, x, y, r, state, label, px, py}]}
+ *     (`px`, `py`: the parent's dot, or null).
+ */
+function treeLayout(variants) {
+  const row = 30;
+  const step = 22;
+  const at = new Map();
+  const texts = new Map(variants.map((v) => [v.id, v.text]));
+  const nodes = variants.map((v, i) => {
+    const n = v.holders.length;
+    const parent = texts.get(v.parent);
+    const words = parent === undefined ?
+      (v.text.length > 34 ? v.text.slice(0, 33) + '…' : v.text) :
+      wordChange(parent, v.text);
+    const node = {
+      id: v.id,
+      x: 10 + Math.min(v.depth, 8) * step,
+      y: 15 + i * row,
+      r: n ? Math.min(11, 4 + Math.sqrt(n) * 1.6) : 4,
+      state: n ? 'held' : v.living ? 'kept' : 'gone',
+      label: `${n ? `${n} · ` : ''}${words}`,
+    };
+    at.set(v.id, node);
+    return node;
+  });
+  for (const node of nodes) {
+    const parent = at.get(variants[nodes.indexOf(node)].parent);
+    node.px = parent ? parent.x : null;
+    node.py = parent ? parent.y : null;
+  }
+  return {height: 15 + variants.length * row, nodes};
+}
+
+/**
+ * How a copy's words differ from the text it was copied from: the words
+ * lost and gained (case and stops aside).
+ * @param {string} from The text copied.
+ * @param {string} to The copy.
+ * @return {string} E.g. '−only +always'; 'the same words' if none.
+ */
+function wordChange(from, to) {
+  const words = (text) => text.toLowerCase().match(/[a-z']+/g) || [];
+  const count = (list) => list.reduce(
+      (m, w) => m.set(w, (m.get(w) || 0) + 1), new Map());
+  const before = count(words(from));
+  const after = count(words(to));
+  const lost = [...before].flatMap(([w, n]) =>
+    Array(Math.max(0, n - (after.get(w) || 0))).fill(`−${w}`));
+  const gained = [...after].flatMap(([w, n]) =>
+    Array(Math.max(0, n - (before.get(w) || 0))).fill(`+${w}`));
+  return [...lost, ...gained].join(' ') || 'the same words';
+}
+
+/**
+ * Lays out a person's family in rows: grandparents, parents, the person
+ * (then partner, then siblings), children, grandchildren; at most `most`
+ * a row, the rest as '+N'. Rows are joined centre to centre.
+ * @param {!Object} kin The kin reply.
+ * @param {number} width The drawing's width.
+ * @param {number=} most Names a row shows at most.
+ * @return {!Object} {height, boxes: [{name, x, y, w, living, self, more}],
+ *     links: [[x1, y1, x2, y2]]}.
+ */
+function kinLayout(kin, width, most = 4) {
+  const rowH = 44;
+  const boxH = 26;
+  const rows = [
+    [].concat(kin.grandparents || []),
+    [].concat(kin.parents || []),
+    [{...kin.person, self: true}, ...[].concat(kin.partner || []),
+      ...[].concat(kin.siblings || [])],
+    [].concat(kin.children || []),
+    [].concat(kin.grandchildren || []),
+  ];
+  const boxes = [];
+  const centres = [];
+  let y = 6;
+  for (const people of rows) {
+    if (!people.length) continue;
+    const shown = people.slice(0, most);
+    const extra = people.length - shown.length;
+    const count = shown.length + (extra ? 1 : 0);
+    const w = Math.min(96, (width - 8 * (count + 1)) / count);
+    const left = (width - (count * w + (count - 1) * 8)) / 2;
+    shown.forEach((p, i) => boxes.push({
+      name: p.name, x: left + i * (w + 8), y, w, h: boxH,
+      living: Boolean(p.living), self: Boolean(p.self), more: 0}));
+    if (extra) {
+      boxes.push({name: `+${extra}`, x: left + shown.length * (w + 8), y, w,
+        h: boxH, living: false, self: false, more: extra});
+    }
+    centres.push([width / 2, y, y + boxH]);
+    y += rowH;
+  }
+  const links = centres.slice(1).map(([x, top], i) =>
+    [x, centres[i][2], x, top]);
+  return {height: y - rowH + boxH + 6, boxes, links};
+}
+
+/**
+ * How wide a drawing may be: its box's width, or (while folded away) its
+ * panel's, less the panel's padding.
+ * @param {!Element} box The drawing's box.
+ * @return {number} The width in CSS pixels.
+ */
+function drawingWidth(box) {
+  const panel = box.closest('section');
+  const width = box.clientWidth || (panel ? panel.clientWidth - 26 : 0);
+  return Math.max(240, width || 320);
+}
+
+/**
+ * An SVG element with its attributes.
+ * @param {string} tag The tag.
+ * @param {!Object} attrs Its attributes.
+ * @return {!Element} The element.
+ */
+function svg(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
+/**
+ * Draws a person's family: the living tap through to their panels.
+ * @param {!Object} kin The kin reply.
+ */
+function drawKin(kin) {
+  const box = document.getElementById('person-kin-tree');
+  const width = drawingWidth(box);
+  const {height, boxes, links} = kinLayout(kin, width);
+  const out = svg('svg', {width, height, viewBox: `0 0 ${width} ${height}`,
+    role: 'img', 'aria-label': `${kin.person.name}'s family, drawn`});
+  for (const [x1, y1, x2, y2] of links) {
+    out.append(svg('line', {x1, y1, x2, y2, class: 'kin-link'}));
+  }
+  for (const b of boxes) {
+    const g = svg('g', {class: `kin-box${b.living ? ' living' : ''}` +
+      `${b.self ? ' self' : ''}`});
+    g.append(svg('rect', {x: b.x, y: b.y, width: b.w, height: b.h, rx: 5}));
+    const text = svg('text', {x: b.x + b.w / 2, y: b.y + b.h / 2 + 4,
+      'text-anchor': 'middle'});
+    text.textContent = b.name;
+    g.append(text);
+    if (b.living && !b.self) {
+      g.addEventListener('click', () => showPerson(b.name));
+    }
+    out.append(g);
+  }
+  box.replaceChildren(out);
+}
+
+/**
+ * Draws a custom's family tree beside its list.
+ * @param {!Array<!Object>} variants The lineage's tree.
+ */
+function drawTree(variants) {
+  const box = document.getElementById('lineage-tree-drawing');
+  const width = drawingWidth(box);
+  const {height, nodes} = treeLayout(variants);
+  const out = svg('svg', {width, height, viewBox: `0 0 ${width} ${height}`,
+    role: 'img', 'aria-label': 'The versions of this custom, drawn as a tree'});
+  for (const n of nodes) {
+    if (n.px !== null) {
+      out.append(svg('path', {d: `M${n.px},${n.py} V${n.y} H${n.x}`,
+        class: 'tree-link'}));
+    }
+  }
+  for (const n of nodes) {
+    const g = svg('g', {class: `tree-node ${n.state}`});
+    g.append(svg('circle', {cx: n.x, cy: n.y, r: n.r}));
+    const text = svg('text', {x: n.x + 14, y: n.y + 4});
+    text.textContent = n.label;
+    g.append(text);
+    g.addEventListener('click', () => showLineage(n.id, false));
+    out.append(g);
+  }
+  box.replaceChildren(out);
+}
+
 /** The sections whose heading folds them away. */
 const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
   'notebook', 'built'];
@@ -1094,6 +1279,7 @@ async function showPerson(name) {
         return item;
       }));
   document.getElementById('person').hidden = false;
+  drawKin(kin);
   page.person = person.name;
   page.personYear = page.world.year;
 }
@@ -1547,6 +1733,7 @@ async function showLineage(id, scroll = true) {
   document.getElementById('lineage-older').hidden = !lineage.lost_parent;
   const panel = document.getElementById('lineage');
   panel.hidden = false;
+  drawTree(lineage.variants);
   if (scroll) panel.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
@@ -2647,6 +2834,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
+    kinLayout, treeLayout, wordChange,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

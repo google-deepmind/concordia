@@ -144,6 +144,31 @@ button.link {
   color: var(--accent);
   text-decoration: underline;
 }
+/* Drawn trees: the family, and a custom's versions. */
+.drawing { overflow-x: auto; margin: 6px 0; }
+.drawing svg { display: block; }
+.drawing text { fill: var(--ink); font-size: 12px; }
+.kin-link, .tree-link { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.kin-box rect {
+  fill: transparent;
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+.kin-box.living rect { stroke: var(--accent); stroke-dasharray: none; }
+.kin-box.living { cursor: pointer; }
+.kin-box.self rect {
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+.kin-box:not(.living):not(.self) text { fill: var(--muted); }
+.tree-node { cursor: pointer; }
+.tree-node circle { stroke: var(--accent); stroke-width: 1.5; }
+.tree-node.held circle { fill: var(--accent); }
+.tree-node.kept circle { fill: var(--paper); }
+.tree-node.gone circle { fill: var(--paper); stroke: var(--muted);
+  stroke-dasharray: 2 2; }
+.tree-node.gone text { fill: var(--muted); }
 .card {
   border: 2px solid var(--accent);
   border-radius: 8px;

@@ -23,6 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
+  kinLayout, treeLayout, wordChange,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -271,6 +272,39 @@ test('a custom found says what it is and how many hold it', () => {
   assert.equal(foundText({text: 'Hills.', kind: 'belief', domain: 'sacred',
     holders: 0}), '"Hills." (a belief (about sacred)) · held by nobody now ' +
       '(a place keeps it)');
+});
+
+test('a custom\'s tree is laid out by depth, sized by holders', () => {
+  const {height, nodes} = treeLayout([
+    {id: 'c1', parent: '', depth: 0, living: true, holders: [{}, {}, {}, {}],
+      text: 'We share.'},
+    {id: 'c2', parent: 'c1', depth: 1, living: false, holders: [],
+      text: 'We share, always and always and always, with everyone here.'},
+    {id: 'c3', parent: 'c1', depth: 1, living: true, holders: [],
+      text: 'We.'},
+  ]);
+  assert.equal(height, 105);
+  assert.deepEqual(nodes.map((n) => [n.id, n.state, n.x > nodes[0].x]),
+      [['c1', 'held', false], ['c2', 'gone', true], ['c3', 'kept', true]]);
+  assert.equal(nodes[0].label, '4 · We share.');
+  assert.equal(nodes[2].label, '−share');
+  assert.equal(wordChange('In lean years, gather.', 'In lean years, always ' +
+      'gather, always.'), '+always +always');
+  assert.equal(wordChange('We share.', 'We share!'), 'the same words');
+  assert.deepEqual([nodes[1].px, nodes[1].py], [nodes[0].x, nodes[0].y]);
+  assert.equal(nodes[0].px, null);
+});
+
+test('a family is laid out in rows, a few names a row', () => {
+  const kin = {person: {name: 'Ada', living: true},
+    parents: [{name: 'Bo', living: false}, {name: 'Cy', living: true}],
+    children: ['D', 'E', 'F', 'G', 'H', 'I'].map((name) =>
+      ({name, living: true}))};
+  const {boxes, links} = kinLayout(kin, 340);
+  assert.deepEqual(boxes.filter((b) => b.self).map((b) => b.name), ['Ada']);
+  assert.deepEqual(boxes.filter((b) => b.more).map((b) => b.name), ['+2']);
+  assert.equal(links.length, 2);  // Parents to Ada, Ada to children.
+  assert.ok(boxes.every((b) => b.x >= 0 && b.x + b.w <= 340));
 });
 
 test('a panel says when its person is no longer alive', () => {
