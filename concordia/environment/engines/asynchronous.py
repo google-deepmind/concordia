@@ -24,7 +24,6 @@ from collections.abc import Mapping, Sequence
 import functools
 import re
 import threading
-import time
 from typing import Any, Callable, override
 
 from absl import logging
@@ -400,13 +399,13 @@ class Asynchronous(engine_lib.Engine):
         )
         iteration += 1
         if not acting_entities:
-          time.sleep(self._sleep_time)
+          terminate_event.wait(self._sleep_time)
           continue
 
         action_spec = action_specs[0]
 
         if action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
-          time.sleep(self._sleep_time)
+          terminate_event.wait(self._sleep_time)
           continue
 
         with gm_measurements.capture(entity.name) as obs_log:
@@ -486,6 +485,12 @@ class Asynchronous(engine_lib.Engine):
               game_master=game_master.name,
           )
           step_callback(step_data)
+    except BaseException:
+      terminate_event.set()
+      self._pause_event.set()
+      if step_controller is not None:
+        step_controller.stop()
+      raise
     finally:
       # Clean up thread mapping when entity loop exits.
       if hasattr(game_master, 'clear_capture_key_for_thread'):

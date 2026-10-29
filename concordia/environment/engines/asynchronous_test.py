@@ -336,6 +336,32 @@ class AsynchronousTest(absltest.TestCase):
     self.assertGreater(gm_1._act_count, 0)
     self.assertGreater(gm_2._act_count, 0)
 
+  def test_entity_exception_signals_peer_threads_to_stop(self):
+    """Verify an exception in one entity thread wakes and stops peer threads."""
+    env = asynchronous.Asynchronous(sleep_time=5.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[_ENTITY_NAMES[0]]
+    )
+
+    class FailingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        raise RuntimeError('Simulated entity failure')
+
+    failing_entity = FailingEntity(name=_ENTITY_NAMES[0])
+    sleeping_peer = MockEntity(name=_ENTITY_NAMES[1])
+
+    with self.assertRaisesRegex(RuntimeError, 'Simulated entity failure'):
+      env.run_loop(
+          game_masters=[gm],
+          entities=[failing_entity, sleeping_peer],
+          max_steps=100,
+      )
+
 
 if __name__ == '__main__':
   absltest.main()
