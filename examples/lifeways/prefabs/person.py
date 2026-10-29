@@ -36,9 +36,11 @@ from concordia.components.agent import constant
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from examples.lifeways.components import culture
+from examples.lifeways.components import situation
 from examples.lifeways.prefabs import measures
 from examples.lifeways.world import culture as culture_lib
 from concordia.language_model import language_model
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 import numpy as np
 
@@ -144,7 +146,7 @@ class Person(prefab_lib.Prefab):
         capacity=int(self.params.get('capacity', 10)),
         model=model,
     )
-    components = {
+    components: dict[str, entity_component.ContextComponent] = {
         memory.DEFAULT_MEMORY_COMPONENT_KEY: memory.AssociativeMemory(
             memory_bank=memory_bank
         ),
@@ -155,7 +157,14 @@ class Person(prefab_lib.Prefab):
         IDENTITY: constant.Constant(state=who + '.', pre_act_label=IDENTITY),
         LEARNER: learner,
     }
+    # Who one is, then one's situation now (what a small mind most needs),
+    # then what one saw; customs follow, by key (the stock act component's
+    # rule for components not ordered). `situation_first` False leaves the
+    # situation in the history alone, as before (for comparing minds).
     order = [IDENTITY, observation.DEFAULT_OBSERVATION_COMPONENT_KEY]
+    if self.params.get('situation_first', True):
+      components[situation.NOW] = situation.Now()
+      order.insert(1, situation.NOW)
     factory = self.params.get('act_component_factory')
     act = (
         factory(order)

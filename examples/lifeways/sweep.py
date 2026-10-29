@@ -319,11 +319,17 @@ def minds_report(
 
 
 def play_mind(
-    mind: str, scenario: str, seed: int, years: int
+    mind: str,
+    scenario: str,
+    seed: int,
+    years: int,
+    overrides: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
   """One run by one mind: its measures, seconds a year and model calls."""
   model, counts = simulation.make_model(mind)
-  settings = scenarios.settings(scenario, seed=seed, max_years=years)
+  settings = scenarios.settings(
+      scenario, **{**(overrides or {}), 'seed': seed, 'max_years': years}
+  )
   run = simulation.build_simulation(
       settings, model=model, archive=simulation.Archive(keep=0)
   )

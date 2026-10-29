@@ -53,6 +53,11 @@ _MINDS = flags.DEFINE_list(
     'Who people think with, each `mock` or <api>:<model> (e.g.'
     ' ollama:llama3.2:3b); a Together key comes from the environment.',
 )
+_SETTINGS = flags.DEFINE_string(
+    'settings',
+    '{}',
+    'More settings, as JSON (e.g. {"situation_first": false}).',
+)
 _OUT_DIR = flags.DEFINE_string('out_dir', '', 'Where to write the results.')
 
 
@@ -70,7 +75,13 @@ def main(argv: Sequence[str]) -> None:
           _YEARS.value,
       )
       with simulation.quiet():
-        played = sweep.play_mind(mind, _SCENARIO.value, seed, _YEARS.value)
+        played = sweep.play_mind(
+            mind,
+            _SCENARIO.value,
+            seed,
+            _YEARS.value,
+            json.loads(_SETTINGS.value),
+        )
       results.setdefault(mind, []).append(played)
       if _OUT_DIR.value:  # Each run as it ends: a long comparison keeps all.
         os.makedirs(_OUT_DIR.value, exist_ok=True)

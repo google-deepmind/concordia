@@ -34,6 +34,7 @@ from examples.lifeways import simulation
 from examples.lifeways.components import culture
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.components import played as played_lib
+from examples.lifeways.components import situation
 from examples.lifeways.prefabs import experimenter as experimenter_lib
 from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
@@ -160,7 +161,11 @@ class SandboxTest(parameterized.TestCase):
               for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
               if isinstance(c, culture.Custom)
           }
-          newborns.append((held, set(person.given)))
+          locus = {
+              c: (world.culture.get(c).kind, world.culture.get(c).domain)
+              for c in held | set(person.given)
+          }
+          newborns.append((held, set(person.given), locus))
           for (
               custom_id
           ) in held:  # Each a recorded variant (perhaps a mutation).
@@ -170,9 +175,15 @@ class SandboxTest(parameterized.TestCase):
     run.play()
 
     self.assertNotEmpty(newborns)
-    for held, given in newborns:
+    for held, given, locus in newborns:
       self.assertNotEmpty(held)
-      self.assertEqual(held, given)
+      self.assertLessEqual(held, given)
+      # What was given and not kept lost its place to another of its locus
+      # (one custom to a kind in a domain), or to a full mind.
+      for lost in given - held:
+        self.assertTrue(
+            locus[lost] in {locus[c] for c in held} or len(held) >= 10, lost
+        )
 
   def test_many_channels_move_customs_in_one_run(self):
     run = simulation.build_simulation(scenarios.settings(max_years=80))
@@ -1015,6 +1026,46 @@ class LearnerTest(absltest.TestCase):
     again = self._person()
     again.set_state(entity.get_state())
     self.assertIsInstance(self._customs(again)['c7'], culture.QuestionCustom)
+
+  def test_a_person_reads_its_situation_now_first(self):
+    prompts = []
+
+    class Recording(mock_language_model.MockModel):
+
+      def sample_text(self, prompt, **kwargs):
+        prompts.append(prompt)
+        return super().sample_text(prompt, **kwargs)
+
+    prefab = person_lib.Person()
+    prefab.params = {'name': 'Ada', 'born': 0, 'seed': 0, 'customs': []}
+    entity = prefab.build(
+        Recording(),
+        basic_associative_memory.AssociativeMemoryBank(
+            sentence_embedder=person_lib.hash_embedder
+        ),
+    )
+    for year in (1, 2):
+      entity.observe(
+          f'Bo shares food.\nYear {year}. Ada is 30 years old and lives on'
+          ' grass land at 1,1; the land around holds 4.0 food.'
+      )
+
+    entity.act(_QUESTION)
+
+    (prompt,) = prompts
+    self.assertLess(prompt.index('Who I am:'), prompt.index('Now:\nYear 2.'))
+    self.assertLess(prompt.index('Now:'), prompt.index('Observations'))
+    self.assertNotIn('Now:\nYear 1.', prompt)
+    now = entity.get_component(situation.NOW, type_=situation.Now)
+    self.assertStartsWith(str(now.get_state()['latest']), 'Year 2. Ada')
+    prefab.params = {**prefab.params, 'situation_first': False}
+    before = prefab.build(
+        Recording(),
+        basic_associative_memory.AssociativeMemoryBank(
+            sentence_embedder=person_lib.hash_embedder
+        ),
+    )
+    self.assertNotIn(situation.NOW, before.get_all_context_components())
 
   def test_an_offer_taken_up_becomes_a_component(self):
     entity = self._person(uptake={'apprenticeship': 1.0})

@@ -575,6 +575,8 @@ class World:
     }
     if person.arrived is not None:
       params['arrived'] = person.arrived
+    if not self.settings.get('situation_first', True):
+      params['situation_first'] = False
     return params
 
   def _arrive(self) -> list[dict[str, Any]]:

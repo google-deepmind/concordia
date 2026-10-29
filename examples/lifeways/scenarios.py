@@ -689,6 +689,12 @@ def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:
                   for c, held in holders.items()
                   if i in held
               ],
+              # Whether a person reads its situation first (`Person`).
+              **(
+                  {}
+                  if settings.get('situation_first', True)
+                  else {'situation_first': False}
+              ),
           },
           'tile': tile,
           'food': 8.0,
