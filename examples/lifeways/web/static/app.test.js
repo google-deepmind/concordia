@@ -23,7 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-  overlayKey, personColour, placeText, queuedNote, tongueRanks,
+  overlayKey, parseFolded, personColour, placeText, queuedNote,
+  tongueRanks,
   statusLines,
   goneFromPanel, paceNote,
   peoplesText,
@@ -225,6 +226,13 @@ test('a place says who founded and keeps it, and if it is a ruin', () => {
   // Kept by its founder as it was founded: said once.
   assert.deepEqual(placeText({...place, founder: 'Ada', founded: 30}).lines,
       ['Founded by Ada in year 30.', 'Last used in year 30.']);
+});
+
+test('folded sections are remembered, and only known ones', () => {
+  assert.deepEqual([...parseFolded('["notebook", "built", "nowhere"]')],
+      ['notebook', 'built']);
+  assert.deepEqual([...parseFolded('not json')], []);
+  assert.deepEqual([...parseFolded('{"notebook": 1}')], []);
 });
 
 test('a panel says when its person is no longer alive', () => {

@@ -116,6 +116,25 @@ function peopleColour(name) {
   return PEOPLE_COLOURS[hash % PEOPLE_COLOURS.length];
 }
 
+/** The sections whose heading folds them away. */
+const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
+  'notebook', 'built'];
+
+/**
+ * The sections a reader folded, as remembered (anything else: none).
+ * @param {string} text The remembered JSON.
+ * @return {!Set<string>} The ids of folded sections.
+ */
+function parseFolded(text) {
+  try {
+    const ids = JSON.parse(text);
+    return new Set(Array.isArray(ids) ?
+      ids.filter((id) => FOLDABLE.includes(id)) : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
 /**
  * A choice this browser remembers, if it may (private windows may not).
  * @param {string} key The storage key.
@@ -1565,8 +1584,10 @@ async function refreshOnce() {
     document.getElementById('anew-box').hidden = world.running;
     document.getElementById('play-as-box').hidden = !world.playable;
     document.getElementById('stop').hidden = !world.running;
-    document.getElementById('play').textContent =
-        world.pace.paused ? 'Play' : 'Pause';
+    for (const id of ['play', 'play-mini']) {
+      document.getElementById(id).textContent =
+          world.pace.paused ? 'Play' : 'Pause';
+    }
     for (const id of ['queued', 'fate-queued']) {
       document.getElementById(id).textContent = queuedNote(world.pace.queued);
     }
@@ -2201,9 +2222,41 @@ async function start() {
   document.getElementById('lineage-update').addEventListener('click', () => {
     if (page.lineage) showLineage(page.lineage, false);
   });
-  document.getElementById('play').addEventListener('click', async () => {
-    await api('api/pace', {paused: !page.world.pace.paused});
-    refresh();
+  for (const id of ['play', 'play-mini']) {
+    document.getElementById(id).addEventListener('click', async () => {
+      await api('api/pace', {paused: !page.world.pace.paused});
+      refresh();
+    });
+  }
+  const folded = parseFolded(remembered('lifeways.folded', '[]'));
+  for (const id of FOLDABLE) {
+    const section = document.getElementById(id);
+    const heading = section.querySelector('h2');
+    const fold = document.createElement('button');
+    fold.type = 'button';
+    fold.className = 'fold';
+    fold.append(...heading.childNodes);
+    heading.append(fold);
+    const set = (shut) => {
+      section.classList.toggle('folded', shut);
+      fold.setAttribute('aria-expanded', String(!shut));
+    };
+    set(folded.has(id));
+    fold.addEventListener('click', () => {
+      set(!section.classList.contains('folded'));
+      if (section.classList.contains('folded')) folded.add(id);
+      else folded.delete(id);
+      remember('lifeways.folded', JSON.stringify([...folded]));
+    });
+  }
+  document.getElementById('jump').addEventListener('change', (event) => {
+    const section = document.getElementById(event.target.value);
+    event.target.value = '';
+    if (!section) return;
+    if (section.classList.contains('folded')) {
+      section.querySelector('.fold').click();
+    }
+    section.scrollIntoView({behavior: 'smooth', block: 'start'});
   });
   document.getElementById('speed').addEventListener('change', async (event) => {
     page.paceSeen = [];
@@ -2353,7 +2406,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     anatomyLines, answerText, askedNote, askMove, cameBy, letGoText,
-    overlayKey, personColour, placeText, queuedNote, tongueRanks,
+    overlayKey, parseFolded, personColour, placeText, queuedNote,
+    tongueRanks,
     statusLines,
     goneFromPanel, paceNote,
     peoplesText,

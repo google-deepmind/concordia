@@ -23,7 +23,21 @@ limitations under the License.
 </head>
 <body>
   <header>
-    <h1>Lifeways</h1>
+    <div class="bar">
+      <h1>Lifeways</h1>
+      <button id="play-mini" type="button">Pause</button>
+      <select id="jump" aria-label="Go to a part of the page">
+        <option value="">Go to…</option>
+        <option value="valley">The map</option>
+        <option value="designer">Release a custom</option>
+        <option value="fates">Shape the valley</option>
+        <option value="graphs">The census</option>
+        <option value="twins">Fork a twin</option>
+        <option value="interviews">Interviews</option>
+        <option value="notebook">Notebook</option>
+        <option value="built">How it's built</option>
+      </select>
+    </div>
     <div id="year" aria-live="polite">…</div>
   </header>
   <p id="intro" class="hint">People in this valley are born, learn their ways

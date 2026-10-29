@@ -58,8 +58,30 @@ body {
   background: var(--paper);
 }
 
-header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+/* The header stays in view: the year, Play/Pause, and a way to any part. */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+}
+header .bar { display: flex; align-items: center; gap: 8px; }
+header h1 { margin-right: auto; }
+#jump { max-width: 46%; }
 h1 { font-size: 1.4rem; margin: 0; }
+/* A part jumped to is not hidden under the header. */
+section { scroll-margin-top: 88px; }
+/* A section's heading folds it away. */
+.fold {
+  all: unset;
+  cursor: pointer;
+}
+.fold::after { content: ' ▾'; color: var(--muted); }
+section.folded .fold::after { content: ' ▸'; }
+.fold:focus-visible { outline: 2px solid var(--accent); border-radius: 4px; }
+section.folded > :not(h2) { display: none !important; }
 h2 { font-size: 1.1rem; margin: 18px 0 6px; }
 h3 { font-size: 1rem; margin: 14px 0 4px; }
 #year { color: var(--muted); }
