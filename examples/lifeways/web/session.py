@@ -94,6 +94,8 @@ NOT_PLAYABLE = (
 SETTLED_YEARS = 10
 # How many of a lineage's dead branches the page may list.
 GONE_SHOWN = 30
+# How many people, and how many customs, a search gives at most.
+SEARCH_SHOWN = 8
 # The years the same words arose again, kept on a version's row (the latest).
 AGAIN_KEPT = 5
 # What the person writes in the notebook, and the longest entry.
@@ -1610,6 +1612,49 @@ class Session:
         'reach': reach,
         'asked': self.played.asked(lives[-1]),
     }
+
+  def search(self, query: str, most: int = SEARCH_SHOWN) -> dict[str, Any]:
+    """The living whose names, and the customs whose words, hold a query.
+
+    Reading only. Customs are those someone holds or a place keeps, the
+    most held first.
+
+    Args:
+      query: What to look for (any case; at least two letters).
+      most: How many of each to give.
+
+    Returns:
+      `people` (names) and `customs` (id, kind, domain, text, holders).
+    """
+    needle = ' '.join(str(query).lower().split())
+    if len(needle) < 2:
+      return {'people': [], 'customs': []}
+    world = self.run.world_state()
+    with self.run.world_lock():
+      held = self.run.held_counts()
+    people = sorted(
+        p['name'] for p in world['people'] if needle in p['name'].lower()
+    )
+    customs = sorted(
+        (
+            {
+                'id': str(c['id']),
+                'kind': c['kind'],
+                'domain': c['domain'],
+                'text': c['text'],
+                'params': {
+                    k: v
+                    for k, v in dict(c.get('params', {})).items()
+                    if k != 'words'
+                },
+                'holders': held.get(str(c['id']), 0),
+            }
+            for c in world['culture']['customs']
+            if needle in str(c['text']).lower()
+        ),
+        key=lambda c: (-c['holders'], c['text']),
+    )
+    return {'people': people[:most], 'customs': customs[:most]}
 
   def place(self, place_id: str) -> dict[str, Any] | None:
     """A library, school, shrine or court as the page shows it.

@@ -30,6 +30,7 @@ Everything it does with the world is read the simulation
 | `GET /api/lineage?id=<custom>` | a custom's variants, who holds them, from whom |
 | `GET /api/anatomy[?name=<name>]` | how Concordia builds a person, or the World GM |
 | `GET /api/place?id=<place>` | a place: who keeps it, what it holds |
+| `GET /api/search?q=<words>` | the living and the customs that match |
 | `GET /api/build` | the commit served |
 | `GET /api/notebook?since=<id>` | the notebook's entries after an id |
 | `GET /notebook.md` | the notebook, to keep |
@@ -242,6 +243,8 @@ def handler(
           self._json(404, {'error': 'nobody of that name is remembered'})
         else:
           self._json(200, kin)
+      elif path == '/api/search':
+        self._json(200, session.search(query.get('q', [''])[0]))
       elif path == '/api/place':
         place = session.place(query.get('id', [''])[0])
         if place is None:

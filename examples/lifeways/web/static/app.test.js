@@ -22,7 +22,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  anatomyLines, answerText, askedNote, askMove, awayLines, cameBy,
+  anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
   letGoText, mapText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
@@ -262,6 +262,15 @@ test('a return says what happened since, the latest first', () => {
   assert.deepEqual(awayLines(entries, 0, 1),
       ['Year 9: Kaka built a court at row 1, column 2.']);
   assert.deepEqual(awayLines(entries, 3), []);
+});
+
+test('a custom found says what it is and how many hold it', () => {
+  assert.equal(foundText({text: 'We share.', kind: 'norm', domain: 'sharing',
+    params: {form: 'known'}, holders: 12}), '"We share." (a rule others ' +
+      'expect of them (about sharing)) · held by 12');
+  assert.equal(foundText({text: 'Hills.', kind: 'belief', domain: 'sacred',
+    holders: 0}), '"Hills." (a belief (about sacred)) · held by nobody now ' +
+      '(a place keeps it)');
 });
 
 test('a panel says when its person is no longer alive', () => {

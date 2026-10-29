@@ -182,6 +182,9 @@ button.link {
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.95rem; }
 
+#find { margin-top: 10px; }
+#find label { display: flex; flex-direction: column; font-size: 0.95rem; }
+#find input { width: 100%; }
 #release, #ask, #fork, #note, #fate { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 #release label, #ask label, #fork label, #note label, #fate label {
   display: flex;
@@ -252,6 +255,9 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.95rem; }
 .key-list { padding-left: 18px; }
 .parts { padding-left: 18px; font-size: 0.95rem; }
 .parts li { margin: 3px 0; }
+.parts button.link, #find-results button.link { text-align: left; }
+#find-results { list-style: none; padding-left: 0; }
+#find-results li { margin: 6px 0; }
 #person-anatomy summary, #world-anatomy summary { color: var(--accent); }
 .key-list li, details.hint li { margin: 3px 0; }
 details.hint ul { padding-left: 18px; margin: 6px 0; }

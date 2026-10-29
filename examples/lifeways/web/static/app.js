@@ -143,6 +143,49 @@ function awayLines(entries, since, most = 5) {
       .map((e) => `Year ${yearText(e.year)}: ${entryText(e)}`);
 }
 
+/**
+ * A custom found by a search, in words.
+ * @param {!Object} custom {text, kind, domain, params, holders}.
+ * @return {string} E.g. '"We share." (a rule they keep as their own (about
+ *     sharing)) · held by 12'.
+ */
+function foundText(custom) {
+  const held = custom.holders ? `held by ${custom.holders}` :
+    'held by nobody now (a place keeps it)';
+  return `"${custom.text}" (${customKind(custom)}) · ${held}`;
+}
+
+/**
+ * Searches as the reader types: people open their panel, customs their
+ * lineage.
+ * @param {string} query What the reader typed.
+ */
+async function find(query) {
+  const list = document.getElementById('find-results');
+  if (query.trim().length < 2) {
+    list.replaceChildren();
+    return;
+  }
+  const found = await api(`api/search?q=${encodeURIComponent(query)}`);
+  const link = (text, open) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'link';
+    button.textContent = text;
+    button.addEventListener('click', open);
+    item.append(button);
+    return item;
+  };
+  const items = [
+    ...found.people.map((name) => link(name, () => showPerson(name))),
+    ...found.customs.map((c) => link(foundText(c), () => showLineage(c.id))),
+  ];
+  list.replaceChildren(...(items.length ? items : [Object.assign(
+      document.createElement('li'), {textContent: 'Nobody and nothing ' +
+        'living matches.'})]));
+}
+
 /** The sections whose heading folds them away. */
 const FOLDABLE = ['designer', 'fates', 'graphs', 'twins', 'interviews',
   'notebook', 'built'];
@@ -2438,6 +2481,15 @@ async function start() {
     }
     notebook.scrollIntoView({behavior: 'smooth', block: 'start'});
   });
+  let finding = null;
+  document.getElementById('find-q').addEventListener('input', (event) => {
+    clearTimeout(finding);
+    finding = setTimeout(() => find(event.target.value), 300);
+  });
+  document.getElementById('find').addEventListener('submit', (event) => {
+    event.preventDefault();
+    find(document.getElementById('find-q').value);
+  });
   document.getElementById('jump').addEventListener('change', (event) => {
     const section = document.getElementById(event.target.value);
     event.target.value = '';
@@ -2594,7 +2646,7 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    anatomyLines, answerText, askedNote, askMove, awayLines, cameBy,
+    anatomyLines, answerText, askedNote, askMove, awayLines, cameBy, foundText,
     letGoText, mapText,
     tileText,
     overlayKey, parseFolded, personColour, placeText, queuedNote,

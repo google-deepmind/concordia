@@ -664,6 +664,26 @@ class TreesTest(absltest.TestCase):
     self.assertIsNone(self.session.kin('Nobody'))
 
 
+class SearchTest(absltest.TestCase):
+
+  def test_a_search_finds_the_living_and_customs_by_their_words(self):
+    session = session_lib.Session(years_per_second=40)
+    try:
+      name = session.state()['people'][0]['name']
+      text = session.run.world_state()['culture']['customs'][0]['text']
+
+      by_name = session.search(name[:3].upper())
+      by_words = session.search(text.split()[0])
+
+      self.assertIn(name, by_name['people'])
+      self.assertIn(text, [c['text'] for c in by_words['customs']])
+      holders = [c['holders'] for c in by_words['customs']]
+      self.assertEqual(holders, sorted(holders, reverse=True))
+      self.assertEqual(session.search('x'), {'people': [], 'customs': []})
+    finally:
+      session.close()
+
+
 class PlaceTest(absltest.TestCase):
 
   def test_a_place_says_who_keeps_it_and_what_it_holds(self):
