@@ -314,13 +314,19 @@ World could not read, moves that named a custom, sowing and what grew,
 deaths and the living, norms kept unseen, seconds a year and model calls.
 `--settings` changes the world for all of them, so one mind can be compared
 with itself: here, llama3.2:3b with its situation read first (`Now`, the
-default) and in the history alone (`situation_first: false`), First
-Farmers, 24 years, seed 0, build 8bfa7a06:
+default) and in the history alone (`situation_first: false`). First
+Farmers, 24 years, seed 0, build 8bfa7a06 (local Ollama models):
 
-| | answers | not read | named a custom | "sow a field" | fields | deaths | alive |
-|---|---|---|---|---|---|---|---|
-| situation first | 350 | 12% | 87% | 18 | 13 | 15 | 15 |
-| in the history | 393 | 12% | 83% | 38 | 31 | 17 | 14 |
+| minds | answers | not read | named a custom | "sow a field" | fields | deaths | alive | births | own norms kept unseen | expected ones kept unseen |
+|---|---|---|---|---|---|---|---|---|---|---|
+| mock | 618 | 0% | 70% | 22 | 22 | 8 | 42 | 32 | 14% | 0% |
+| llama3.2:3b, situation first | 350 | 12% | 87% | 18 | 13 | 15 | 15 | 0 | 11% | – |
+| llama3.2:3b, in the history | 393 | 12% | 83% | 38 | 31 | 17 | 14 | 1 | 28% | – |
+| granite3.3:2b | 357 | 6% | 81% | 55 | 43 | 17 | 17 | 4 | 35% | 14% |
+
+The mock keeps an expected norm only when seen, by its rule; granite kept
+some unseen. Granite sowed most and its sowings grew nothing most often (12
+of 55).
 
 With its stores and land read first, the small mind sowed half as often,
 and lived about as well: where a prompt puts things changes what a mind
