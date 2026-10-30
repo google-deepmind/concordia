@@ -281,7 +281,12 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
             value = [
                 {
                     'choice': choice,
-                    'similarity': 1 if choice == answer_text else 0,
+                    'similarity': (
+                        1
+                        if choice.replace('{player_name}', player_name)
+                        == answer_text
+                        else 0
+                    ),
                 }
                 for choice in question.choices  # pyrefly: ignore[not-iterable]
             ]
