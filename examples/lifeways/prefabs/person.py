@@ -101,8 +101,10 @@ class Person(prefab_lib.Prefab):
     per_domain: The most customs held of one domain.
     capacity: The most customs held in all.
     situation_first: Whether the person reads its situation now (`Now`, the
-      World's latest status) right after who it is (default True; False
-      leaves it in the history alone, for comparing minds).
+      World's latest status) right after who it is (default False: it is in
+      the history of what the person saw). Measured with a small live mind,
+      it halved sowing and changed nothing in survival, so it is off unless
+      asked for, for comparing minds.
     act_component_factory: Optional. Builds the acting component from the
       context components' order (a person's `HumanActComponent`, a rule).
       Not serializable: checkpoints drop it, so a restore passes it again.
@@ -161,13 +163,14 @@ class Person(prefab_lib.Prefab):
         IDENTITY: constant.Constant(state=who + '.', pre_act_label=IDENTITY),
         LEARNER: learner,
     }
-    # Who one is, then one's situation now (what a small mind most needs),
-    # then what one saw; customs follow, by key (the stock act component's
-    # rule for components not ordered). `situation_first` False leaves the
-    # situation in the history alone, as before (for comparing minds).
+    # Who one is, then what one saw; customs follow, by key (the stock act
+    # component's rule for components not ordered). `situation_first` puts
+    # one's situation now between the two.
     order = [IDENTITY, observation.DEFAULT_OBSERVATION_COMPONENT_KEY]
-    if self.params.get('situation_first', True):
-      components[situation.NOW] = situation.Now()
+    first = bool(self.params.get('situation_first', False))
+    # Kept either way (silent when not first): a saved order may name it.
+    components[situation.NOW] = situation.Now(shown=first)
+    if first:
       order.insert(1, situation.NOW)
     factory = self.params.get('act_component_factory')
     act = (

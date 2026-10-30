@@ -301,6 +301,29 @@ class SandboxTest(parameterized.TestCase):
         },
     )
 
+  def test_a_world_saved_reading_its_situation_first_plays_on_without(self):
+    saved: dict[str, Any] = {}
+    first = simulation.build_simulation(
+        scenarios.settings(max_years=4, situation_first=True)
+    )
+
+    def save(year: int) -> None:
+      if year == 2:
+        saved['checkpoint'] = json.loads(
+            json.dumps(first.sim.make_checkpoint_data(), default=str)
+        )
+
+    first.lifecycle.year_closed = save
+    first.play()
+
+    # Its people's saved act orders name `Now`; rebuilt with the default
+    # they still have it (silent), and play on.
+    restored = simulation.build_simulation(scenarios.settings(max_years=5))
+    simulation.load_checkpoint(restored, saved['checkpoint'])
+    restored.play()
+
+    self.assertEqual(restored.world().year, 5)
+
   @parameterized.parameters('sandbox', 'two_valleys')
   def test_a_restored_year_plays_on_exactly(self, scenario):
     # Two Valleys: question customs rebuilt through the entity's factory,
@@ -818,7 +841,7 @@ class AnatomyTest(absltest.TestCase):
 
   def test_a_person_shows_its_question_custom_around_the_stock_part(self):
     run = simulation.build_simulation(
-        scenarios.settings('two_valleys', max_years=1)
+        scenarios.settings('two_valleys', max_years=1, situation_first=True)
     )
     name = next(e.name for e in run.sim.entities if e.name != 'Experimenter')
 
@@ -1070,7 +1093,13 @@ class LearnerTest(absltest.TestCase):
         return super().sample_text(prompt, **kwargs)
 
     prefab = person_lib.Person()
-    prefab.params = {'name': 'Ada', 'born': 0, 'seed': 0, 'customs': []}
+    prefab.params = {
+        'name': 'Ada',
+        'born': 0,
+        'seed': 0,
+        'customs': [],
+        'situation_first': True,
+    }
     entity = prefab.build(
         Recording(),
         basic_associative_memory.AssociativeMemoryBank(
@@ -1091,14 +1120,15 @@ class LearnerTest(absltest.TestCase):
     self.assertNotIn('Now:\nYear 1.', prompt)
     now = entity.get_component(situation.NOW, type_=situation.Now)
     self.assertStartsWith(str(now.get_state()['latest']), 'Year 2. Ada')
-    prefab.params = {**prefab.params, 'situation_first': False}
+    del prefab.params['situation_first']  # Off by default.
     before = prefab.build(
         Recording(),
         basic_associative_memory.AssociativeMemoryBank(
             sentence_embedder=person_lib.hash_embedder
         ),
     )
-    self.assertNotIn(situation.NOW, before.get_all_context_components())
+    before.act(_QUESTION)
+    self.assertNotIn('Now:', prompts[-1])  # Silent, but there for saves.
 
   def test_an_offer_taken_up_becomes_a_component(self):
     entity = self._person(uptake={'apprenticeship': 1.0})

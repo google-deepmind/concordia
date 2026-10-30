@@ -3184,7 +3184,7 @@ def person_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
   """The person prefab params every person takes from a world's settings.
 
   Whether a person reads its situation first (`situation_first`, the
-  `Person` prefab's; given only when off).
+  `Person` prefab's; given only when on).
 
   Args:
     settings: The world's settings.
@@ -3192,11 +3192,7 @@ def person_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
   Returns:
     The params, for founders and the born alike.
   """
-  return (
-      {}
-      if settings.get('situation_first', True)
-      else {'situation_first': False}
-  )
+  return {'situation_first': True} if settings.get('situation_first') else {}
 
 
 def _move_kind(move: str) -> str:

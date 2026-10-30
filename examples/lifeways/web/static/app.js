@@ -1797,7 +1797,8 @@ const PART_WORDS = {
   Custom: 'a custom: a text it reads when it decides',
   QuestionCustom: 'a custom of reasoning: a question it asks itself ' +
       'before it acts',
-  Now: 'its situation this year, as the World last told it, read first',
+  Now: 'its situation this year, as the World last told it (read first ' +
+      'only in a world set to; else it is in what it saw)',
   ConcatActComponent: 'asks its mind (a language model, or the simple ' +
       'rules) what it does, in one document of all the parts above',
   PlayedAct: 'you answer for this person; unanswered, it acts by habit',

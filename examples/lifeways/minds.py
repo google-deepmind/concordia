@@ -57,7 +57,7 @@ _MINDS = flags.DEFINE_list(
 _SETTINGS = flags.DEFINE_string(
     'settings',
     '{}',
-    'More settings, as JSON (e.g. {"situation_first": false}).',
+    'More settings, as JSON (e.g. {"situation_first": true}).',
 )
 _OUT_DIR = flags.DEFINE_string('out_dir', '', 'Where to write the results.')
 

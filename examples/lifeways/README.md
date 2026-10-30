@@ -313,8 +313,8 @@ from their censuses (`sweep.play_mind`, `sweep.minds_report`): answers the
 World could not read, moves that named a custom, sowing and what grew,
 deaths and the living, norms kept unseen, seconds a year and model calls.
 `--settings` changes the world for all of them, so one mind can be compared
-with itself: here, llama3.2:3b with its situation read first (`Now`, the
-default) and in the history alone (`situation_first: false`). First
+with itself: here, llama3.2:3b with its situation read first (`Now`,
+`situation_first: true`) and in the history alone (the default). First
 Farmers, 24 years, seed 0, build 8bfa7a06 (local Ollama models):
 
 | minds | answers | not read | named a custom | "sow a field" | fields | deaths | alive | births | own norms kept unseen | expected ones kept unseen |
@@ -333,7 +333,10 @@ every sowing grew; it thinks at length, so a year took 473 s.
 
 With its stores and land read first, the small mind sowed half as often,
 and lived about as well: where a prompt puts things changes what a mind
-does, though not here towards farming. One seed each; more are playing.
+does, though not here towards farming. Seed 1 (build 5e06ee2b) said the
+same: 30 sowings and 15 fields with the situation first, 69 and 61
+without; 14 deaths and 16 alive in both. So `Now` is off by default, and
+kept for comparing minds.
 No live mind had many children: 0 to 4 births in 24 years, where the mock
 had 32. They looked for partners, then gathered, rested or moved; their
 valleys lived on the strangers who come when one is nearly empty.
@@ -390,8 +393,9 @@ part, read from the running entities (`Run.anatomy`, `GET /api/anatomy`).
 **People** (`prefabs/person.py`) are entities with these components:
 - `AssociativeMemory`, `ObservationToMemory`, `LastNObservations`;
 - a `Constant` identity;
-- `Now` (`components/situation.py`): the World's latest status line, shown
-  right after the identity, so a small mind reads its situation first;
+- `Now` (`components/situation.py`): the World's latest status line, read
+  right after the identity only with `situation_first` (off by default: a
+  small live mind sowed half as often with it), and silent otherwise;
 - the `Learner` (`components/culture.py`);
 - their **customs**, one `Custom` component each (a question custom wraps
   the stock `QuestionOfRecentMemories`).

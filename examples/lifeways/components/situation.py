@@ -28,6 +28,7 @@ import threading
 from typing import override
 
 from concordia.components.agent import action_spec_ignored
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 # The World's status line for a person (`World.status`).
@@ -38,10 +39,23 @@ NOW = 'Now'
 class Now(action_spec_ignored.ActionSpecIgnored):
   """The latest status the World told the person, shown as its situation."""
 
-  def __init__(self, pre_act_label: str = NOW):
+  def __init__(self, pre_act_label: str = NOW, shown: bool = True):
+    """Initializes the component.
+
+    Args:
+      pre_act_label: Its label in the person's prompt.
+      shown: Whether it adds anything to the prompt. A person not shown its
+        situation first still keeps the component, so that any act
+        component order that names it (a save's) finds it.
+    """
     super().__init__(pre_act_label)
+    self._shown = shown
     self._latest = ''
     self._now_lock = threading.Lock()
+
+  @override
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    return super().pre_act(action_spec) if self._shown else ''
 
   @override
   def pre_observe(self, observation: str) -> str:
