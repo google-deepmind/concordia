@@ -63,6 +63,15 @@ COMPONENT_FACTORIES = {
         "state_example": {"current_plan": "test plan"},
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
+    "plan_with_defaults": {
+        "component_class": plan.Plan,
+        "kwargs": {
+            "model": no_language_model.NoLanguageModel(),
+            "components": ["comp1_key", "comp2_key"],
+        },
+        "state_example": {"current_plan": "test plan"},
+        "skip_keys": DEFAULT_SKIP_KEYS,
+    },
     "all_similar_memories": {
         "component_class": all_similar_memories.AllSimilarMemories,
         "kwargs": {
@@ -212,6 +221,10 @@ class AgentComponentTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(testcase_name="plan", component_name="plan"),
+      dict(
+          testcase_name="plan_with_defaults",
+          component_name="plan_with_defaults",
+      ),
       dict(
           testcase_name="all_similar_memories",
           component_name="all_similar_memories",
