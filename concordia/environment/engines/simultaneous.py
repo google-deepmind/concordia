@@ -275,6 +275,9 @@ class Simultaneous(engine_lib.Engine):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['next_game_master'] = game_master.get_last_log()
 
+      if not entities:
+        break  # Every player has left the game.
+
       next_entities, next_action_specs = self.next_acting(
           game_master, entities, log_entry=log_entry, log=log
       )
@@ -388,6 +391,9 @@ class Simultaneous(engine_lib.Engine):
           step_callback(step_data)
         continue
 
+      acting_entities_by_name = {
+          entity.name: entity for entity in entities_to_process
+      }
       resolve_input = '\n'.join(actions.values())
       self.resolve(game_master, resolve_input, verbose=verbose)
       if log is not None and hasattr(game_master, 'get_last_log'):
@@ -396,8 +402,10 @@ class Simultaneous(engine_lib.Engine):
 
       entity_logs = {}
       for entity_name in actions:
-        entity = next(e for e in entities if e.name == entity_name)
-        if hasattr(entity, 'get_last_log'):
+        entity = acting_entities_by_name.get(entity_name) or next(
+            (e for e in entities if e.name == entity_name), None
+        )
+        if entity is not None and hasattr(entity, 'get_last_log'):
           assert hasattr(entity, 'get_last_log')  # Assertion for pytype
           entity_logs[entity.name] = entity.get_last_log()
 

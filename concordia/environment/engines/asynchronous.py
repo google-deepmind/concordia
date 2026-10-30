@@ -60,6 +60,8 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 _DEFAULT_SLEEP_TIME = 0.1
+# How often run_loop looks for entities that joined the list.
+_MEMBERSHIP_POLL_SECONDS = 0.05
 
 
 def _get_reactive_measurements(
@@ -88,6 +90,45 @@ def _get_empty_log_entry():
   }
 
 
+def _is_member(
+    entity: entity_lib.Entity, entities: Sequence[entity_lib.Entity]
+) -> bool:
+  """Whether this very entity (not just one of its name) is in `entities`."""
+  return any(member is entity for member in list(entities))
+
+
+def _first_entity_checkpoints(
+    callback: Callable[[int], None],
+    entities: Sequence[entity_lib.Entity],
+) -> Callable[[entity_lib.Entity, int], None]:
+  """Wraps a checkpoint callback so that the first entity's loop calls it.
+
+  The loop of the first entity in `entities` checkpoints after each of its
+  iterations, as entity 0's loop always has. If that entity leaves the list,
+  the next first entity's loop takes over, and step numbers go on rising.
+
+  Args:
+    callback: The checkpoint callback, called with the step number.
+    entities: The entities the engine runs.
+
+  Returns:
+    A thread-safe callback, called by a loop with its entity and iteration.
+  """
+  lock = threading.Lock()
+  last_step = 0
+
+  def checkpoint(entity: entity_lib.Entity, iteration: int) -> None:
+    nonlocal last_step
+    members = list(entities)
+    if not members or members[0] is not entity:
+      return
+    with lock:
+      last_step = max(iteration, last_step + 1)
+      callback(last_step)
+
+  return checkpoint
+
+
 class Asynchronous(engine_lib.Engine):
   """Fully asynchronous engine.
 
@@ -97,6 +138,12 @@ class Asynchronous(engine_lib.Engine):
 
   Termination uses both a shared threading.Event (for global signaling) and a
   per-player max iterations cap.
+
+  The entities may change while the loop runs: loops follow the `entities`
+  list passed to `run_loop` (via `concurrency.run_dynamic_tasks`). An entity
+  appended to it gets a loop of its own; one removed from it ends its loop at
+  its next iteration. Checkpoints are taken by the loop of the list's first
+  entity, after each of its iterations.
 
   A global pause event is supported for UI play/pause functionality.
   """
@@ -159,6 +206,8 @@ class Asynchronous(engine_lib.Engine):
       capture_key: str | None = None,
   ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     entities_by_name = {entity.name: entity for entity in entities}
+    if not entities_by_name:
+      return ([], [])
 
     if gm_measurements is not None and log_entry is not None:
       key = capture_key or game_master.name
@@ -314,6 +363,7 @@ class Asynchronous(engine_lib.Engine):
           Callable[[step_controller_lib.StepData], None] | None
       ) = None,
       step_controller: step_controller_lib.StepController | None = None,
+      entities: Sequence[entity_lib.Entity] | None = None,
   ) -> None:
     """Run the observe-act loop for a single entity.
 
@@ -331,6 +381,8 @@ class Asynchronous(engine_lib.Engine):
         data.
       step_controller: Optional controller to manage stepping through the
         simulation.
+      entities: Optional live population. If given, the loop ends at the start
+        of the first iteration in which `entity` is no longer in it.
     """
     if game_masters is None:
       game_masters = [game_master]
@@ -354,9 +406,16 @@ class Asynchronous(engine_lib.Engine):
             terminate_event.set()
             break
 
-        self._pause_event.wait()
+        while not self._pause_event.wait(timeout=_MEMBERSHIP_POLL_SECONDS):
+          if terminate_event.is_set() or (
+              entities is not None and not _is_member(entity, entities)
+          ):
+            break
 
         if terminate_event.is_set():
+          break
+
+        if entities is not None and not _is_member(entity, entities):
           break
 
         # --- Multi-GM switching ---
@@ -578,15 +637,17 @@ class Asynchronous(engine_lib.Engine):
       break
 
     terminate_event = threading.Event()
+    # Only the first entity's loop saves checkpoints (make_checkpoint_data()
+    # snapshots every entity and game master), as entity 0's always has; if
+    # it leaves the list, the next first entity's loop takes over.
+    checkpoint = (
+        _first_entity_checkpoints(checkpoint_callback, entities)
+        if checkpoint_callback is not None
+        else None
+    )
 
-    tasks = {}
-    for i, entity in enumerate(entities):
-      # Only the first entity's thread runs the checkpoint callback
-      # as make_checkpoint_data() snapshots ALL entities and game
-      # masters (global state)
-      entity_checkpoint_cb = checkpoint_callback if i == 0 else None
-      tasks[entity.name] = functools.partial(
-          self._entity_loop,
+    def run_entity(entity: entity_lib.Entity) -> None:
+      self._entity_loop(
           entity=entity,
           game_master=game_master,
           game_masters=game_masters,
@@ -594,12 +655,32 @@ class Asynchronous(engine_lib.Engine):
           verbose=verbose,
           terminate_event=terminate_event,
           log=log,
-          checkpoint_callback=entity_checkpoint_cb,
+          checkpoint_callback=(
+              functools.partial(checkpoint, entity) if checkpoint else None
+          ),
           step_callback=step_callback,
           step_controller=step_controller,
+          entities=entities,
       )
 
-    concurrency.run_tasks(tasks)
+    def current_tasks() -> Mapping[str, Callable[[], None]]:
+      # One loop per entity now in the list (which may change while loops
+      # run), keyed by identity so that a newcomer reusing the name of one who
+      # left gets a loop of its own. Once terminating, no new loops start.
+      if terminate_event.is_set():
+        return {}
+      return {
+          f'{entity.name} ({id(entity)})': functools.partial(run_entity, entity)
+          for entity in list(entities)
+      }
+
+    try:
+      concurrency.run_dynamic_tasks(
+          current_tasks, poll_interval=_MEMBERSHIP_POLL_SECONDS
+      )
+    except BaseException:
+      terminate_event.set()  # Stop the loops still running.
+      raise
 
     if log is not None:
       self._collector.materialize(log)

@@ -24,6 +24,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import next_game_master
 from concordia.components.game_master import open_ended_questionnaire
 from concordia.components.game_master import payoff_matrix
+from concordia.components.game_master import player_roster
 from concordia.components.game_master import questionnaire
 from concordia.components.game_master import scene_tracker
 from concordia.components.game_master import script
