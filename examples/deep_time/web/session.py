@@ -31,6 +31,7 @@ from collections.abc import Callable, Mapping, Sequence
 import colorsys
 import functools
 import json
+import math
 import os
 import re
 import threading
@@ -124,6 +125,14 @@ NEUTRAL_OPTIONS = (
 )
 
 
+def _kept_order(line: str) -> bool:
+  """Whether a town's order may repeat while holding course (envoys, feasts)."""
+  found = actors_lib.TOWN_ORDER.match(str(line).strip())
+  return bool(found) and found.group(3).strip().lower().startswith(
+      (actors_lib.SEND_ENVOYS, actors_lib.HOLD_FEAST)
+  )
+
+
 # Moves planned ahead: at most this many at once, each at
 # most this many turns ahead (the forecast's course is six turns long).
 MAX_PLANS = 3
@@ -174,6 +183,9 @@ class Seat(human_input.HumanInput):
     # unless `guard` finds a reason to stop (then kept in `stopped`).
     self.hold = 0
     self.stopped = ''
+    # Town orders kept while holding course: each held turn repeats them (a
+    # courtship or a feast goes on).
+    self.keeping: list[str] = []
     self.guard: Callable[[], str] | None = None
     # True once the game is decided: the engine's last question then needs
     # no one, and is answered with the neutral move at once.
@@ -217,6 +229,7 @@ class Seat(human_input.HumanInput):
           'plans': {str(t): m for t, m in self.plans.items()},
           'hold': self.hold,
           'stopped': self.stopped,
+          'keeping': list(self.keeping),
       }
 
   def restore(self, saved: Mapping[str, Any]) -> None:
@@ -228,6 +241,7 @@ class Seat(human_input.HumanInput):
       self.plans = {int(t): str(m) for t, m in saved.get('plans', {}).items()}
       self.hold = int(saved.get('hold', 0))
       self.stopped = str(saved.get('stopped', ''))
+      self.keeping = [str(line) for line in saved.get('keeping', ())]
 
   def _planned(self, request: human_input.HumanInputRequest) -> str | None:
     """The move planned for this turn, if it can be made (under the lock)."""
@@ -257,18 +271,30 @@ class Seat(human_input.HumanInput):
     options = self.offered(request)
     calm = [o for o in options if o in NEUTRAL_OPTIONS]
     if self.hold <= 0:
+      self.keeping = []
       return None
     if not calm:  # No move that changes nothing: the person must choose.
-      self.hold, self.stopped = 0, 'this question needs your answer'
+      self.hold, self.stopped, self.keeping = (
+          0,
+          'this question needs your answer',
+          [],
+      )
       return None
     reason = self.guard() if self.guard is not None else ''
     if reason:  # Something needs the person: stop holding and ask.
-      self.hold, self.stopped = 0, reason
+      self.hold, self.stopped, self.keeping = 0, reason, []
       return None
     self.hold -= 1
     self.choices.append(f'(holding course) {calm[0]}')
     self._note(calm[0], 'held', list(options))
-    return calm[0]
+    keeping = self.keeping
+    if not self.hold:
+      self.keeping = []  # The last held turn: nothing kept after it.
+    if not keeping:
+      return calm[0]
+    self.sent[-1]['orders'] = list(keeping)  # For replays and the page.
+    self.played[-1]['orders'] = list(keeping)
+    return '\n'.join([calm[0], *keeping])
 
   def _note(
       self,
@@ -309,10 +335,16 @@ class Seat(human_input.HumanInput):
       if what and what not in self.looked and len(self.looked) < LOOKS:
         self.looked.append(what)
 
-  def hold_course(self, turns: int) -> None:
-    """Makes the neutral move for `turns` turns (0 stops); answers now if asked."""
+  def hold_course(self, turns: int, keep: Sequence[str] = ()) -> None:
+    """Makes the neutral move for `turns` turns (0 stops); answers now if asked.
+
+    Args:
+      turns: How many turns to hold.
+      keep: Town orders each held turn repeats.
+    """
     with self._lock:
       self.hold, self.stopped = max(0, min(10, int(turns))), ''
+      self.keeping = list(keep) if self.hold else []
       request = self._request
       held = self._held(request) if request is not None and self.hold else None
       if held is not None:
@@ -442,7 +474,14 @@ class ReplayRule:
       moves: Sequence[Sequence[Any]],
       clock: Callable[[], int],
   ):
-    self._moves = {int(m[0]): (str(m[1]), m[2]) for m in moves}
+    self._moves = {
+        int(m[0]): (
+            str(m[1]),
+            m[2],
+            [str(o) for o in m[3]] if len(m) > 3 else [],
+        )
+        for m in moves
+    }
     self._clock = clock
     # The moves of a free question (as `Seat.moves`).
     self.moves: Callable[[], Sequence[str]] = lambda: ()
@@ -451,12 +490,14 @@ class ReplayRule:
       self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
   ) -> str:
     options = tuple(spec.options) or tuple(self.moves())
-    move, target = self._moves.get(self._clock(), (None, None))
+    move, target, orders = self._moves.get(self._clock(), (None, None, []))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
     if target:  # Aimed where it was aimed, in the action itself.
-      return f'{move} @ {int(target[0])},{int(target[1])}'
-    return with_draft(contexts, move)  # A draft's words, as the role reads.
+      move = f'{move} @ {int(target[0])},{int(target[1])}'
+    else:
+      move = with_draft(contexts, move)  # A draft's words, as the role reads.
+    return '\n'.join([move, *orders])  # With its towns' orders.
 
 
 # Moves that enact a slow mind's draft, and the role's context component that
@@ -937,8 +978,19 @@ class GameSession:
     moves = {}
     for name, place in self.seats.items():
       aimed = {int(s['tick']): s.get('target') for s in place.sent}
+      ordered = {int(s['tick']): s.get('orders') for s in place.sent}
       moves[name] = [
-          [int(t['tick']), t['move'], aimed.get(int(t['tick']))]
+          [
+              int(t['tick']),
+              t['move'],
+              aimed.get(int(t['tick'])),
+              # Its towns' orders that turn, if any.
+              *(
+                  [ordered[int(t['tick'])]]
+                  if ordered.get(int(t['tick']))
+                  else []
+              ),
+          ]
           for t in place.played
       ]
     return {
@@ -1010,11 +1062,23 @@ class GameSession:
             'looked': list(turn.get('looked', ())),
             **{
                 k: turn[k]
-                for k in ('omega', 'read_c', 'forecast_c', 'true_c', 'life')
+                for k in (
+                    'omega',
+                    'read_c',
+                    'forecast_c',
+                    'true_c',
+                    'life',
+                    'orders',  # Its towns' orders and words that turn.
+                )
                 if k in turn
             },
         })
-      seats[name] = {'role': place.role, 'turns': turns}
+      seats[name] = {
+          'role': place.role,
+          'turns': turns,
+          # Its own result (a conquest is its conqueror's victory alone).
+          'result': self._own_outcome(name, False),
+      }
     return {
         'version': 1,
         'game_id': self.game_id,
@@ -1064,8 +1128,20 @@ class GameSession:
         return
       time.sleep(0.05)
 
-  def hold_course(self, seat: str | None, turns: int) -> str | None:
-    """A player holds course for some turns (0 stops); None, or why not."""
+  def hold_course(
+      self, seat: str | None, turns: int, keep: Sequence[str] = ()
+  ) -> str | None:
+    """A player holds course for some turns (0 stops); None, or why not.
+
+    Args:
+      seat: The player's seat (None: the first).
+      turns: How many turns to hold.
+      keep: Its towns' orders to repeat each held turn: envoys and feasts
+        only (a march or a founding is given once).
+
+    Returns:
+      None, or why it was refused.
+    """
     if self.mode != 'play' or self._spectating(seat):
       return 'Only a player can hold course.'
     if self.finished or self._decided():
@@ -1074,7 +1150,7 @@ class GameSession:
     place = self.seats[entity]
     if place.guard is None:
       place.guard = lambda: self._needs_you(entity)
-    place.hold_course(turns)
+    place.hold_course(turns, [line for line in keep if _kept_order(line)])
     return None
 
   def look(self, seat: str | None, what: str) -> str | None:
@@ -1144,7 +1220,7 @@ class GameSession:
     if menu.get('words'):
       return ''  # The Steward may speak an omen in its own words.
     moves = list(menu.get('offered', ()))
-    move, _ = actors_lib.aimed(response)
+    move, _ = actors_lib.aimed(actors_lib.people_order(response))
     move = move.strip()
     if moves and not any(
         move == m or (move.startswith(m) and move[len(m) :].lstrip()[:1] == ':')
@@ -1180,6 +1256,18 @@ class GameSession:
     if not isinstance(found, dict):  # Older saves announced the outcome only.
       return {'outcome': str(message.payload), 'reason': '', 'stars': None}
     return found
+
+  def _own_outcome(self, entity: str, spectator: bool) -> str:
+    """A seat's own result: the world's, unless a people conquered the map.
+
+    Then the conqueror's player wins and every other player loses.
+    """
+    verdict = self._outcome()
+    winner = verdict.get('winner')
+    if not winner or spectator:
+      return str(verdict.get('outcome') or '')
+    won = self._role(entity).get('polity') == winner
+    return 'victory' if won else 'defeat'
 
   def _star_rules(self) -> list[dict[str, Any]]:
     """The scenario's stars, known from the start (met once decided)."""
@@ -1404,6 +1492,14 @@ class GameSession:
     for name, seat in self.seats.items():
       request = seat.pending()
       if request is not None and request.request_id == request_id:
+        # The people's move, then its towns' orders and its words to other
+        # peoples (a line each).
+        response, orders = actors_lib.town_orders(response)
+        response, words = actors_lib.spoken(response)
+        lines = [
+            *(f'town {r},{c}: {order}' for r, c, order in orders),
+            *(f'words to the {who}: {said}' for who, said in words),
+        ]
         aim = target is not None and self._targetable(name, response)
         # A move enacting a draft carries its words, as the role reads them
         # (the move itself is what is kept, for the page and replays).
@@ -1412,13 +1508,19 @@ class GameSession:
             request_id,
             # The aim travels in the action; the actor sets it as the World
             # GM resolves the move.
-            f'{action} @ {int(target[0])},{int(target[1])}'
-            if aim and target is not None
-            else action,
+            '\n'.join([
+                f'{action} @ {int(target[0])},{int(target[1])}'
+                if aim and target is not None
+                else action,
+                *lines,
+            ]),
             move=response,
         )
         if error is None and aim and target is not None:
           seat.sent[-1]['target'] = [int(target[0]), int(target[1])]
+        if error is None and lines:  # For the page, replays and telemetry.
+          seat.sent[-1]['orders'] = lines
+          seat.played[-1]['orders'] = lines
         return error
     return 'That question has already been answered.'
 
@@ -1565,6 +1667,17 @@ class GameSession:
               'who': reading['label'],
               'text': str(item.get('text', '')),
           })
+    # A people's own news of its wars, told at once (its marches, its towns
+    # taken, razed, restless or risen).
+    own = self._role(entity).get('polity') if entity is not None else None
+    if own:
+      for message in bus.history(f'civ.{own}.war'):
+        items.append({
+            'tick': int(message.time or 0),
+            'kind': 'war',
+            'who': 'War',
+            'text': message.payload,
+        })
     if reveal:
       for message in bus.history('chronicle'):
         items.append({
@@ -1573,7 +1686,23 @@ class GameSession:
             'who': 'Chronicler',
             'text': message.payload,
         })
-    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'news': 3}
+      # Words and offers other peoples sent it, told as it heard them.
+      for topic in bus.topics(f'diplomacy.{own}.'):
+        for message in bus.history(topic):
+          items.append({
+              'tick': int(message.time or 0),
+              'kind': 'words',
+              'who': 'Words',
+              'text': message.payload,
+          })
+    order = {
+        'chronicle': 0,
+        'war': 1,
+        'words': 2,
+        'advisor': 3,
+        'press': 4,
+        'news': 5,
+    }
     items.sort(key=lambda i: (-i['tick'], order[i['kind']]))
     return items[:STORY_ITEMS]
 
@@ -1813,28 +1942,6 @@ class GameSession:
             'target': sent['target'],
         })
     return found
-
-  def _couriers(self, seat: str | None) -> list[list[Any]]:
-    """A people's player's news still on the road, as couriers on the map.
-
-    Each is [from row, from col, to row, to col, sent tick, landing tick,
-    kind of news], rows north first: the courier rides from where it
-    happened to the people's capital, arriving on the turn the people reads
-    it. Others see none (the ripples show the news spreading to everyone).
-    """
-    if self.mode != 'play' or self.finished or self._spectating(seat):
-      return []
-    settlements = self.context.planet.settlements
-    if settlements is None or not settlements.config.get('couriers', True):
-      return []
-    entity = seat if seat in self.seats else self.entity
-    if self._kind(entity) != 'people':
-      return []
-    return [
-        [*f['from'], *f['to'], f['sent'], f['lands'], f['topic']]
-        for f in self.in_flight(entity)
-        if f['kind'] == 'news' and f['to'] is not None
-    ]
 
   def readings(self, entity: str | None = None) -> list[dict[str, Any]]:
     """What a role's own pub/sub subscribers hold now (for watchers)."""
@@ -2094,8 +2201,6 @@ class GameSession:
         'version': 1,
         'game_id': self.game_id,
         'tick': now,
-        # News riding toward a people's player's capital.
-        'couriers': self._couriers(seat),
         # Where the player's aimed moves landed.
         'pins': self._pins(seat),
         # The player's moves acting this turn, and how they show.
@@ -2261,9 +2366,15 @@ class GameSession:
     )
 
   def _recap(self, place: Seat | None) -> dict[str, Any]:
-    """A decided game: the temperature all through, and a player's moves."""
+    """A decided game: the temperature all through, and a player's moves.
+
+    A Steward's (or a watched game's) recap tells the Steward's forecasts
+    and side objectives; a people's tells its own result and its towns.
+    """
     planet = self.context.planet
     low, high = planet.band()
+    kind = self._kind(place.entity) if place is not None else ''
+    stewards = kind in ('', 'steward')  # A watched game shows the Steward's.
     moves: dict[str, int] = {}
     held = timed_out = 0
     for choice in place.choices if place is not None else []:
@@ -2274,9 +2385,14 @@ class GameSession:
       else:
         moves[choice] = moves.get(choice, 0) + 1
     return {
-        'outcome': planet.outcome,
+        'outcome': (
+            self._own_outcome(place.entity, False)
+            if place is not None
+            else planet.outcome
+        ),
         'reason': planet.outcome_reason,
         'ticks': planet.tick,
+        'max_ticks': planet.max_ticks,
         'temps': [round(float(r['temp_c']), 1) for r in planet.history],
         'band': [low, high] if high - low <= 60 else None,
         # The player's moves on that line, where each acted, and which way
@@ -2317,8 +2433,10 @@ class GameSession:
         'minds': self.spend(),
         # The stars earned, and each star's rule.
         'stars': planet.stars(),
-        # The side objectives and their verdicts on the true world.
-        'side': planet.side_payload(),
+        # The Steward's side objectives and their verdicts on the true world.
+        'side': planet.side_payload() if stewards else [],
+        # A people's towns at the end, and by which road each was gained.
+        'towns': self._towns_recap(place),
         # Whether it can be watched again exactly, and as which game.
         'replayable': bool(
             self.mode == 'play' and self.minds == 'mock' and self._decided()
@@ -2328,9 +2446,32 @@ class GameSession:
         'chapter': self.chapter if self.mode == 'play' else None,
         # How far off the Steward's forecasts were, against its raw
         # readings; None where no one read the temperature.
-        'forecast': forecast_lib.track_record(
-            planet.history, planet.made, planet.move_profiles
+        'forecast': (
+            forecast_lib.track_record(
+                planet.history, planet.made, planet.move_profiles
+            )
+            if stewards
+            else None
         ),
+    }
+
+  def _towns_recap(self, place: Seat | None) -> dict[str, Any] | None:
+    """A people's towns at the end, of all towns, and how it gained them."""
+    towns = self.context.planet.settlements
+    if place is None or towns is None or self._kind(place.entity) != 'people':
+      return None
+    key = self._role(place.entity).get('polity')
+    if not key:
+      return None
+    total = sum(len(v) for v in towns.places.values())
+    share = float(towns.war.get('conquest_share', 0.75)) if towns.war else 0
+    return {
+        'held': len(towns.places.get(key, [])),
+        'of': total,
+        'gains': dict(towns.gains.get(key, {})),
+        # The towns that win the age alone, and whether a people did.
+        'alone': math.ceil(share * total - 1e-9) if share else None,
+        'conquered': bool(self.context.planet.winner),
     }
 
   def _how_played(self, place: 'Seat | None') -> dict[str, Any] | None:
@@ -2341,7 +2482,12 @@ class GameSession:
     seconds = sorted(t['seconds'] for t in turns if t['seconds'] is not None)
     return {
         'turns': len(turns),
-        'acted': sum(1 for t in turns if t['move'] not in NEUTRAL_OPTIONS),
+        # A move other than the neutral one, or orders from its towns.
+        'acted': sum(
+            1
+            for t in turns
+            if t['move'] not in NEUTRAL_OPTIONS or t.get('orders')
+        ),
         'seconds': seconds[len(seconds) // 2] if seconds else None,
     }
 
@@ -2462,6 +2608,10 @@ class GameSession:
           'options': options,
           # Options that may land where the player taps the map.
           'targets': [o for o in options if self._targetable(entity, o)],
+          # The orders each of a people's towns may give (tapped on the map),
+          # and the peoples it may send words to.
+          'towns': menu.get('towns', {}),
+          'speak': list(menu.get('speak', ())),
           # Which way each move pushes the world, and about how far.
           'pushes': {
               o: p for o, p in menu.get('pushes', {}).items() if o in options
@@ -2527,7 +2677,7 @@ class GameSession:
         ),
         'tick': self._tick(),
         'max_ticks': planet.max_ticks,
-        'outcome': self._outcome().get('outcome') or '',
+        'outcome': self._own_outcome(entity, spectator),
         'outcome_reason': self._outcome().get('reason') or '',
         'finished': self.finished,
         'error': self.error,
@@ -2591,7 +2741,11 @@ class GameSession:
             or self.mode != 'play'
             or self.finished
             or self._decided()
-            else {'turns': place.hold, 'stopped': place.stopped}
+            else {
+                'turns': place.hold,
+                'stopped': place.stopped,
+                'keeping': len(place.keeping),
+            }
         ),
         # What came of the course just held, in the player's own readings:
         # shown until they move again.

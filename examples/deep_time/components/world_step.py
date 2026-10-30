@@ -112,6 +112,9 @@ class WorldStep(
               'outcome': ctx.planet.outcome,
               'reason': ctx.planet.outcome_reason or '',
               'stars': ctx.planet.stars(),
+              # Where conquest is played: the people (its key) that conquered
+              # the map (its player wins; every other player loses).
+              **({'winner': ctx.planet.winner} if ctx.planet.winner else {}),
           }),
           source='world',
       )

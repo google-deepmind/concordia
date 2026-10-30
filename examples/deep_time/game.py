@@ -51,6 +51,9 @@ from concordia.typing import human_input
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import measurements as measurements_lib
 
+# How many of a people's war news its topic keeps (the page's story).
+WAR_NEWS_KEPT = 12
+
 
 @dataclasses.dataclass(frozen=True)
 class Mind:
@@ -491,6 +494,31 @@ class GameContext:
         ]
 
 
+def _arms_of(scenario: Mapping[str, Any]) -> dict[str, Any]:
+  """The arms a world's age knows (`civilization.arms`; all if unlisted)."""
+  arms = data.load('arms.yaml')
+  known = scenario['civilization'].get('arms')
+  if not known:
+    return {'kinds': arms['kinds'], 'recipes': arms['recipes']}
+  return {
+      'kinds': {k: v for k, v in arms['kinds'].items() if k in known},
+      'recipes': [
+          r for r in arms['recipes'] if set(r['outputs']) <= set(known)
+      ],
+  }
+
+
+def _with_peace(treaties: Mapping[str, Any]) -> dict[str, Any]:
+  """The treaties' config with peace pacts among its kinds (`arms.yaml`)."""
+  return {
+      **treaties,
+      'kinds': {
+          **treaties.get('kinds', {}),
+          'peace': data.load('arms.yaml')['peace'],
+      },
+  }
+
+
 def _merged(base: Mapping[str, Any], overrides: Mapping[str, Any]):
   """`base` with `overrides` merged in, recursively (for per-scenario data)."""
   merged = dict(base)
@@ -618,6 +646,34 @@ def new_game(
                   if scenario['civilization'].get('media')
                   else None
               ),
+              # Where conquest is played: the kinds of arms, and the recipes
+              # that raise them among the civilization's (stage 6, C3).
+              **(
+                  {
+                      'arms': _arms_of(scenario)['kinds'],
+                      # A world may scale its war to its peoples.
+                      'war': {
+                          **data.load('arms.yaml')['war'],
+                          **scenario['civilization'].get('war', {}),
+                      },
+                      # Peace pacts join the treaties (C7).
+                      'treaties': _with_peace(
+                          _merged(
+                              data.load('civ.yaml'),
+                              scenario.get('civ_overrides', {}),
+                          )['treaties']
+                      ),
+                      'recipes': [
+                          *_merged(
+                              data.load('civ.yaml'),
+                              scenario.get('civ_overrides', {}),
+                          )['recipes'],
+                          *_arms_of(scenario)['recipes'],
+                      ],
+                  }
+                  if scenario['civilization'].get('conquest')
+                  else {}
+              ),
           }
           if scenario.get('civilization')
           else None
@@ -669,4 +725,14 @@ def new_game(
         bus, planet.civ, planet.trade, data.load('trade.yaml')['automation']
     )
   context.publish_state()
+  # Where conquest is played, each people hears of its own wars at once and
+  # keeps the last few (the page's story shows them).
+  if planet.settlements is not None and planet.settlements.war:
+    for polity in planet.civ.polities if planet.civ is not None else ():
+      bus.declare(
+          planet.war_topic(polity),
+          retention=topics.Retention.REPLAY,
+          replay_size=WAR_NEWS_KEPT,
+          description="A people's own news of its wars, told at once.",
+      )
   return context

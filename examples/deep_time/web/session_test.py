@@ -15,6 +15,7 @@
 """Tests for the phone game session (a person plays through HumanActComponent)."""
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -31,6 +32,7 @@ from examples.deep_time import game as game_lib
 from examples.deep_time import scenarios
 from examples.deep_time import views
 from examples.deep_time.components import rule_act
+from examples.deep_time.components import world_step
 from examples.deep_time.web import session as session_lib
 from examples.deep_time.world import treaties as treaties_lib
 from concordia.typing import entity as entity_lib
@@ -321,6 +323,30 @@ class GameSessionTest(absltest.TestCase):
         check=False,
     )
     self.assertIn('asked', done.stdout)
+
+  def test_a_conquest_is_its_conquerors_victory_alone(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', players=['Amber folk', 'Basalt clans']
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _wait_for(lambda: game.state('Basalt clans')['question'])
+    # The World GM's verdict, as it publishes one for a conquered map.
+    game.context.bus.publish(
+        world_step.OUTCOME_TOPIC,
+        json.dumps({
+            'outcome': 'defeat',
+            'reason': 'the Basalt clans conquered the map (12 of the 15 towns)',
+            'stars': None,
+            'winner': 'basalt',
+        }),
+        source='world',
+    )
+    self.assertEqual(game.state('Basalt clans')['outcome'], 'victory')
+    self.assertEqual(game.state('Amber folk')['outcome'], 'defeat')
+    self.assertIn(
+        'conquered the map', game.state('Amber folk')['outcome_reason']
+    )
 
   def test_two_people_play_one_game_from_two_phones(self):
     game = session_lib.GameSession(
@@ -717,7 +743,9 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     _wait_for(lambda: game.state()['question'])
     game.seats[game.entity].hold_pace = 0.05  # Quick turns for the test.
-    self.assertEqual(game.state()['hold'], {'turns': 0, 'stopped': ''})
+    self.assertEqual(
+        game.state()['hold'], {'turns': 0, 'stopped': '', 'keeping': 0}
+    )
     self.assertIsNone(game.hold_course(None, 3))  # Answers the pending turn.
     _wait_for(lambda: game.state()['hold']['turns'] == 0)
     held = [c for c in game.choices if c.startswith('(holding course)')]
@@ -731,7 +759,7 @@ class GameSessionTest(absltest.TestCase):
     _wait_for(lambda: game.state()['hold']['stopped'])
     self.assertEqual(
         game.state()['hold'],
-        {'turns': 0, 'stopped': 'the climate has left its band'},
+        {'turns': 0, 'stopped': 'the climate has left its band', 'keeping': 0},
     )
     watched = session_lib.GameSession('daisyworld', 'watch')
     self.assertIsNotNone(watched.hold_course(None, 3))  # Players only.
@@ -848,9 +876,66 @@ class GameSessionTest(absltest.TestCase):
     self.assertLen(recap['temps'], len(planet.history))
     self.assertGreaterEqual(recap['held'], 1)  # It held its course.
     self.assertEqual(recap['band'], list(planet.band()))
+    # A people's recap: its towns, not the Steward's forecasts or goals.
+    self.assertEqual(recap['side'], [])
+    self.assertIsNone(recap['forecast'])
+    towns = planet.settlements
+    assert towns is not None
+    self.assertEqual(recap['towns']['held'], len(towns.places['amber']))
+    self.assertGreaterEqual(recap['towns']['of'], recap['towns']['held'])
+    # Three of every four towns win the age alone; no people did here.
+    self.assertEqual(
+        recap['towns']['alone'], math.ceil(0.75 * recap['towns']['of'])
+    )
+    self.assertFalse(recap['towns']['conquered'])
     self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
     self.assertTrue(all(s['met'] is not None for s in state['stars']))
+
+  def test_holding_course_repeats_a_towns_envoys(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Basalt clans'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
+    question = _question(game)
+    (town,) = list(question['towns'].values())[:1]
+    row, col = town['at']
+    envoys = f'town {row},{col}: {actors_lib.SEND_ENVOYS}'
+    march = f'town {row},{col}: {actors_lib.MARCH_TAKE}'
+    start = game.state()['tick']
+    # A march is given once: only the envoys are kept.
+    self.assertIsNone(game.hold_course(None, 2, keep=[envoys, march]))
+    self.assertEqual(game.seats[game.entity].keeping, [envoys])
+    _wait_for(lambda: game.state()['tick'] >= start + 2)
+    held = [t for t in game.seats[game.entity].played if t['how'] == 'held']
+    self.assertLen(held, 2)
+    self.assertTrue(all(t['orders'] == [envoys] for t in held))
+    self.assertEqual(game.seats[game.entity].keeping, [])  # The hold ended.
+    told = [m['outcome'] for m in game.state()['moves'] if m['how'] == 'held']
+    self.assertTrue(
+        any('send 5 grain and envoys' in o for o in told if o), told
+    )
+
+  def test_a_turn_of_town_orders_counts_as_acting(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Basalt clans'
+    )
+    keep = 'keep the current balance of labor'
+    place = game.seats[game.entity]
+    place.played.extend([
+        {
+            'move': keep,
+            'how': 'chose',
+            'seconds': 4.0,
+            'orders': ['town 5,14: send grain and envoys to a town'],
+        },
+        {'move': keep, 'how': 'held', 'seconds': None},
+    ])
+    played = game._how_played(place)
+    assert played is not None
+    self.assertEqual(played['acted'], 1)
 
   def test_the_recap_marks_where_each_move_acted(self):
     game = session_lib.GameSession(
@@ -875,6 +960,8 @@ class GameSessionTest(absltest.TestCase):
     self.assertIn([sent + 1, 'seed bright clouds', 'cool'], recap['marks'])
     self.assertIsInstance(recap['seen'], list)  # The Steward's readings.
     self.assertIsInstance(recap['turning'], list)  # (`forecast` tests them.)
+    self.assertIsNone(recap['towns'])  # A Steward holds no towns.
+    self.assertIsNotNone(recap['forecast'])
     watched = session_lib.GameSession(
         'daisyworld', 'watch', pace_seconds=0, overrides={'max_ticks': 3}
     ).start()
@@ -1309,11 +1396,8 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(news['from'], [north - row, col])
     capital = planet.settlements.places['amber'][0]
     self.assertEqual(news['to'], [north - capital.row, capital.col])
-    # Cut from the map (a tap only zoomed it); a data flag brings it back.
-    self.assertEqual(game.map(None)['couriers'], [])
-    # Only a people's player has couriers: the ripples show everyone else.
-    watched = session_lib.GameSession('fire_and_iron', 'watch')
-    self.assertEqual(watched.map(None)['couriers'], [])
+    # Not drawn as couriers on the map (deleted: a tap only zoomed it).
+    self.assertNotIn('couriers', game.map(None))
 
   def test_mission_control_sees_its_transmissions_cross_the_void(self):
     game = session_lib.GameSession('light_delay', 'play').start()
@@ -1403,6 +1487,56 @@ class ReplayTest(absltest.TestCase):
     assert gaia is not None
     self.assertIsInstance(
         gaia.get_act_component(), human_act_component.HumanActComponent
+    )
+
+  def test_a_course_kept_with_envoys_replays_exactly(self):
+    folder = self.create_tempdir().full_path
+    game = session_lib.GameSession(
+        'great_acceleration',
+        'play',
+        role='Basalt clans',
+        telemetry_dir=folder,
+        overrides={'max_ticks': 6},
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.0
+    question = _question(game)
+    row, col = list(question['towns'].values())[0]['at']
+    envoys = f'town {row},{col}: {actors_lib.SEND_ENVOYS}'
+    self.assertIsNone(game.hold_course(None, 10, keep=[envoys]))
+    _wait_for(lambda: game.finished, timeout=120)
+    record = session_lib.load_replay(
+        os.path.join(folder, session_lib.REPLAYS, f'{game.game_id}.json')
+    )
+    assert record is not None
+    again = session_lib.GameSession(
+        'great_acceleration',
+        'watch',
+        pace_seconds=0.0,
+        players=record['players'],
+        replay=record,
+        overrides={'max_ticks': 6},
+    ).start()
+    self.addCleanup(again.join, 30)
+    self.addCleanup(again.cancel)
+    _wait_for(lambda: again.finished, timeout=120)
+
+    def towns(g):  # The courted towns' regard, as the envoys left it.
+      settled = g.context.planet.settlements
+      return json.dumps(settled.get_state() if settled else {}, default=str)
+
+    self.assertIn('envoys', json.dumps(record['moves'][game.entity]))
+    settlements = game.context.planet.settlements
+    assert settlements is not None
+    places = settlements.places
+    self.assertTrue(
+        any('basalt' in t.regard for v in places.values() for t in v)
+    )
+    self.assertEqual(towns(again), towns(game))
+    self.assertEqual(
+        json.dumps(again.context.planet.history, default=str),
+        json.dumps(game.context.planet.history, default=str),
     )
 
   def test_a_decided_game_replays_exactly(self):
