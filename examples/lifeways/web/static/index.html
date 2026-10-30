@@ -1,0 +1,513 @@
+<!doctype html>
+<!--
+Copyright 2026 DeepMind Technologies Limited.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lifeways</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>Lifeways</h1>
+      <button id="play-mini" type="button">Pause</button>
+      <select id="jump" aria-label="Go to a part of the page">
+        <option value="">Go to…</option>
+        <option value="valley">The map</option>
+        <option value="designer">Release a custom</option>
+        <option value="fates">Shape the valley</option>
+        <option value="graphs">The census</option>
+        <option value="twins">Fork a twin</option>
+        <option value="lab">The lab</option>
+        <option value="interviews">Interviews</option>
+        <option value="notebook">Notebook</option>
+        <option value="built">How it's built</option>
+      </select>
+    </div>
+    <div id="year">…</div>
+    <p id="announce" class="visually-hidden" aria-live="polite"></p>
+  </header>
+  <section id="tour" class="card" hidden aria-label="A short tour">
+    <p id="tour-text"></p>
+    <button id="tour-show" type="button">Show me</button>
+    <button id="tour-next" type="button">Next</button>
+    <button id="tour-skip" type="button" class="link">Skip the tour</button>
+  </section>
+  <section id="away" class="card" hidden aria-label="While you were away">
+    <h2 id="away-title"></h2>
+    <ul id="away-list"></ul>
+    <button id="away-notebook" type="button" class="link">The whole
+      notebook</button>
+    <button id="away-close" type="button">Got it</button>
+  </section>
+  <p id="intro" class="hint">People in this valley are born, learn their ways
+    from one another, and die. Tap the map where many people are (pause
+    first if you like), then <a href="#designer">release a custom of your
+    own</a> and watch it spread or die out.</p>
+
+  <form id="find" role="search">
+    <label class="wide">Find a person or a custom
+      <input id="find-q" type="search" placeholder="A name, or words: share"
+        autocomplete="off">
+    </label>
+  </form>
+  <ul id="find-results" class="parts" aria-live="polite"></ul>
+
+  <section id="time" aria-label="Time">
+    <button id="play" type="button">Pause</button>
+    <label>Years a second
+      <select id="speed">
+        <option value="0.25">¼</option>
+        <option value="0.5">½</option>
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+      </select>
+    </label>
+    <span id="pace-real" class="hint"></span>
+    <button id="stop" type="button" class="danger">End this world</button>
+    <span class="hint">(for good; Pause only waits)</span>
+    <span id="anew-box" hidden>
+      <label>New world: <select id="preset"></select></label>
+      <span id="preset-note" class="hint"></span>
+      <span id="play-as-box">
+        <label><input id="play-as" type="checkbox"> live as a founder</label>
+        <span class="hint">Living as a founder, you are one of the valley's
+          first people: each year you choose what they do, and when they
+          die you are born again in their line.</span>
+      </span>
+      <button id="anew" type="button">Begin a new world</button>
+      <span id="anew-error"></span>
+    </span>
+  </section>
+
+  <section id="life" hidden aria-label="Your life">
+    <h2>Your life: <span id="life-name"></span></h2>
+    <p id="life-lives" class="hint"></p>
+    <p id="life-reach" class="hint" aria-live="polite"></p>
+    <p id="life-note" class="hint" aria-live="polite"></p>
+    <form id="life-form" hidden>
+      <ul id="life-status"></ul>
+      <p id="life-question"></p>
+      <fieldset id="life-moves"><legend>What you do this year</legend>
+        <div id="life-move-list"></div></fieldset>
+      <fieldset id="life-customs"><legend id="life-customs-legend"></legend>
+        <div id="life-custom-list"></div></fieldset>
+      <label id="life-say-box" hidden>Your answer
+        <textarea id="life-say" rows="2" maxlength="400"></textarea></label>
+      <button type="submit">Answer</button>
+      <span id="life-error"></span>
+    </form>
+    <details><summary>What you know and remember</summary>
+      <p class="hint">As the person saw and heard it. A place is written
+        row,column: 3,4 is row 3, column 4.</p>
+      <pre id="life-context"></pre></details>
+  </section>
+
+  <section id="valley" aria-label="The valley">
+    <canvas id="map" width="480" height="320" tabindex="0" role="img"
+      aria-label="The valley's map: tap a person or place; with a keyboard,
+        arrows move the ring and Enter opens what stands there"
+      aria-describedby="map-text"></canvas>
+    <p id="map-text" class="hint"></p>
+    <p id="map-live" class="visually-hidden" aria-live="polite"></p>
+    <p id="at-note" class="hint" aria-live="polite"></p>
+    <p id="map-key" class="hint"></p>
+    <label class="filter">Colour people by
+      <select id="overlay">
+        <option value="descent">descent</option>
+        <option value="people">people (who would marry one another)</option>
+        <option value="tongue">tongue</option>
+        <option value="food">food stored</option>
+        <option value="age">age</option>
+      </select>
+    </label>
+    <p id="people-key" class="hint"></p>
+    <ul class="hint key-list">
+      <li>A dot is a person, coloured as chosen above; small dots are
+        children. Tap one to see their customs.</li>
+      <li>Squares are places: L library, S school, ✦ shrine, C court, M
+        market. Tap
+        one to see who keeps it and what it holds.</li>
+      <li>Golden furrows are fields; a dashed amber outline is a disaster of
+        the last twenty years.</li>
+      <li id="key-you" hidden>The dashed white ring is you.</li>
+    </ul>
+  </section>
+
+  <section id="person" hidden aria-label="A person">
+    <h2 id="person-name"></h2>
+    <p id="person-body"></p>
+    <h3>Family</h3>
+    <div id="person-kin-tree" class="drawing"></div>
+    <div id="person-kin"></div>
+    <h3>Their customs</h3>
+    <p class="hint">The ways this person lives by, and how each came to them.
+      Copying loses words, so some read oddly; "how it has changed" shows a
+      custom's versions.</p>
+    <ul id="person-customs"></ul>
+    <details id="person-anatomy">
+      <summary id="person-anatomy-label">How Concordia builds this
+        person</summary>
+      <ul id="person-anatomy-list" class="parts"></ul>
+    </details>
+    <div id="person-let-go-box" hidden>
+      <h3>Let go to make room</h3>
+      <p class="hint">A person holds only so many customs, and only two about
+        any one thing: a new one pushes an old one out.</p>
+      <ul id="person-let-go"></ul>
+    </div>
+    <form id="ask">
+      <label class="wide">Ask them (they answer next year)
+        <input id="question" maxlength="160" placeholder="Why do you share your food?">
+      </label>
+      <button type="submit">Ask next year</button>
+    </form>
+    <p id="ask-note" class="hint" aria-live="polite"></p>
+    <button id="person-close" type="button">Close</button>
+  </section>
+
+  <section id="place" hidden aria-label="A place">
+    <h2 id="place-title"></h2>
+    <ul id="place-body" class="parts"></ul>
+    <h3 id="place-holds-label"></h3>
+    <p id="place-holds-none" class="hint" hidden></p>
+    <ul id="place-holds"></ul>
+    <button id="place-close" type="button">Close</button>
+  </section>
+
+  <section id="lineage" hidden aria-label="A lineage">
+    <h2 id="lineage-title"></h2>
+    <p class="hint"><span id="lineage-asof"></span>
+      <button id="lineage-update" type="button" class="link" hidden>Show it
+        as of now</button></p>
+    <p class="hint">A copy may lose a word, regain one, or add "always";
+      know-how is learned a level lower, and a script has one of its marks
+      made another way. Each change is a new version, and versions compete to
+      be held. Every version here arose that way unless it says
+      otherwise.</p>
+    <h3>Held now</h3>
+    <p id="lineage-held-none" class="hint" hidden>Nobody holds any version
+      of this custom now.</p>
+    <ul id="lineage-held-list" class="lineage-list"></ul>
+    <p id="lineage-held-more" class="hint"></p>
+    <details id="lineage-kept" hidden>
+      <summary id="lineage-kept-label"></summary>
+      <ul id="lineage-kept-list" class="lineage-list"></ul>
+    </details>
+    <details id="lineage-tree" hidden>
+      <summary id="lineage-tree-label"></summary>
+      <p id="lineage-older" class="hint" hidden>Its oldest versions are
+        forgotten; the tree starts from the oldest the valley remembers.
+        The version you opened is in bold.</p>
+      <p class="hint">A dot is a version, its size how many hold it: filled,
+        held; hollow, only in a library or shrine; dashed, died out. Each
+        says what its copy changed: −a word lost, +a word gained. Tap one
+        to open it.</p>
+      <div id="lineage-tree-drawing" class="drawing"></div>
+      <ul id="lineage-tree-list" class="lineage-list"></ul>
+    </details>
+    <details id="lineage-gone" hidden>
+      <summary id="lineage-gone-label"></summary>
+      <ul id="lineage-gone-list" class="lineage-list"></ul>
+    </details>
+    <button id="lineage-close" type="button">Close</button>
+  </section>
+
+  <section id="designer" aria-label="The custom designer">
+    <h2>Release a custom</h2>
+    <p class="hint">You never edit a mind. A song reaches those near the
+      ring; a text waits on a library shelf. Each who meets it may take it
+      up, or not. Tap the map to choose the place.</p>
+    <details class="hint"><summary>What tends to spread?</summary>
+      <ul>
+        <li>Ways people act on where others see them (a habit of gathering
+          food, a rule of sharing): sung once, held by 25 to 55 at their
+          height, and they lived on.</li>
+        <li>A belief or a value: reached at most 5, and mostly died out.</li>
+        <li>Know-how: taken up only if better than what people know, so
+          give it a high level.</li>
+      </ul>
+      <p>(Test valleys with simple-rule minds; each song was heard by 2 to
+        7.)</p>
+    </details>
+    <form id="release">
+      <label>What kind <select id="kind"></select></label>
+      <label>About <select id="domain"></select></label>
+      <label>As a
+        <select id="how"><option>song</option><option>text</option></select>
+      </label>
+      <label id="within-box" hidden>Whom it allows
+        <select id="within">
+          <option value="">anyone</option>
+          <option value="tongue">one who speaks as we do</option>
+          <option value="descent">only our own people</option>
+        </select>
+      </label>
+      <label id="level-box" hidden>How good (level)
+        <select id="level"></select>
+        <span class="hint">People take up know-how only if its level is
+          higher than that of what they already know.</span>
+      </label>
+      <label>At (row, column; tap the map to change)
+        <input id="at" inputmode="numeric" size="6"
+        placeholder="tap the map"></label>
+      <label class="wide">It says
+        <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
+      </label>
+      <button type="submit">Release next year</button>
+    </form>
+    <p id="release-preview" class="hint" aria-live="polite"></p>
+    <p id="queued" class="hint"></p>
+    <h3>Your releases</h3>
+    <p class="hint">How many hold each custom you released, or a variant of
+      it, year by year: does it spread, or die out?</p>
+    <ul id="releases"><li class="hint">Nothing released yet.</li></ul>
+  </section>
+
+  <section id="fates" aria-label="Shape the valley">
+    <h2>Shape the valley</h2>
+    <p class="hint">At the ring on the map: send a disaster (it strikes
+      within three steps), bring strangers with their own ways, or found or
+      close a library, school, shrine or court.</p>
+    <form id="fate">
+      <label>What <select id="fate-kind"></select></label>
+      <button type="submit">Send it next year</button>
+    </form>
+    <p id="fate-queued" class="hint"></p>
+    <p id="fate-error" class="hint" role="alert"></p>
+  </section>
+
+  <section id="graphs" aria-label="The census">
+    <h2>The census</h2>
+    <canvas id="chart" width="480" height="180"></canvas>
+    <p id="legend" class="hint"></p>
+    <p id="channels" class="hint"></p>
+    <p class="hint">Keep the data, to read elsewhere (CSV, opens in a
+      spreadsheet): <a href="data/census.csv" download="lifeways-census.csv">the
+      census</a>, a row a year; <a href="data/people.csv"
+      download="lifeways-people.csv">who holds what</a>, a row for each living
+      person and custom they hold now; <a href="data/surveys.csv"
+      download="lifeways-surveys.csv">survey answers</a>, with the customs
+      each named; and <a href="data/replay.json"
+      download="lifeways-replay.json">a replay</a>, this world's settings and
+      every move you made, to play it again exactly to this year:
+      <code>python -m examples.lifeways.run --replay=lifeways-replay.json</code>
+      (as you left it, with people who think by simple rules; a life you
+      played is not replayed).</p>
+    <h3>How fair</h3>
+    <canvas id="fairness" width="480" height="180"></canvas>
+    <p class="hint">Inequality: how unevenly food is stored (0, all alike;
+      the top, 1, one has all). Shares: food given to the hungry. Hoarders:
+      people seen keeping full stores while a neighbour starved. Judged:
+      hoarders judged at a court. The last three each have their own
+      scale.</p>
+    <h3>What most hold</h3>
+    <canvas id="prevalence" width="480" height="180"></canvas>
+    <p class="hint">The versions most often among the most widely held:
+      each line, the share of the living who hold it, year by year (one
+      scale, 0 to 100%). Only the five most held are counted each year: a
+      line breaks where its version was not among them.</p>
+    <ul id="prevalence-key" class="hint parts"></ul>
+    <div id="kept-box" hidden>
+      <h3>Norms kept, seen and unseen</h3>
+      <canvas id="kept" width="480" height="180"></canvas>
+      <p id="kept-text"></p>
+      <p class="hint">Each year, each norm a person holds counts once when
+        they do a deed: kept if the deed named it. Own: norms they were
+        raised in, practised or shamed into. Expected: norms they have only
+        seen others keep. Seen: someone was within sight as they chose. By
+        the design, own norms are kept seen or unseen, expected ones only
+        when seen. A norm has its occasion only now and then (sharing, when
+        someone near is hungry), so compare the lines with one another. Each
+        point counts the ten years up to it (one scale, 0 to 100%).</p>
+    </div>
+    <div id="peoples-chart-box" hidden>
+      <h3>Peoples over time</h3>
+      <canvas id="peoples-chart" width="480" height="180"></canvas>
+      <p class="hint">Each people, named by the descent most of its members
+        share: how many grown are of it, year by year (one scale for all;
+        children belong to none until grown).</p>
+    </div>
+  </section>
+
+  <section id="twins" aria-label="Fork a twin">
+    <h2>Fork a twin</h2>
+    <p class="hint">A twin is this world from this year on, with one lever
+      pulled. Both play on side by side; your releases reach both, and the
+      graph draws the twin dashed.</p>
+    <form id="fork">
+      <label>Lever <select id="lever"></select></label>
+      <label id="lever-to">To <input id="lever-value" inputmode="decimal"
+        size="6"></label>
+      <button type="submit">Fork</button>
+      <button id="unfork" type="button" hidden>Let the twin go</button>
+    </form>
+    <p id="twin" class="hint" aria-live="polite"></p>
+    <p id="fork-error" class="hint" role="alert"></p>
+    <div id="twin-report-box" hidden>
+      <h3>The twin, side by side</h3>
+      <p id="twin-report-head"></p>
+      <ul id="twin-report" class="parts"></ul>
+      <p class="hint">Each measure over the years both worlds have lived
+        since the fork: a mean a year, here and in the twin, and how much
+        more (+) or less (−) the twin has. Norms kept count all those years
+        together, as shares (their difference in percentage points).
+        Inequality runs from 0 (all store alike) to 1 (one has all);
+        variety, from 0 (all hold the same) towards 1.</p>
+    </div>
+  </section>
+
+  <section id="lab" aria-label="The lab">
+    <h2>The lab</h2>
+    <p class="hint">Experiments over many seeds, played quickly in the
+      background by people who think by simple rules, while this world plays
+      on. Each run starts from this world's settings in year 0, without your
+      moves; a measure is a run's average over its later half.</p>
+    <form id="lab-form">
+      <label class="wide">Experiment <select id="lab-kind">
+        <option value="replicate">Play this world again on other seeds</option>
+        <option value="compare">Pull a lever, seed by seed</option>
+      </select></label>
+      <label id="lab-lever-box" class="wide">Lever
+        <select id="lab-lever"></select></label>
+      <label id="lab-to">To <input id="lab-value" inputmode="decimal"
+        size="6"></label>
+      <label>Seeds <select id="lab-seeds">
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+      </select></label>
+      <label>Years <select id="lab-years">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+        <option value="200">200</option>
+        <option value="300">300</option>
+      </select></label>
+      <button type="submit">Play it in the background</button>
+    </form>
+    <p id="lab-status" aria-live="polite"></p>
+    <ul id="lab-result" class="parts"></ul>
+    <p id="lab-error" class="hint" role="alert"></p>
+  </section>
+
+  <section id="interviews" aria-label="Interviews">
+    <h2>Interviews</h2>
+    <p class="hint">Tap a person and ask them something; they answer next
+      year.<span id="mock-answers" hidden> People here think by simple rules,
+      so they answer by naming the customs they live by that bear most on
+      your question.</span></p>
+    <ul id="transcripts"></ul>
+    <h3>Surveys</h3>
+    <p class="hint">A survey puts one question to everyone who can answer,
+      or to some drawn at random. They answer next year; as that year ends,
+      the page counts which of their own customs each answer named, in its
+      words or by its number.</p>
+    <form id="survey-form">
+      <label class="wide">Ask many the same question
+        <input id="survey-question" maxlength="160"
+          placeholder="What do you owe your neighbours?">
+      </label>
+      <label>Whom <select id="survey-many">
+        <option value="0">everyone</option>
+        <option value="10">10, drawn at random</option>
+        <option value="25">25, drawn at random</option>
+      </select></label>
+      <button type="submit">Survey next year</button>
+    </form>
+    <p id="survey-note" class="hint" aria-live="polite"></p>
+    <ul id="surveys"></ul>
+  </section>
+
+  <section id="notebook" aria-label="The notebook">
+    <h2>Notebook</h2>
+    <p class="hint">Your notes, your moves and what came of them, and what the
+      valley did by itself (fires, raids, places built and left to ruin),
+      year by year.
+      <a href="notebook.md" download="lifeways-notebook.md">Keep a copy</a>
+      (a text file), or <a href="report.html" target="_blank">the world on one
+      page</a>: its census drawn, your releases and notes, what the valley
+      did, your surveys and the last experiment, to keep or share.</p>
+    <form id="note">
+      <label>Kind
+        <select id="note-kind">
+          <option value="hypothesis">hypothesis</option>
+          <option value="observation">observation</option>
+          <option value="note">note</option>
+        </select>
+      </label>
+      <label class="wide">It says
+        <textarea id="note-text" maxlength="1000" rows="2"
+          placeholder="Where shrines stand, sharing spreads faster."></textarea>
+      </label>
+      <fieldset id="note-check" class="wide">
+        <legend>Let the census check it (if you like)</legend>
+        <label>What <select id="check-measure"></select></label>
+        <label>will <select id="check-direction">
+          <option value="rise">rise</option>
+          <option value="fall">fall</option>
+        </select></label>
+        <label class="years">within <input id="check-years"
+          inputmode="numeric" size="4" value="50"> years</label>
+        <p class="hint">The census reads it as its average over five years,
+          now and when due; the notebook says whether it held.</p>
+      </fieldset>
+      <button type="submit">Write it down</button>
+    </form>
+    <p id="note-error" class="hint" role="alert"></p>
+    <label class="filter">Show
+      <select id="note-filter">
+        <option value="all">everything</option>
+        <option value="mine">what I wrote</option>
+        <option value="moves">my moves and the World's account</option>
+        <option value="events">changes in the valley</option>
+      </select>
+    </label>
+    <ol id="entries"></ol>
+  </section>
+
+  <section id="built" aria-label="How it's built">
+    <h2>How it's built</h2>
+    <p class="hint">Lifeways shows off Concordia, Google DeepMind's library
+      for simulating people with language models.</p>
+    <ul class="hint key-list">
+      <li>Each person is a Concordia entity built from a prefab: memory,
+        what it sees, who it is, a Learner, and one part per custom. Taking
+        up a custom adds a part; letting it go removes one. Tap a person,
+        then "How Concordia builds …".</li>
+      <li>The valley is a game master: its parts answer the engine's
+        questions (who acts next, what each is asked, what each answer
+        does, what each sees).</li>
+      <li>Concordia's own asynchronous engine runs it, each person in a
+        thread of its own. This page only reads the world and passes on
+        your moves.</li>
+      <li>You are the Experimenter, an entity too: your moves are actions
+        the game master resolves. You never edit a mind.</li>
+    </ul>
+    <details id="world-anatomy">
+      <summary>The valley's game master, part by part</summary>
+      <ul id="world-anatomy-list" class="parts"></ul>
+    </details>
+  </section>
+
+  <footer><span id="build"></span> · <span id="minds"></span>
+    <span id="saved"></span> <span id="error"></span></footer>
+  <script src="static/app.js"></script>
+</body>
+</html>
