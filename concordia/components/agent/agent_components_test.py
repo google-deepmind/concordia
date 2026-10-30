@@ -14,10 +14,13 @@
 
 """Test agent components."""
 import datetime
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
+from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import all_similar_memories
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import constant
@@ -30,7 +33,11 @@ from concordia.components.agent import puppet_act
 from concordia.components.agent import question_of_recent_memories
 from concordia.components.agent import report_function
 from concordia.components.agent import scripted_act
+from concordia.components.game_master import next_game_master
+from concordia.components.game_master import switch_act
 from concordia.language_model import no_language_model
+from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.utils import helper_functions
 import numpy as np
 
@@ -278,6 +285,74 @@ class AgentComponentTest(parameterized.TestCase):
 
     # Deeper check for the entire component
     deep_compare_components(component_a, component_b, self, skip_keys)
+
+
+def _in_pre_act_phase(
+    component: action_spec_ignored.ActionSpecIgnored,
+) -> action_spec_ignored.ActionSpecIgnored:
+  """Attaches `component` to a fake entity that is in the `PRE_ACT` phase."""
+  entity = mock.MagicMock()
+  entity.get_phase.return_value = entity_component.Phase.PRE_ACT
+  component.set_entity(entity)
+  return component
+
+
+class ActionSpecIgnoredPreActTest(absltest.TestCase):
+  """Tests how `ActionSpecIgnored` formats the context `pre_act` returns."""
+
+  def test_pre_act_prefixes_the_value_with_its_label_by_default(self):
+    component = _in_pre_act_phase(constant.Constant("rules", "Next"))
+
+    self.assertEqual(
+        component.pre_act(entity_lib.DEFAULT_ACTION_SPEC), "Next:\nrules\n"
+    )
+
+  def test_pre_act_returns_the_bare_value_when_asked_not_to_prefix(self):
+    component = _in_pre_act_phase(
+        constant.Constant("rules", "Next", prefix_pre_act=False)
+    )
+
+    self.assertEqual(component.pre_act(entity_lib.DEFAULT_ACTION_SPEC), "rules")
+    self.assertEqual(component.get_pre_act_label(), "Next")
+    self.assertEqual(component.get_pre_act_value(), "rules")
+
+  def test_derived_classes_may_override_the_format(self):
+
+    class Bracketed(action_spec_ignored.ActionSpecIgnored):
+
+      def _make_pre_act_value(self) -> str:
+        return "value"
+
+      def _format_pre_act(self, label: str, value: str) -> str:
+        return f"[{label}] {value}"
+
+    component = _in_pre_act_phase(Bracketed("label"))
+
+    self.assertEqual(
+        component.pre_act(entity_lib.DEFAULT_ACTION_SPEC), "[label] value"
+    )
+
+  def test_unprefixed_constant_names_the_next_game_master(self):
+    model = no_language_model.NoLanguageModel()
+    game_master = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name="rules",
+        act_component=switch_act.SwitchAct(model=model, entity_names=()),
+        context_components={
+            next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY: (
+                constant.Constant("rules", prefix_pre_act=False)
+            ),
+        },
+    )
+
+    chosen = game_master.act(
+        entity_lib.ActionSpec(
+            call_to_action=next_game_master.DEFAULT_CALL_TO_NEXT_GAME_MASTER,
+            output_type=entity_lib.OutputType.NEXT_GAME_MASTER,
+            options=("setup", "rules"),
+        )
+    )
+
+    self.assertEqual(chosen, "rules")
 
 
 if __name__ == "__main__":

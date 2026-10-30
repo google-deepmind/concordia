@@ -29,6 +29,8 @@ class Constant(
       self,
       state: str,
       pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
+      *,
+      prefix_pre_act: bool = True,
   ):
     """Initializes the agent.
 
@@ -36,12 +38,15 @@ class Constant(
       state: the state of the component.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
+      prefix_pre_act: Whether `pre_act` prefixes the state with
+        `pre_act_label`. Pass False to have `pre_act` return the state
+        exactly, e.g. to name a game master's next game master.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
         components.
     """
-    super().__init__(pre_act_label)
+    super().__init__(pre_act_label, prefix_pre_act=prefix_pre_act)
     self._state = state
 
   def _make_pre_act_value(self) -> str:
