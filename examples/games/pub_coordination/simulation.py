@@ -20,6 +20,8 @@ from typing import Any, Callable, Mapping, Sequence
 
 from absl import logging
 from examples.games.pub_coordination import social_data
+from concordia.components.game_master import next_game_master
+from concordia.components.game_master import scene_tracker
 from concordia.language_model import language_model
 from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs import game_master as game_master_prefabs
@@ -29,6 +31,7 @@ from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
 from concordia.prefabs.simulation import generic as simulation_lib
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import helper_functions
@@ -56,6 +59,12 @@ class PubCoordinationPayoff:
   def latest_joint_action(self) -> Mapping[str, str]:
     """Returns the latest joint action passed to action_to_scores."""
     return self._latest_joint_action
+
+  def set_option_multipliers(
+      self, option_multipliers: Mapping[str, float]
+  ) -> None:
+    """Updates venue availability for scoring and outcome feedback."""
+    self._option_multipliers = dict(option_multipliers)
 
   def action_to_scores(
       self, joint_action: Mapping[str, str]
@@ -534,9 +543,17 @@ def run_simulation(
       pub_closed_probability=prob_closed,
   )
 
-  # For the payoff, use the first game's closure (matching the single-payoff
-  # architecture)
+  # Initial memories describe the first game's venue availability.
   closed_venues = closures_per_game[0] if closures_per_game else []
+  decision_scenes = [
+      scene
+      for scene in scenes
+      if scene.scene_type.game_master_name == "decision rules"
+  ]
+  closed_venues_by_scene = {
+      scene.scene_type.name: closed
+      for scene, closed in zip(decision_scenes, closures_per_game, strict=True)
+  }
 
   if focal_player_prefab:
     pass  # Use the provided prefab
@@ -668,6 +685,27 @@ def run_simulation(
       relational_matrix=relational_matrix,
   )
 
+  def action_to_scores(
+      joint_action: Mapping[str, str],
+  ) -> Mapping[str, float]:
+    """Scores a completed game using that decision scene's closures."""
+    decision_game_master = next(
+        gm for gm in sim.get_game_masters() if gm.name == "decision rules"
+    )
+    assert isinstance(
+        decision_game_master, entity_component.EntityWithComponents
+    )
+    tracker = decision_game_master.get_component(
+        next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY,
+        type_=scene_tracker.SceneTracker,
+    )
+    current_scene = tracker.get_current_scene_type().name
+    current_closures = closed_venues_by_scene[current_scene]
+    payoff.set_option_multipliers(
+        {venue: 0.0 if venue in current_closures else 1.0 for venue in venues}
+    )
+    return payoff.action_to_scores(joint_action)
+
   instances.append(
       prefab_lib.InstanceConfig(
           prefab="decision_rules__GameMaster",
@@ -677,7 +715,7 @@ def run_simulation(
               # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
               # pyrefly: ignore [bad-assignment]
-              "action_to_scores": payoff.action_to_scores,
+              "action_to_scores": action_to_scores,
               # pyrefly: ignore [bad-assignment]
               "scores_to_observation": payoff.scores_to_observation,
           },
