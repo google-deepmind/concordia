@@ -2207,9 +2207,23 @@ def build_template_bible_dict(
     ]
   first_voice = 'Brass Neck' if genre_mode == 'caper' else 'Suspicion'
   second_voice = 'The Book' if genre_mode == 'caper' else 'Ledger'
+  default_title = (
+      'The Brass-bound Ledger of Deptford Creek'
+      if genre_mode == 'caper'
+      else 'The Iron Sluice of Glassharbor'
+  )
+  effective_title = (title or default_title).strip()
+  effective_premise = (premise or '').strip()
+  if not effective_premise:
+    effective_premise = (
+        f'In {effective_title}, the harbor clock is running down toward '
+        'a midnight inspection while the Harbor Wardens and the Dockyard '
+        'Collective trade accusations over a tampered sluice and a '
+        'missing customs manifest.'
+    )
   return {
-      'title': title,
-      'premise': premise,
+      'title': effective_title,
+      'premise': effective_premise,
       'opening': (
           'You arrive at The Lower Gatehouse carrying an unsealed inquiry'
           ' commission '
@@ -2813,8 +2827,8 @@ def draft_world_bible(
     prompt = (
         'You are a lead narrative designer authoring a WorldBible JSON for an '
         'interactive RPG engine.\n'
-        f'World Title: {title}\n'
-        f'World Premise: {premise}\n'
+        f"World Title: {template['title']}\n"
+        f"World Premise: {template['premise']}\n"
         f'Tone / Genre: {tone_name} (resolved archetype: {genre_mode})\n\n'
         'Return ONLY a single valid JSON object matching the exact top-level '
         'keys and schema of this reference template, tailored to the premise '

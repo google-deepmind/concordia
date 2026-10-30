@@ -159,6 +159,24 @@ class BibleLoadingTest(absltest.TestCase):
     self.assertTrue(day.covers_hour(6))
     self.assertFalse(day.covers_hour(14))
 
+  def test_author_world_drafts_valid_bible_with_empty_premise(self):
+    for tone in (
+        'london_caper',
+        'noir_mystery',
+        'vampire_romance',
+        'dystopian_scifi',
+    ):
+      bible = author_world.draft_world_bible(
+          title='',
+          premise='',
+          tone_name=tone,
+          model=None,
+      )
+      self.assertTrue(bible.title)
+      self.assertTrue(bible.premise)
+      self.assertEmpty(story_state.validate_bible(bible))
+      self.assertEmpty(story_state.find_bible_leaks(bible))
+
 
 class StoryStateTest(absltest.TestCase):
 
