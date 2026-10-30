@@ -56,12 +56,15 @@ import io
 import json
 import os
 import re
+import sys
 import threading
 import time
+import types
 from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.environment.engines import asynchronous
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways import sweep
@@ -83,8 +86,10 @@ ROWS_KEPT = 400
 # the born are kept in the World GM's `PlayerRoster` state, not as the
 # checkpoint's entities.
 SAVE_VERSION = 2
-# The name the asynchronous engine gives its entity loops' threads.
-ENGINE_THREADS = 'entity_loop'
+# The asynchronous engine's loop for one entity. The engine runs these loops
+# on a thread pool of its own, so a loop is found by what its thread runs.
+# pylint: disable-next=protected-access
+_ENTITY_LOOP = asynchronous.Asynchronous._entity_loop.__code__
 # Variants nobody holds any more that the page remembers, for lineages.
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
@@ -182,9 +187,23 @@ def await_engines(timeout: float = 10.0) -> None:
     timeout: How long to wait in all.
   """
   deadline = time.monotonic() + timeout
-  for thread in threading.enumerate():
-    if thread.name.startswith(ENGINE_THREADS):
-      thread.join(max(0.0, deadline - time.monotonic()))
+  while engine_loops() and time.monotonic() < deadline:
+    time.sleep(0.05)
+
+
+def engine_loops() -> int:
+  """How many threads of the process are in an engine's entity loop now."""
+
+  def in_loop(frame: types.FrameType | None) -> bool:
+    while frame is not None:
+      if frame.f_code is _ENTITY_LOOP:
+        return True
+      frame = frame.f_back
+    return False
+
+  # pylint: disable-next=protected-access
+  frames = sys._current_frames().values()
+  return sum(in_loop(frame) for frame in frames)
 
 
 def _measure(row: Mapping[str, Any], key: str) -> float | None:

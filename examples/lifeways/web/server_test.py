@@ -134,6 +134,23 @@ class FreeModeTest(absltest.TestCase):
       session.close()
 
 
+class CloseTest(absltest.TestCase):
+
+  def test_a_process_waits_for_a_closed_worlds_loops_to_end(self):
+    session = session_lib.Session(years_per_second=50)
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 2))
+      # The engine's loops are found while the world plays.
+      self.assertGreater(session_lib.engine_loops(), 0)
+    finally:
+      session.close()
+
+    session_lib.await_engines()
+
+    self.assertEqual(session_lib.engine_loops(), 0)
+
+
 class SaveTest(absltest.TestCase):
 
   def setUp(self):
