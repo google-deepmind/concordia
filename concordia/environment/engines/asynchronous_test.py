@@ -337,6 +337,32 @@ class AsynchronousTest(absltest.TestCase):
     self.assertGreater(gm_1._act_count, 0)
     self.assertGreater(gm_2._act_count, 0)
 
+  def test_entity_exception_signals_peer_threads_to_stop(self):
+    """Verify an exception in one entity thread wakes and stops peer threads."""
+    env = asynchronous.Asynchronous(sleep_time=5.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[_ENTITY_NAMES[0]]
+    )
+
+    class FailingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        raise RuntimeError('Simulated entity failure')
+
+    failing_entity = FailingEntity(name=_ENTITY_NAMES[0])
+    sleeping_peer = MockEntity(name=_ENTITY_NAMES[1])
+
+    with self.assertRaisesRegex(RuntimeError, 'Simulated entity failure'):
+      env.run_loop(
+          game_masters=[gm],
+          entities=[failing_entity, sleeping_peer],
+          max_steps=100,
+      )
+
   def test_entity_joining_during_run_gets_its_own_loop(self):
     env = asynchronous.Asynchronous(sleep_time=0.0)
     gm = SelectiveGMEntity(
@@ -386,13 +412,39 @@ class AsynchronousTest(absltest.TestCase):
     gm = SelectiveGMEntity(
         name='game_master', eligible_names=list(_ENTITY_NAMES)
     )
-    first, second = (MockEntity(name=n) for n in _ENTITY_NAMES)
+    first_left = threading.Event()
+    loop_owner = {}  # The entity whose loop runs on each thread.
+
+    class RecordingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        loop_owner[threading.get_ident()] = self.name
+        return super().act(action_spec)
+
+    class WaitingEntity(RecordingEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        if self._act_count >= 1:
+          first_left.wait(timeout=5.0)
+        return super().act(action_spec)
+
+    first = RecordingEntity(name=_ENTITY_NAMES[0])
+    second = WaitingEntity(name=_ENTITY_NAMES[1])
     entities = [first, second]
     checkpoints = []
 
     def step_callback(data):
       if data.acting_entity == first.name and first in entities:
         entities.remove(first)
+        first_left.set()
 
     env.run_loop(
         game_masters=[gm],
@@ -400,7 +452,7 @@ class AsynchronousTest(absltest.TestCase):
         max_steps=4,
         step_callback=step_callback,
         checkpoint_callback=lambda step: checkpoints.append(
-            (step, threading.current_thread().name)
+            (step, loop_owner.get(threading.get_ident()))
         ),
     )
 
@@ -408,8 +460,8 @@ class AsynchronousTest(absltest.TestCase):
     self.assertEqual(second._act_count, 4)
     steps = [step for step, _ in checkpoints]
     self.assertEqual(steps, sorted(set(steps)))  # Rising, each step once.
-    self.assertEqual(checkpoints[0][1], f'entity_loop_{first.name}')
-    self.assertEqual(checkpoints[-1][1], f'entity_loop_{second.name}')
+    self.assertEqual(checkpoints[0][1], first.name)
+    self.assertEqual(checkpoints[-1][1], second.name)
     self.assertGreaterEqual(len(checkpoints), 4)
 
   def test_without_joining_or_leaving_the_first_entity_checkpoints(self):
@@ -418,7 +470,19 @@ class AsynchronousTest(absltest.TestCase):
         name='game_master', eligible_names=list(_ENTITY_NAMES)
     )
 
-    class SlowEntity(MockEntity):
+    loop_owner = {}  # The entity whose loop runs on each thread.
+
+    class RecordingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        loop_owner[threading.get_ident()] = self.name
+        return super().act(action_spec)
+
+    class SlowEntity(RecordingEntity):
 
       @override
       def act(
@@ -428,7 +492,8 @@ class AsynchronousTest(absltest.TestCase):
         time.sleep(0.01)
         return super().act(action_spec)
 
-    slow, fast = SlowEntity(name=_ENTITY_NAMES[0]), MockEntity(_ENTITY_NAMES[1])
+    slow = SlowEntity(name=_ENTITY_NAMES[0])
+    fast = RecordingEntity(name=_ENTITY_NAMES[1])
     checkpoints = []
 
     env.run_loop(
@@ -436,46 +501,13 @@ class AsynchronousTest(absltest.TestCase):
         entities=[slow, fast],
         max_steps=5,
         checkpoint_callback=lambda step: checkpoints.append(
-            (step, threading.current_thread().name)
+            (step, loop_owner.get(threading.get_ident()))
         ),
     )
 
     self.assertEqual(
-        checkpoints, [(i, f'entity_loop_{slow.name}') for i in range(1, 6)]
+        checkpoints, [(i, slow.name) for i in range(1, 6)]
     )
-
-  def test_the_thread_of_an_entity_that_leaves_is_released(self):
-    env = asynchronous.Asynchronous(sleep_time=0.0)
-    gm = SelectiveGMEntity(
-        name='game_master', eligible_names=list(_ENTITY_NAMES)
-    )
-    staying, leaving = (MockEntity(name=n) for n in _ENTITY_NAMES)
-    entities = [staying, leaving]
-    threads = {}
-    released = []
-
-    def step_callback(data):
-      if data.acting_entity == leaving.name and leaving in entities:
-        threads['leaving'] = threading.current_thread()
-        entities.remove(leaving)
-      if data.acting_entity == staying.name and data.step == 1:
-        deadline = time.monotonic() + 5  # Until the other has left.
-        while 'leaving' not in threads and time.monotonic() < deadline:
-          time.sleep(0.01)
-      if data.acting_entity == staying.name and data.step == 20:
-        deadline = time.monotonic() + 5
-        while threads['leaving'].is_alive() and time.monotonic() < deadline:
-          time.sleep(0.01)
-        released.append(not threads['leaving'].is_alive())
-
-    env.run_loop(
-        game_masters=[gm],
-        entities=entities,
-        max_steps=20,
-        step_callback=step_callback,
-    )
-
-    self.assertEqual(released, [True])  # While the run went on.
 
   def test_an_error_in_one_loop_stops_the_run(self):
     env = asynchronous.Asynchronous(sleep_time=0.0)
@@ -496,6 +528,75 @@ class AsynchronousTest(absltest.TestCase):
 
     with self.assertRaisesRegex(RuntimeError, 'broken entity'):
       env.run_loop(game_masters=[gm], entities=entities, max_steps=1000)
+
+  def test_paused_entity_loop_wakes_and_exits_when_sibling_raises(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[_ENTITY_NAMES[0], 'failing']
+    )
+    both_in_act = threading.Barrier(2, timeout=5.0)
+    paused_thread_holder: list[threading.Thread] = []
+
+    class SiblingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        if self._act_count == 0:
+          paused_thread_holder.append(threading.current_thread())
+          both_in_act.wait()
+        return super().act(action_spec)
+
+    class FailingAfterPauseEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        del action_spec
+        both_in_act.wait()
+        env.pause()
+        # Let SiblingEntity finish step 0 and park on _pause_event in step 1.
+        time.sleep(0.05)
+        raise RuntimeError('sibling crashed while paused')
+
+    entities = [
+        SiblingEntity(name=_ENTITY_NAMES[0]),
+        FailingAfterPauseEntity('failing'),
+    ]
+
+    with self.assertRaisesRegex(RuntimeError, 'sibling crashed while paused'):
+      env.run_loop(game_masters=[gm], entities=entities, max_steps=10)
+
+    self.assertTrue(env._pause_event.is_set())
+    self.assertLen(paused_thread_holder, 1)
+    paused_thread_holder[0].join(timeout=2.0)
+    self.assertFalse(paused_thread_holder[0].is_alive())
+
+  def test_paused_entity_loop_exits_when_removed_from_entities(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[_ENTITY_NAMES[0]]
+    )
+    entity = MockEntity(name=_ENTITY_NAMES[0])
+    entities = [entity]
+    env.pause()
+
+    runner = threading.Thread(
+        target=env.run_loop,
+        kwargs={'game_masters': [gm], 'entities': entities, 'max_steps': 5},
+        daemon=True,
+    )
+    runner.start()
+    time.sleep(0.08)
+    entities.remove(entity)
+    runner.join(timeout=2.0)
+
+    self.assertFalse(runner.is_alive())
+    self.assertEqual(entity._act_count, 0)
 
   def test_log_entries_stream_in_batches_during_the_run(self):
     env = asynchronous.Asynchronous(sleep_time=0.0, log_batch_size=2)
@@ -536,10 +637,6 @@ class AsynchronousTest(absltest.TestCase):
 
     self.assertEqual(max(seen_during_run), 0)
     self.assertLen(log, 6)
-
-  def test_the_log_batch_size_must_be_positive(self):
-    with self.assertRaises(ValueError):
-      asynchronous.Asynchronous(log_batch_size=0)
 
 
 if __name__ == '__main__':

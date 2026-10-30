@@ -101,8 +101,8 @@ def define_flags() -> None:
   )
   flags.DEFINE_string(
       'api_type',
-      'google_aistudio_model',
-      'Concordia language model API type (e.g. google_aistudio_model, '
+      'google_aistudio',
+      'Concordia language model API type (e.g. google_aistudio, '
       'together_ai, openai, ollama, pytorch_gemma).',
   )
   flags.DEFINE_string(

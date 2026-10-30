@@ -18,6 +18,7 @@ from collections.abc import Collection, Iterator, Mapping, Sequence
 from concurrent import futures
 import contextlib
 import functools
+import sys
 from typing import Any, Callable, TypeVar
 
 from absl import logging
@@ -181,6 +182,63 @@ def run_tasks_in_background(
     for key in unfinished:
       errors[key] = error
   return results, errors
+
+
+def run_dynamic_tasks(
+    get_tasks: Callable[[], Mapping[str, Callable[[], Any]]],
+    *,
+    poll_interval: float = 0.05,
+    max_workers: int | None = None,
+) -> None:
+  """Runs a changing set of callables in parallel until all have finished.
+
+  Unlike `run_tasks`, the set of tasks may change while they run: `get_tasks`
+  returns the tasks that should be running now, and is called again whenever
+  a task finishes and at least every `poll_interval` seconds. A task is
+  started the first time its key appears. A finished task is forgotten once
+  its key is no longer returned, so the key may later start a new task; while
+  its key is still returned it is not started again. Returns once no task is
+  running and every key returned by `get_tasks` has a finished task.
+
+  To stop starting tasks (e.g. on termination), make `get_tasks` return no
+  tasks; those already running are waited for.
+
+  IMPORTANT: Passed callables and `get_tasks` must be threadsafe.
+
+  Args:
+    get_tasks: Returns the callables (MUST BE THREADSAFE) that should be
+      running now, by key.
+    poll_interval: The longest time, in seconds, between calls to `get_tasks`
+      while tasks run.
+    max_workers: The maximum number of tasks running at once; tasks beyond it
+      wait for a free worker. If None, every task gets a worker. Workers are
+      reused once their task finishes.
+
+  Raises:
+    Exception: If any task raises an exception. The other tasks are not
+      waited for.
+  """
+  started: dict[str, futures.Future[Any]] = {}
+  with _executor(max_workers=max_workers or sys.maxsize) as executor:
+    while True:
+      tasks = get_tasks()
+      for key, future in list(started.items()):
+        if future.done():
+          future.result()  # Raises the task's error, if it failed.
+          if key not in tasks:
+            del started[key]
+      new_keys = [key for key in tasks if key not in started]
+      for key in new_keys:
+        started[key] = executor.submit(_run_task, key, tasks[key])
+      running = [future for future in started.values() if not future.done()]
+      if running:
+        futures.wait(
+            running, timeout=poll_interval, return_when=futures.FIRST_COMPLETED
+        )
+      elif not new_keys:
+        for future in started.values():
+          future.result()  # Raises the error of a task that just failed.
+        return
 
 
 def map_parallel(

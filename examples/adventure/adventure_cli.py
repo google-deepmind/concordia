@@ -119,12 +119,12 @@ def _define_flags() -> None:
   )
   flags.DEFINE_string(
       'api_type',
-      'google_aistudio_model',
+      'google_aistudio',
       'Language model API type when running the autorater.',
   )
   flags.DEFINE_string(
       'model_name',
-      'gemini-2.5-flash',
+      'gemini-flash-latest',
       'Language model name when running the autorater.',
   )
   flags.DEFINE_string(
@@ -747,8 +747,8 @@ def run_evaluate_command(
     output_dir: str,
     run_autorater: bool,
     use_mock: bool = False,
-    api_type: str = 'google_aistudio_model',
-    model_name: str = 'gemini-2.5-flash',
+    api_type: str = 'google_aistudio',
+    model_name: str = 'gemini-flash-latest',
     api_key: str = '',
 ) -> dict[str, Any]:
   """Exports live logs and runs `evaluate_run` on the current session."""

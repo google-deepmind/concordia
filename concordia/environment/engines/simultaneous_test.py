@@ -15,7 +15,7 @@
 """Tests for simultaneous simulation."""
 
 import functools
-from typing import override
+from typing import Any, override
 
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
@@ -41,6 +41,9 @@ class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
   @override
   def observe(self, observation: str) -> None:
     pass
+
+  def get_last_log(self) -> dict[str, Any]:
+    return {}
 
   @override
   def act(
@@ -70,6 +73,83 @@ class SimultaneousTest(absltest.TestCase):
         entities=entities,
         max_steps=2,
     )
+
+  def test_entity_leaving_during_resolve_does_not_crash_and_preserves_logs(
+      self,
+  ):
+    env = simultaneous.Simultaneous()
+
+    class LoggingMockEntity(MockEntity):
+
+      def get_last_log(self) -> dict[str, dict[str, str]]:
+        return {'act': {'Key': 'act', 'Value': f'log_for_{self.name}'}}
+
+    staying = LoggingMockEntity(name=_ENTITY_NAMES[0])
+    leaving = LoggingMockEntity(name=_ENTITY_NAMES[1])
+    entities = [staying, leaving]
+
+    class LeavingResolveGM(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+          return ', '.join(e.name for e in entities)
+        if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
+          return (
+              '{"call_to_action": "Act?", "output_type": "free",'
+              ' "options": [], "tag": null}'
+          )
+        if action_spec.output_type == entity_lib.OutputType.TERMINATE:
+          return entity_lib.BINARY_OPTIONS['negative']
+        if action_spec.output_type == entity_lib.OutputType.RESOLVE:
+          if leaving in entities:
+            entities.remove(leaving)
+          return 'Resolved and entity_1 left.'
+        return super().act(action_spec)
+
+    log = []
+    callback_logs = []
+    env.run_loop(
+        game_masters=[LeavingResolveGM(name='game_master')],
+        entities=entities,
+        max_steps=2,
+        log=log,
+        step_callback=lambda data: callback_logs.append(dict(data.entity_logs)),
+    )
+
+    self.assertLen(log, 2)
+    self.assertIn(f'Entity [{leaving.name}]', log[0])
+    self.assertNotIn(f'Entity [{leaving.name}]', log[1])
+    self.assertIn(leaving.name, callback_logs[0])
+    self.assertNotIn(leaving.name, callback_logs[1])
+
+  def test_empty_population_exits_cleanly(self):
+    env = simultaneous.Simultaneous()
+
+    class EmptyNextActingGM(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        if action_spec.output_type == entity_lib.OutputType.TERMINATE:
+          return entity_lib.BINARY_OPTIONS['negative']
+        if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+          return ''
+        return super().act(action_spec)
+
+    log = []
+    env.run_loop(
+        game_masters=[EmptyNextActingGM(name='game_master')],
+        entities=[],
+        max_steps=3,
+        log=log,
+    )
+    self.assertEmpty(log)
 
 
 if __name__ == '__main__':

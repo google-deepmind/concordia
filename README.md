@@ -108,10 +108,11 @@ For example, you can perform an editable installation as follows:
     cd concordia
     ```
 
-2.  Create and activate a virtual environment:
+2.  Create and activate a virtual environment (Python 3.12 or newer is
+    required):
 
     ```shell
-    python -m venv venv
+    python3.12 -m venv venv
     source venv/bin/activate
     ```
 

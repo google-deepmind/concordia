@@ -14,9 +14,12 @@
 
 from collections.abc import Collection, Mapping, Sequence
 import json
+import os
 import threading
 import time
+import types
 from typing import Any, override
+from unittest import mock
 import urllib.request
 
 from absl.testing import absltest
@@ -30,6 +33,7 @@ from examples.adventure import adventure_prefab
 from examples.adventure import adventure_specific_components
 from examples.adventure import evaluate_run
 from examples.adventure import roster_manager
+from examples.adventure import runner
 from examples.adventure import server
 from examples.adventure import story_director
 from examples.adventure import world_ledger
@@ -1237,6 +1241,149 @@ class AdventureTest(absltest.TestCase):
     self.assertTrue(ready_2())
     self.assertEqual(reader_2(dummy_req), 'Inspect the iron valve')
     self.assertFalse(ready_2())
+
+  def test_rich_local_mock_model_preserves_target_location_title(self):
+    mock_model = runner.RichLocalMockModel()
+    prompt = (
+        'You are the Frontier Architect for an interactive RPG.\n'
+        'Target Location to Expand: Old Kent Road Bookies (id: loc_bookies)\n'
+    )
+    raw = mock_model.sample_text(prompt)
+    parsed = json.loads(raw)
+    self.assertEqual(parsed['name'], 'Old Kent Road Bookies')
+
+  def test_setup_language_model_routes_external_providers_and_genai_aliases(
+      self,
+  ):
+    fake_lm = CountingAdventureMockModel()
+    fake_module = types.SimpleNamespace(
+        language_model_setup=mock.MagicMock(return_value=fake_lm)
+    )
+    def fake_import(name: str):
+      if name == 'concordia.contrib.language_models':
+        return fake_module
+      raise ModuleNotFoundError(f'Unexpected import: {name}')
+
+    with mock.patch.object(
+        runner.importlib,
+        'import_module',
+        side_effect=fake_import,
+    ):
+      wrapped = runner.setup_language_model(
+          api_type='together_ai',
+          model_name='deepseek-ai/DeepSeek-V3',
+          api_key='test-key',
+          max_calls=10,
+      )
+      self.assertIsNotNone(wrapped)
+      fake_module.language_model_setup.assert_called_once_with(
+          api_type='together_ai',
+          model_name='deepseek-ai/DeepSeek-V3',
+          api_key='test-key',
+          disable_language_model=False,
+      )
+
+  def test_genai_language_model_falls_back_to_default_model_on_404(self):
+    fake_client = types.SimpleNamespace(
+        models=types.SimpleNamespace(
+            generate_content=mock.MagicMock(
+                side_effect=[
+                    RuntimeError('404 NOT_FOUND: models/old-model not found'),
+                    types.SimpleNamespace(text='Recovered response'),
+                ]
+            )
+        )
+    )
+    fake_genai = types.SimpleNamespace(
+        Client=mock.MagicMock(return_value=fake_client)
+    )
+    fake_types = types.SimpleNamespace(
+        GenerateContentConfig=lambda **kwargs: kwargs,
+        ThinkingConfig=lambda **kwargs: kwargs,
+    )
+    with mock.patch.object(
+        runner.importlib,
+        'import_module',
+        side_effect=lambda name: (
+            fake_genai if name == 'google.genai' else fake_types
+        ),
+    ):
+      lm = runner.GenaiLanguageModel(
+          api_key='test-key',
+          model_name='old-removed-model',
+      )
+      out = lm.sample_text('Hello')
+      self.assertEqual(out, 'Recovered response')
+      self.assertEqual(lm._model_name, runner.DEFAULT_MODEL_NAME)
+
+  def test_extract_director_text_model_and_genai_client(self):
+    genai_client = types.SimpleNamespace(
+        models=types.SimpleNamespace(generate_content=lambda **_: None)
+    )
+    genai_lm = types.SimpleNamespace(_client=genai_client)
+    wrapped_genai = types.SimpleNamespace(_model=genai_lm)
+    self.assertIs(
+        server._extract_director_text_model(wrapped_genai), wrapped_genai
+    )
+    self.assertIs(server._extract_genai_client(wrapped_genai), genai_client)
+
+    # OpenAI / Together clients have `.chat` and `.models.list` (without
+    # `.models.generate_content`).
+    chat_client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=None),
+        models=types.SimpleNamespace(list=lambda: []),
+    )
+    chat_lm = types.SimpleNamespace(_client=chat_client)
+    self.assertIs(server._extract_director_text_model(chat_lm), chat_lm)
+    with mock.patch.dict(os.environ, {}, clear=True):
+      self.assertIsNone(server._extract_genai_client(chat_lm))
+
+    # Offline mock models have no `_client` and must return None for both.
+    mock_lm = runner.RichLocalMockModel()
+    self.assertIsNone(server._extract_director_text_model(mock_lm))
+    with mock.patch.dict(os.environ, {}, clear=True):
+      self.assertIsNone(server._extract_genai_client(mock_lm))
+
+  def test_scene_image_generator_fallback_uses_generate_content(self):
+    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
+    calls: list[str] = []
+
+    def fake_generate_content(*, model, contents, config):
+      del contents, config
+      calls.append(model)
+      if model == server.DEFAULT_IMAGE_MODEL:
+        raise RuntimeError('Primary image model unavailable')
+      part = types.SimpleNamespace(
+          inline_data=types.SimpleNamespace(data=png_bytes)
+      )
+      return types.SimpleNamespace(parts=[part])
+
+    fake_client = types.SimpleNamespace(
+        models=types.SimpleNamespace(generate_content=fake_generate_content)
+    )
+    fake_types = types.SimpleNamespace(
+        GenerateContentConfig=lambda **kwargs: kwargs,
+        ImageConfig=lambda **kwargs: kwargs,
+    )
+    with (
+        mock.patch.object(
+            server,
+            '_load_genai_modules',
+            return_value=(object(), fake_types),
+        ),
+        mock.patch.object(server.time, 'sleep', return_value=None),
+    ):
+      gen = server.SceneImageGenerator(client=fake_client)
+      res = gen._generate_via_client(prompt='test scene', aspect_ratio='16:9')
+      self.assertEqual(res, ('image/png', png_bytes))
+      self.assertEqual(
+          calls,
+          [
+              server.DEFAULT_IMAGE_MODEL,
+              server.DEFAULT_IMAGE_MODEL,
+              server.DEFAULT_FALLBACK_IMAGE_MODEL,
+          ],
+      )
 
 
 if __name__ == '__main__':

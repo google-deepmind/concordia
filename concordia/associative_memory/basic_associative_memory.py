@@ -147,7 +147,7 @@ class AssociativeMemoryBank:
       )
 
       # Sort the cosine similarities in descending order.
-      cosine_similarities.sort_values(ascending=False, inplace=True)
+      cosine_similarities = cosine_similarities.sort_values(ascending=False)
 
       # Return the top k rows.
       return self._memory_bank.iloc[cosine_similarities.head(k).index]

@@ -57,9 +57,9 @@ _INLINE_SCRIPT_PATTERN = re.compile(
     rb'<script id="adventure-client-script">(.*?)</script>',
     re.DOTALL,
 )
-DEFAULT_IMAGE_MODEL = 'gemini-2.5-flash-image'
-DEFAULT_FALLBACK_IMAGE_MODEL = 'imagen-4.0-fast-generate-001'
-DEFAULT_DIRECTOR_TEXT_MODEL = 'gemini-2.5-flash'
+DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image'
+DEFAULT_FALLBACK_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
+DEFAULT_DIRECTOR_TEXT_MODEL = 'gemini-flash-latest'
 _PHOTOGRAPHY_BEAT_KINDS = frozenset({
     'intro',
     'scene_resolution',
@@ -87,7 +87,7 @@ def _extract_genai_client(model: Any) -> Any | None:
       break
     client = getattr(cur, '_client', None)
     if client is not None:
-      if hasattr(client, 'models'):
+      if hasattr(getattr(client, 'models', None), 'generate_content'):
         return client
       if hasattr(client, 'generate_content'):
         has_custom_client = True
@@ -106,16 +106,16 @@ def _extract_genai_client(model: Any) -> Any | None:
 
 
 def _extract_director_text_model(model: Any) -> Any | None:
-  """Returns `model` if it wraps a text generation client without `.models`."""
+  """Returns `model` if it wraps a live text generation client."""
   cur = model
   for _ in range(4):
     if cur is None:
       return None
     client = getattr(cur, '_client', None)
-    if (
-        client is not None
-        and hasattr(client, 'generate_content')
-        and not hasattr(client, 'models')
+    if client is not None and (
+        hasattr(client, 'generate_content')
+        or hasattr(getattr(client, 'models', None), 'generate_content')
+        or hasattr(client, 'chat')
     ):
       return model
     cur = getattr(cur, '_model', None)
@@ -264,26 +264,27 @@ class SceneImageGenerator:
         if attempt == 0:
           time.sleep(1.5)
 
-    try:
-      img_resp = self._client.models.generate_images(
-          model=self._fallback_image_model,
-          prompt=prompt,
-          config=genai_types.GenerateImagesConfig(
-              number_of_images=1,
-              output_mime_type='image/jpeg',
-              aspect_ratio=aspect_ratio,
-          ),
-      )
-      gen_list = getattr(img_resp, 'generated_images', None) or []
-      if gen_list:
-        img_obj = getattr(gen_list[0], 'image', None)
-        raw_bytes = getattr(img_obj, 'image_bytes', None) if img_obj else None
-        if isinstance(raw_bytes, bytes):
-          mime = _detect_safe_image_mime(raw_bytes)
-          if mime is not None:
-            return mime, raw_bytes
-    except Exception:  # pylint: disable=broad-exception-caught
-      pass
+    if self._fallback_image_model:
+      try:
+        fallback_resp = self._client.models.generate_content(
+            model=self._fallback_image_model,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                response_modalities=['IMAGE'],
+                image_config=genai_types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                ),
+            ),
+        )
+        for part in getattr(fallback_resp, 'parts', None) or []:
+          inline = getattr(part, 'inline_data', None)
+          raw_bytes = getattr(inline, 'data', None) if inline else None
+          if isinstance(raw_bytes, bytes):
+            mime = _detect_safe_image_mime(raw_bytes)
+            if mime is not None:
+              return mime, raw_bytes
+      except Exception:  # pylint: disable=broad-exception-caught
+        pass
     return None
 
   def _direct_visual_prompt(

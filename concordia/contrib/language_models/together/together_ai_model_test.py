@@ -14,20 +14,30 @@
 
 """Together request/visible-text contracts; no provider clients or calls."""
 
+import importlib
 import types
+from typing import Any
 from unittest import mock
 
 from concordia.contrib import language_models
-from concordia.contrib.language_models.together import together_ai_model
 from concordia.language_model import language_model
-import httpx
 import pytest
+
+together_ai_model: Any = None
+httpx: Any = None
 
 _FLASH = 'deepseek-ai/DeepSeek-V4.1-Flash'
 
 
 @pytest.fixture(autouse=True)
 def no_provider_or_backoff(caplog):
+  global together_ai_model, httpx
+  pytest.importorskip('together')
+  httpx = pytest.importorskip('httpx')
+  if together_ai_model is None:
+    together_ai_model = importlib.import_module(
+        'concordia.contrib.language_models.together.together_ai_model'
+    )
   caplog.set_level('DEBUG')
   with (
       mock.patch.object(

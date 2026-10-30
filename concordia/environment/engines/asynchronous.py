@@ -24,7 +24,6 @@ from collections.abc import Mapping, Sequence
 import functools
 import re
 import threading
-import time
 from typing import Any, Callable, override
 
 from absl import logging
@@ -37,6 +36,7 @@ from concordia.environment import step_controller as step_controller_lib
 from concordia.typing import entity as entity_lib
 from concordia.utils import async_log_collector as collector_lib
 from concordia.utils import async_measurements as async_measurements_lib
+from concordia.utils import concurrency
 import termcolor
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
@@ -60,9 +60,9 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 _DEFAULT_SLEEP_TIME = 0.1
-_DEFAULT_LOG_BATCH_SIZE = 64
 # How often run_loop looks for entities that joined the list.
 _MEMBERSHIP_POLL_SECONDS = 0.05
+_DEFAULT_LOG_BATCH_SIZE = 64
 
 
 def _get_reactive_measurements(
@@ -140,11 +140,11 @@ class Asynchronous(engine_lib.Engine):
   Termination uses both a shared threading.Event (for global signaling) and a
   per-player max iterations cap.
 
-  The entities may change while the loop runs: threads follow the `entities`
-  list passed to `run_loop`. An entity appended to it gets a loop on a thread
-  of its own; one removed from it ends its loop at its next iteration, and
-  its thread is released. Checkpoints are taken by the loop of the list's
-  first entity, after each of its iterations.
+  The entities may change while the loop runs: loops follow the `entities`
+  list passed to `run_loop` (via `concurrency.run_dynamic_tasks`). An entity
+  appended to it gets a loop of its own; one removed from it ends its loop at
+  its next iteration. Checkpoints are taken by the loop of the list's first
+  entity, after each of its iterations.
 
   Log events are finalized into the log in batches as the loop runs
   (`log_batch_size`), so a long run keeps no unbounded buffer of them.
@@ -230,6 +230,8 @@ class Asynchronous(engine_lib.Engine):
       capture_key: str | None = None,
   ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     entities_by_name = {entity.name: entity for entity in entities}
+    if not entities_by_name:
+      return ([], [])
 
     if gm_measurements is not None and log_entry is not None:
       key = capture_key or game_master.name
@@ -428,7 +430,11 @@ class Asynchronous(engine_lib.Engine):
             terminate_event.set()
             break
 
-        self._pause_event.wait()
+        while not self._pause_event.wait(timeout=_MEMBERSHIP_POLL_SECONDS):
+          if terminate_event.is_set() or (
+              entities is not None and not _is_member(entity, entities)
+          ):
+            break
 
         if terminate_event.is_set():
           break
@@ -476,13 +482,13 @@ class Asynchronous(engine_lib.Engine):
         )
         iteration += 1
         if not acting_entities:
-          time.sleep(self._sleep_time)
+          terminate_event.wait(self._sleep_time)
           continue
 
         action_spec = action_specs[0]
 
         if action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
-          time.sleep(self._sleep_time)
+          terminate_event.wait(self._sleep_time)
           continue
 
         with gm_measurements.capture(entity.name) as obs_log:
@@ -567,81 +573,16 @@ class Asynchronous(engine_lib.Engine):
               game_master=game_master.name,
           )
           step_callback(step_data)
+    except BaseException:
+      terminate_event.set()
+      self._pause_event.set()
+      if step_controller is not None:
+        step_controller.stop()
+      raise
     finally:
       # Clean up thread mapping when entity loop exits.
       if hasattr(game_master, 'clear_capture_key_for_thread'):
         game_master.clear_capture_key_for_thread(thread_id)
-
-  def _run_entity_loops(
-      self,
-      entities: Sequence[entity_lib.Entity],
-      run_entity: Callable[[entity_lib.Entity], None],
-      terminate_event: threading.Event,
-  ) -> None:
-    """Runs one observe-act loop per entity, each on a thread of its own.
-
-    The threads follow `entities` until every loop has ended: an entity that
-    joins it while loops run gets a thread, unless the simulation is
-    terminating, and the thread of one that left is joined once its loop
-    ends. If a loop raises, the others are signalled to stop and the error is
-    raised.
-
-    Args:
-      entities: The entities the engine runs, which may change.
-      run_entity: Runs one entity's observe-act loop.
-      terminate_event: Shared event signaling global termination.
-    """
-    # Each started entity and its thread, by id. A finished thread whose entity
-    # has left is joined and forgotten (releasing the entity); one whose
-    # entity is still in the list is never started again.
-    loops: dict[int, tuple[entity_lib.Entity, threading.Thread]] = {}
-    errors: list[BaseException] = []
-    ended = threading.Event()  # Wakes this supervisor when a loop ends.
-
-    def run_logged(entity: entity_lib.Entity) -> None:
-      try:
-        run_entity(entity)
-      except BaseException as error:  # pylint: disable=broad-exception-caught
-        logging.exception('Error in the loop of entity %s', entity.name)
-        errors.append(error)
-      finally:
-        ended.set()
-
-    try:
-      while True:
-        if errors:
-          raise errors[0]
-        members = list(entities)
-        if not terminate_event.is_set():
-          for entity in members:
-            if id(entity) not in loops:
-              thread = threading.Thread(
-                  target=run_logged,
-                  args=(entity,),
-                  name=f'entity_loop_{entity.name}',
-              )
-              loops[id(entity)] = (entity, thread)
-              thread.start()
-        running = False
-        for key, (entity, thread) in list(loops.items()):
-          if thread.is_alive():
-            running = True
-            continue
-          thread.join()
-          if not any(member is entity for member in members):
-            del loops[key]
-        if not running:
-          if errors:
-            raise errors[0]
-          joined = any(id(entity) not in loops for entity in list(entities))
-          if terminate_event.is_set() or not joined:
-            break
-          continue
-        ended.wait(_MEMBERSHIP_POLL_SECONDS)
-        ended.clear()
-    except BaseException:
-      terminate_event.set()
-      raise
 
   def run_loop(
       self,
@@ -751,7 +692,24 @@ class Asynchronous(engine_lib.Engine):
           entities=entities,
       )
 
-    self._run_entity_loops(entities, run_entity, terminate_event)
+    def current_tasks() -> Mapping[str, Callable[[], None]]:
+      # One loop per entity now in the list (which may change while loops
+      # run), keyed by identity so that a newcomer reusing the name of one who
+      # left gets a loop of its own. Once terminating, no new loops start.
+      if terminate_event.is_set():
+        return {}
+      return {
+          f'{entity.name} ({id(entity)})': functools.partial(run_entity, entity)
+          for entity in list(entities)
+      }
+
+    try:
+      concurrency.run_dynamic_tasks(
+          current_tasks, poll_interval=_MEMBERSHIP_POLL_SECONDS
+      )
+    except BaseException:
+      terminate_event.set()  # Stop the loops still running.
+      raise
 
     if log is not None:
       self._collector.materialize(log)

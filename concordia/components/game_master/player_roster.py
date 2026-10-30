@@ -25,7 +25,7 @@ sees the change (the asynchronous engine starts a loop for a player who joins
 and ends the loop of one who leaves).
 
   roster = player_roster.PlayerRoster(
-      players=entities,  # the game master prefab's `self.entities`
+      players=entities,  # the list of entities the engine runs
       player_prefabs={'person': person_prefab},
       model=model,
       embedder=embedder,
@@ -79,6 +79,23 @@ DEFAULT_PLAYER_ROSTER_COMPONENT_KEY = '__player_roster__'
 DEFAULT_PLAYER_ROSTER_PRE_ACT_LABEL = '\nPlayers'
 
 
+def _close_entity(player: entity_lib.Entity) -> None:
+  """Closes `player` and any of its components that define `close()`."""
+  targets: list[Any] = [player]
+  if hasattr(player, 'get_act_component'):
+    targets.append(getattr(player, 'get_act_component')())
+  if hasattr(player, 'get_all_context_components'):
+    targets.extend(getattr(player, 'get_all_context_components')().values())
+  seen_ids: set[int] = set()
+  for target in targets:
+    if id(target) in seen_ids:
+      continue
+    seen_ids.add(id(target))
+    close_fn = getattr(target, 'close', None)
+    if callable(close_fn):
+      close_fn()
+
+
 class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
   """The players of a game, and the only way they join and leave it.
 
@@ -94,21 +111,26 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
       model: language_model.LanguageModel | None = None,
       embedder: Callable[[str], np.ndarray] | None = None,
       pre_act_label: str = DEFAULT_PLAYER_ROSTER_PRE_ACT_LABEL,
+      *,
+      close_on_leave: bool = False,
   ):
     """Initializes the roster.
 
     Args:
-      players: The list of player entities the simulation plays (a game master
-        prefab's `entities`, the list the engine runs), changed in place as
-        players join and leave. The players in it now are the game's first
-        players.
+      players: The list of player entities the simulation plays (the list the
+        engine runs), changed in place as players join and leave. The players
+        in it now are the game's first players.
       player_prefabs: The prefabs players may join as, by name. Their params
         are those all players of the prefab share.
-      model: The language model players who join act with (the simulation's
-        model for entities).
+      model: The language model players who join act with.
       embedder: The sentence embedder of the memory of players who join.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
+      close_on_leave: Whether to call `close()` on a player who leaves (and on
+        those of its components that define it, e.g. pubsub subscribers) to
+        release background subscriptions. Off by default, since `leave`
+        returns the player to its caller; do not enable it if players share
+        components with `close()`.
 
     Raises:
       TypeError: If `players` cannot be changed in place (e.g. a tuple).
@@ -123,6 +145,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     self._player_prefabs = dict(player_prefabs or {})
     self._model = model
     self._embedder = embedder
+    self._close_on_leave = close_on_leave
     # The players' lock, apart from the pre-act value's (`_lock`). The value is
     # made holding `_lock`, then this one; `_lock` is never taken holding this.
     self._players_lock = threading.RLock()
@@ -158,13 +181,22 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     with self._players_lock:
       return [player.name for player in self._players]
 
-  def join(self, prefab: str, params: Mapping[str, Any]) -> entity_lib.Entity:
+  def join(
+      self,
+      prefab: str,
+      params: Mapping[str, Any],
+      *,
+      initial_memories: Sequence[str] = (),
+  ) -> entity_lib.Entity:
     """Builds a player of a prefab and adds it to the game.
 
     Args:
       prefab: The name of the player's prefab (a key of `player_prefabs`).
       params: The player's own params, which update the prefab's. They must
         be JSON-serializable.
+      initial_memories: Observations the player is given (via `observe`)
+        before it joins the list of players, so that an engine never runs a
+        player who has not yet received them.
 
     Returns:
       The player who joined.
@@ -180,6 +212,8 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
       player = self._build(prefab, own)
       if self._find(player.name) is not None or player.name in self._first:
         raise ValueError(f'The name {player.name} is taken.')
+      for memory in initial_memories:
+        player.observe(memory)
       self._players.append(player)
       self._joined[player.name] = {'prefab': prefab, 'params': own}
     self._players_changed()
@@ -203,6 +237,8 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
       if self._joined.pop(name, None) is None:
         self._left.append(name)
     self._players_changed()
+    if self._close_on_leave:
+      _close_entity(player)
     return player
 
   @override
@@ -237,6 +273,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     saved = cast(Mapping[str, Any], state)
     left = [str(name) for name in saved.get('left', ())]
     joined: Mapping[str, Any] = saved.get('joined', {})
+    removed_players: list[entity_lib.Entity] = []
     with self._players_lock:
       built = {
           name: self._build(built_from['prefab'], built_from['params'])
@@ -247,6 +284,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
         player = self._find(name)
         if player is not None:
           self._players.remove(player)
+          removed_players.append(player)
       self._left = left
       self._joined = {}
       for name, built_from in joined.items():
@@ -261,6 +299,9 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
             'params': copy.deepcopy(dict(built_from['params'])),
         }
     self._players_changed()
+    if self._close_on_leave:
+      for player in removed_players:
+        _close_entity(player)
 
   def _make_pre_act_value(self) -> str:
     """Returns the players' names, in the order they play."""

@@ -16,6 +16,7 @@ import asyncio
 from concurrent import futures
 import contextlib
 import functools
+import threading
 import time
 from unittest import mock
 
@@ -126,6 +127,88 @@ class ConcurrencyTest(absltest.TestCase):
         return_after, [1, 0.5, 0.1], ['a', 'b', 'c']
     )
     self.assertEqual(results, ['a', 'b', 'c'])
+
+
+class RunDynamicTasksTest(absltest.TestCase):
+
+  def test_runs_tasks_added_while_others_run(self):
+    lock = threading.Lock()
+    ran = []
+    tasks = {}
+
+    def record(key):
+      with lock:
+        ran.append(key)
+
+    def first():
+      record('first')
+      with lock:
+        tasks['second'] = functools.partial(record, 'second')
+      time.sleep(0.2)  # Still running when 'second' is picked up.
+
+    tasks['first'] = first
+
+    def get_tasks():
+      with lock:
+        return dict(tasks)
+
+    concurrency.run_dynamic_tasks(get_tasks, poll_interval=0.01)
+
+    self.assertCountEqual(ran, ['first', 'second'])
+
+  def test_does_not_rerun_finished_task_whose_key_remains(self):
+    counts = {'a': 0}
+
+    def task():
+      counts['a'] += 1
+
+    concurrency.run_dynamic_tasks(lambda: {'a': task}, poll_interval=0.01)
+
+    self.assertEqual(counts['a'], 1)
+
+  def test_withdrawn_finished_key_may_start_again(self):
+    lock = threading.Lock()
+    runs = []
+    withdrawn = threading.Event()
+    withdrawn_at = []
+    rerun = threading.Event()
+
+    def task():
+      with lock:
+        runs.append(len(runs))
+        if len(runs) == 2:
+          rerun.set()
+
+    def keeper():
+      rerun.wait(timeout=5)  # Keeps the run going until the key restarts.
+
+    def get_tasks():
+      with lock:
+        ran_once = len(runs) == 1
+      if ran_once:
+        if not withdrawn.is_set():
+          withdrawn.set()
+          withdrawn_at.append(time.monotonic())
+        if time.monotonic() - withdrawn_at[0] < 0.2:
+          return {'keeper': keeper}  # Withdraws 'key' after its first run.
+      return {'keeper': keeper, 'key': task}
+
+    concurrency.run_dynamic_tasks(get_tasks, poll_interval=0.01)
+
+    self.assertEqual(runs, [0, 1])
+
+  def test_returns_when_no_tasks(self):
+    concurrency.run_dynamic_tasks(dict, poll_interval=0.01)
+
+  def test_error_fails_fast(self):
+    tasks = {
+        'wait': functools.partial(wait_for, 5),
+        'error': functools.partial(error_after, 0.1),
+    }
+    start_time = time.time()
+    with self.assertRaises(ExpectedError):
+      concurrency.run_dynamic_tasks(lambda: tasks, poll_interval=0.01)
+    self.assertLess(time.time() - start_time, 2)
 
 
 class TaskErrorLoggingTest(parameterized.TestCase):

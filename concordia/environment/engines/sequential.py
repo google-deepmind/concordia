@@ -258,6 +258,9 @@ class Sequential(engine_lib.Engine):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['next_game_master'] = game_master.get_last_log()
 
+      if not entities:
+        break  # Every player has left the game.
+
       # Define a function to make an entity's observation and send it to them.
       def _entity_observation(entity: entity_lib.Entity) -> None:
         observation = self.make_observation(game_master, entity)
@@ -370,6 +373,10 @@ class Sequential(engine_lib.Engine):
             entity_logs[entity.name] = dict(last_log)
             if 'Value' in last_log:
               entity_actions[entity.name] = str(last_log.get('Value', ''))
+        if next_entity.name not in entity_logs and hasattr(
+            next_entity, 'get_last_log'
+        ):
+          entity_logs[next_entity.name] = dict(next_entity.get_last_log())
         # Always include the acting entity's action (the raw_action from act())
         entity_actions[next_entity.name] = action
         step_data = step_controller_lib.StepData(
