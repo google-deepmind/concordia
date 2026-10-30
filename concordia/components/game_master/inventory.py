@@ -166,16 +166,6 @@ class Inventory(
         self._inventories[player_name]
     )
 
-  def _add_to_game_master_memory(
-      self,
-      message: str,
-  ) -> None:
-    """Add `message` to memory."""
-    memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
-    )
-    memory.add(message)
-
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -317,7 +307,6 @@ class Inventory(
                         # Add 's' to the end of the noun if it is a count noun.
                         effect = effect + 's'
                       inventory_effects.append(effect)
-                      self._add_to_game_master_memory(message=effect)
                       if self._verbose:
                         print(termcolor.colored(effect, 'yellow'))
                   else:
@@ -348,9 +337,6 @@ class Inventory(
                     reason_for_no_change = (
                         f'However, {formatted_player} did not gain any '
                         f'{item_type} because {reason_for_no_change_clause}'
-                    )
-                    self._add_to_game_master_memory(
-                        message=reason_for_no_change
                     )
                     inventory_effects.append(reason_for_no_change)
                     if self._verbose:
