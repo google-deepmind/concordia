@@ -14,6 +14,10 @@
 
 [Concordia Tech Report](https://arxiv.org/abs/2312.03664) | [Concordia Design Pattern](https://arxiv.org/abs/2507.08892) | [Code Cheat Sheet](CHEATSHEET.md)
 
+<p align="center">
+  <b>English</b> · <a href="https://github.com/google-deepmind/concordia/blob/main/README.zh.md">简体中文</a>
+</p>
+
 ## About
 
 Concordia is a library for constructing and running generative agent-based
