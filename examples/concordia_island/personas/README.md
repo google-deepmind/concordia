@@ -26,7 +26,7 @@ Builds one entry per resident:
 export GOOGLE_API_KEY=<your-key>
 python -m examples.concordia_island.personas.populations.generate_population \
   --setting=brecksville --num_agents=1000 --seed=42 \
-  --api_type=google_aistudio --model_name=gemini-2.5-flash \
+  --api_type=google_aistudio --model_name=gemini-flash-latest \
   --output_path=/tmp/brecksville_roster.json
 ```
 
@@ -65,7 +65,7 @@ Runs `PersonaGenerator` (`generator.py`) on every roster entry:
 python -m examples.concordia_island.personas.generate_personas \
   --input_roster=/tmp/brecksville_roster.json \
   --date_label=my_brecksville \
-  --api_type=google_aistudio --model_name=gemini-2.5-flash --workers=16
+  --api_type=google_aistudio --model_name=gemini-flash-latest --workers=16
 ```
 
 The set is written to `personas/populations/<date_label>/` (override with
@@ -77,7 +77,7 @@ resident fails a stage, it raises and saves nothing.
 ```bash
 python -m examples.concordia_island.run --personas_date=my_brecksville \
   --agents=20 --ticks=16 --api_type=google_aistudio \
-  --model_name=gemini-2.5-flash --output_dir=./local_runs/my_brecksville
+  --model_name=gemini-flash-latest --output_dir=./local_runs/my_brecksville
 ```
 
 If you used `--output_dir` in step 2, add `--personas_dir=<that dir>`.

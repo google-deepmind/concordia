@@ -30,7 +30,7 @@ Usage:
     --input_roster=/tmp/brecksville_roster.json \
     --date_label=my_brecksville \
     --api_type=google_aistudio \
-    --model_name=gemini-2.5-flash
+    --model_name=gemini-flash-latest
 """
 
 from collections.abc import Mapping, Sequence
@@ -83,7 +83,7 @@ def _define_flags() -> None:
   )
   flags.DEFINE_string(
       'model_name',
-      'gemini-2.5-flash',
+      'gemini-flash-latest',
       'Model name for language_model_setup.',
   )
   flags.DEFINE_string(

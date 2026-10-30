@@ -29,7 +29,7 @@ python -m examples.concordia_island.run \
   --personas_date=brecksville_ohio \
   --agents=20 --ticks=112 --agent_prefab=esa --engine_type=async \
   --event_config=job_loss --first_dates \
-  --api_type=google_aistudio --model_name=gemini-2.5-flash \
+  --api_type=google_aistudio --model_name=gemini-flash-latest \
   --poll=False --output_dir=./local_runs/brecksville_20x112
 
 # Check progress while a run is going (current tick, sim time, agent locations):
@@ -277,7 +277,7 @@ python -m examples.concordia_island.run \
   --marketplace_rounds=5 \
   --enable_x=False \
   --api_type=google_aistudio \
-  --model_name=gemini-2.5-flash \
+  --model_name=gemini-flash-latest \
   --poll=False \
   --output_dir=./local_runs/ohio_ubi_marketplace
 ```
@@ -300,7 +300,7 @@ python -m examples.concordia_island.run \
   --enable_nighttime_marketplace=True \
   --marketplace_rounds=5 \
   --api_type=google_aistudio \
-  --model_name=gemini-2.5-flash \
+  --model_name=gemini-flash-latest \
   --output_dir=./local_runs/ohio_3gm
 ```
 
