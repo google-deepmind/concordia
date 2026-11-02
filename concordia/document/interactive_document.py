@@ -308,6 +308,9 @@ class InteractiveDocument(document.Document):
   ) -> int:
     """Presents a multiple choice to the agent.
 
+    If there is only one answer, there is nothing to choose: the question and
+    its answer are still recorded, but the model is not called.
+
     Args:
       question: the question to ask the agent.
       answers: the choice of answers
@@ -326,6 +329,10 @@ class InteractiveDocument(document.Document):
       self._question(f'  ({key}) {option}\n')
 
     self._response('Answer: (')
+    if len(options) == 1:
+      (only_key,) = options
+      self._response(f'{only_key})\n')
+      return original_indices[0]
     idx, response, debug = self._model.sample_choice(
         prompt=self._model_view.text(),
         responses=list(options.keys()),
