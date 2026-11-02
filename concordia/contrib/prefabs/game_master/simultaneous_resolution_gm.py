@@ -294,6 +294,11 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
           # a detailed plan covering time_period_minutes.
           'call_to_action': '',
           'npc_event_probability': 0.15,
+          # If false, this game master always names itself as the next game
+          # master, so an engine running several game masters (e.g. this one
+          # after an initializer) never asks the LLM which one runs next. Set
+          # it to true to let the LLM choose, e.g. to hand over to another.
+          'llm_chooses_next_game_master': False,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -656,6 +661,20 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
       )
     if use_npc_events:
       components_of_game_master[npc_event_key] = npc_event_component  # pyrefly: ignore[unsupported-operation]
+    next_game_master_key = (
+        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    )
+    if (
+        not self.params.get('llm_chooses_next_game_master', False)
+        and next_game_master_key not in extra_components
+    ):
+      components_of_game_master[next_game_master_key] = (  # pyrefly: ignore[unsupported-operation]
+          actor_components.constant.Constant(
+              state=name,
+              pre_act_label='Next game master',
+              prefix_pre_act=False,
+          )
+      )
 
     # 11. Define Execution Order
     component_order = list(components_of_game_master.keys())

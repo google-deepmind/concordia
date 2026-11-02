@@ -17,12 +17,14 @@
 
 from collections.abc import Sequence
 import copy
+import types
 
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.components import agent as agent_components
+from concordia.components.game_master import next_game_master
 from concordia.environment.engines import sequential
 from concordia.language_model import no_language_model
 from concordia.prefabs.game_master import dialogic
@@ -30,10 +32,13 @@ from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import formative_memories_initializer
 from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
 from concordia.prefabs.game_master import generic
+from concordia.prefabs.game_master import marketplace
+from concordia.prefabs.game_master import open_ended_interviewer
 from concordia.prefabs.game_master import scripted
 from concordia.prefabs.game_master import situated
 from concordia.prefabs.game_master import situated_in_time_and_place
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.typing import scene as scene_lib
 import numpy as np
 
@@ -213,6 +218,98 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
 
       self.assertIsInstance(game_master,
                             entity_agent_with_logging.EntityAgentWithLogging)
+
+
+class _ExperimentComponent(entity_component.ContextComponent):
+  """A do-nothing experiment component for the marketplace game master."""
+
+  def __init__(self, acting_player_names: Sequence[str]):
+    super().__init__()
+    del acting_player_names
+
+  def get_state(self) -> entity_component.ComponentState:
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    del state
+
+
+_NEXT_GAME_MASTER_SPEC = entity_lib.ActionSpec(
+    call_to_action='Which rule set should we use for the next step?',
+    output_type=entity_lib.OutputType.NEXT_GAME_MASTER,
+    options=('initial setup', 'main rules'),
+)
+
+_NEXT_GAME_MASTER_PREFABS = {
+    'generic': (generic.GameMaster, {}),
+    'situated': (situated.GameMaster, {}),
+    'situated_in_time_and_place': (situated_in_time_and_place.GameMaster, {}),
+    'marketplace': (
+        marketplace.GameMaster,
+        {'experiment_component_class': _ExperimentComponent},
+    ),
+    'open_ended_interviewer': (
+        open_ended_interviewer.GameMaster,
+        {
+            'player_names': _PLAYERS,
+            'questionnaires': [types.SimpleNamespace(name='q', questions=[])],
+            'embedder': _embedder,
+        },
+    ),
+}
+
+
+class NextGameMasterTest(parameterized.TestCase):
+  """Game masters name themselves as the next game master unless told not to."""
+
+  def _build(self, prefab_name: str, **params):
+    prefab_class, required_params = _NEXT_GAME_MASTER_PREFABS[prefab_name]
+    prefab = prefab_class()
+    prefab.params = {  # pyrefly: ignore[bad-assignment]
+        **prefab.params,
+        **required_params,
+        'name': 'main rules',
+        **params,
+    }
+    model = no_language_model.NoLanguageModel()
+    prefab.entities = [
+        entity_agent_with_logging.EntityAgentWithLogging(
+            agent_name=name,
+            act_component=(
+                agent_components.concat_act_component.ConcatActComponent(
+                    model=model
+                )
+            ),
+            context_components={},
+        )
+        for name in _PLAYERS
+    ]
+    return prefab.build(
+        model=model,
+        memory_bank=associative_memory.AssociativeMemoryBank(
+            sentence_embedder=_embedder,
+        ),
+    )
+
+  @parameterized.named_parameters(
+      (name, name) for name in _NEXT_GAME_MASTER_PREFABS
+  )
+  def test_names_itself_as_the_next_game_master(self, prefab_name: str):
+    game_master = self._build(prefab_name)
+
+    self.assertEqual(game_master.act(_NEXT_GAME_MASTER_SPEC), 'main rules')
+
+  @parameterized.named_parameters(
+      (name, name) for name in _NEXT_GAME_MASTER_PREFABS
+  )
+  def test_lets_the_llm_choose_when_asked_to(self, prefab_name: str):
+    game_master = self._build(prefab_name, llm_chooses_next_game_master=True)
+
+    with self.assertRaises(KeyError):
+      game_master.get_component(
+          next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+      )
+
 
 if __name__ == '__main__':
   absltest.main()
