@@ -14,13 +14,52 @@
 
 """Tests for the inventory component."""
 
+from collections.abc import Sequence
 import datetime
+import re
 from unittest import mock
 
 from absl.testing import absltest
 from concordia.components.game_master import inventory
+from concordia.language_model import language_model
 from concordia.testing import mock_model
 from concordia.typing import entity as entity_lib
+
+
+class _AliceGainsMoneyModel(language_model.LanguageModel):
+  """Scripted model: answers 'Yes' and reports that Alice gained 5 money."""
+
+  def sample_text(self, prompt: str, **kwargs) -> str:
+    del kwargs
+    last_question = prompt[prompt.rfind('Question:') :]
+    if 'Which individuals' in last_question:
+      return 'Alice'
+    if 'How much' in last_question:
+      return '5|Bob paid her.'
+    return 'Bob gave it back.'
+
+  def sample_choice(
+      self, prompt: str, responses: Sequence[str], **kwargs
+  ) -> tuple[int, str, dict[str, float]]:
+    del kwargs
+    last_question = prompt[prompt.rfind('Question:') :]
+    yes_option = re.search(r'\((\w)\) Yes', last_question)
+    assert yes_option is not None
+    yes_key = yes_option.group(1)
+    return responses.index(yes_key), yes_key, {}
+
+
+class _RecordingMemory:
+  """Records everything written to it through `add` and `extend`."""
+
+  def __init__(self):
+    self.entries = []
+
+  def add(self, text: str) -> None:
+    self.entries.append(text)
+
+  def extend(self, texts: Sequence[str]) -> None:
+    self.entries.extend(texts)
 
 
 def _make_item_type_configs():
@@ -136,6 +175,62 @@ class InventoryTest(absltest.TestCase):
         call_to_action='test', output_type=entity_lib.OutputType.RESOLVE
     )
     self.assertEqual(component.pre_act(action_spec), '')
+
+  def _resolve_with_recording_memory(self, never_increase: bool):
+    with mock.patch.object(
+        inventory.helper_functions, 'is_count_noun', return_value=False
+    ):
+      component = inventory.Inventory(
+          model=_AliceGainsMoneyModel(),
+          item_type_configs=[inventory.ItemTypeConfig(name='money')],
+          player_initial_endowments={
+              'Alice': {'money': 10.0},
+              'Bob': {'money': 5.0},
+          },
+          clock_now=datetime.datetime.now,
+          never_increase=never_increase,
+      )
+
+    memory = _RecordingMemory()
+    mock_observation = mock.MagicMock()
+    mock_observation.get_pre_act_value.return_value = 'Bob paid Alice 5 coins.'
+
+    def get_component(name, type_=None):
+      del type_
+      if name == component._memory_component_name:
+        return memory
+      if name == component._observations_component_name:
+        return mock_observation
+      return mock.MagicMock()
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.side_effect = get_component
+    component._entity = mock_entity
+
+    action_spec = entity_lib.ActionSpec(
+        call_to_action='test', output_type=entity_lib.OutputType.RESOLVE
+    )
+    component.pre_act(action_spec)
+    return component, memory.entries
+
+  def test_pre_act_resolve_adds_each_effect_to_memory_once(self):
+    component, entries = self._resolve_with_recording_memory(
+        never_increase=False
+    )
+    self.assertEqual(component.get_player_inventory('Alice')['money'], 15.0)
+    self.assertEqual(
+        entries, ["[effect on Alice's Inventory] gained 5.0 money"]
+    )
+
+  def test_pre_act_resolve_adds_reason_for_no_change_to_memory_once(self):
+    component, entries = self._resolve_with_recording_memory(
+        never_increase=True
+    )
+    self.assertEqual(component.get_player_inventory('Alice')['money'], 10.0)
+    self.assertEqual(
+        entries,
+        ['However, Alice did not gain any money because Bob gave it back.'],
+    )
 
 
 class ScoreTest(absltest.TestCase):
