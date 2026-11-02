@@ -213,7 +213,9 @@ class GameMaster(prefab_lib.Prefab):
     next_game_master_key = (
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
     )
-    next_game_master = actor_components.constant.Constant(state=name)
+    next_game_master = actor_components.constant.Constant(
+        state=name, prefix_pre_act=False
+    )
 
     components_of_game_master = {
         observation_component_key: observation,
