@@ -27,6 +27,7 @@ from collections.abc import Sequence
 import threading
 
 from concordia.components.agent import action_spec_ignored
+from concordia.components.game_master import player_roster
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -55,6 +56,7 @@ class ThreadSafeGenerativeClock(
       pre_act_label: str = '\nClock',
       update_question: str | None = None,
       aliases: dict[str, str] | None = None,
+      roster_component_key: str | None = None,
   ):
     """Initializes the component.
 
@@ -74,7 +76,10 @@ class ThreadSafeGenerativeClock(
       update_question: Optional custom question to ask the model to update the
         clock. If None, a default question is used.
       aliases: Optional dictionary mapping aliases to full player names.
+      roster_component_key: Optional key of a `PlayerRoster` component on the
+        parent entity used to dynamically resolve active player names.
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._format_description_key = format_description_key
@@ -82,6 +87,7 @@ class ThreadSafeGenerativeClock(
     self._components = tuple(components)
     self._update_question = update_question
     self._aliases = aliases or {}
+    self._roster_component_key = roster_component_key
 
     # ── Round-gating state ──
     self._player_names: frozenset[str] = frozenset(player_names)
@@ -137,6 +143,31 @@ class ThreadSafeGenerativeClock(
         f'{self.get_named_component_pre_act_value(key)}'
     )
 
+  def _resolve_roster_players(self) -> frozenset[str] | None:
+    """Reads live player names from `PlayerRoster` if configured."""
+    if not self._roster_component_key:
+      return None
+    try:
+      roster = self.get_entity().get_component(
+          self._roster_component_key, type_=player_roster.PlayerRoster
+      )
+      return frozenset(roster.get_player_names())
+    except (KeyError, AttributeError, RuntimeError):
+      return None
+
+  def get_player_names(self) -> frozenset[str]:
+    """Returns the currently tracked active player names."""
+    roster_players = self._resolve_roster_players()
+    with self._lock:
+      if roster_players is not None:
+        self._player_names = roster_players
+      return self._player_names
+
+  def get_step_count(self) -> int:
+    """Returns the number of completed clock ticks (thread-safe)."""
+    with self._lock:
+      return self._num_steps
+
   def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
     return self._pre_act_label
@@ -161,9 +192,11 @@ class ThreadSafeGenerativeClock(
     })
     return result
 
-  def _identify_actor(self, event: str) -> str | None:
+  def _identify_actor(
+      self, event: str, active_players: frozenset[str]
+  ) -> str | None:
     """Best-effort extraction of the acting player from an event string."""
-    for name in self._player_names:
+    for name in active_players | self._player_names:
       if event.startswith(name) or event.startswith(f'Event: {name}'):
         return name
     for alias, full_name in self._aliases.items():
@@ -175,6 +208,7 @@ class ThreadSafeGenerativeClock(
       self,
       event: str,
   ) -> str:
+    roster_players = self._resolve_roster_players()
     with self._lock:
       if (
           self._latest_action_spec is None
@@ -183,13 +217,21 @@ class ThreadSafeGenerativeClock(
       ):
         return ''
 
+      active_players = (
+          roster_players if roster_players is not None else self._player_names
+      )
+      if roster_players is not None:
+        self._player_names = roster_players
+
       # Track which player just acted.
-      actor = self._identify_actor(event)
+      actor = self._identify_actor(event, active_players)
       if actor:
         self._acted_this_round.add(actor)
 
-      # Only advance the clock once all players have acted.
-      if not self._player_names.issubset(self._acted_this_round):
+      # Only advance the clock once all active players have acted.
+      if not active_players or not active_players.issubset(
+          self._acted_this_round
+      ):
         return ''
 
       # ── All players have acted: tick the clock ──

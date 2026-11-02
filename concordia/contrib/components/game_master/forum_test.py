@@ -26,8 +26,12 @@ from unittest import mock
 from absl.testing import absltest
 from concordia.components.agent import memory as memory_component
 from concordia.components.game_master import event_resolution
+from concordia.components.game_master import player_roster
 from concordia.contrib.components.game_master import forum
+from concordia.language_model import no_language_model
+from concordia.prefabs.entity import minimal as minimal_entity
 from concordia.typing import entity as entity_lib
+import numpy as np
 
 
 PUTATIVE_EVENT_TAG = event_resolution.PUTATIVE_EVENT_TAG
@@ -1206,6 +1210,163 @@ class ForumStatePinPostTest(absltest.TestCase):
     pid = fs.create_post(author='Alice', title='T', content='C')
     result = fs.pin_post(pid, moderator='Alice')
     self.assertIn('not a moderator', result)
+
+
+class ForumDynamicMembershipTest(absltest.TestCase):
+
+  def test_add_and_remove_player_updates_active_membership_and_karma(self):
+    fs = forum.ForumState(
+        player_names=['Alice', 'Bob'],
+        moderators=['Alice'],
+        min_karma_to_direct_message=-10,
+    )
+    pid = fs.create_post(author='Bob', title='Hello', content='World')
+    fs.downvote(pid, voter='Alice')
+    fs.temp_ban(target='Bob', moderator='Alice')
+
+    fs.add_player('Diana', alias='Di')
+    self.assertEqual(fs.get_player_names(), ['Alice', 'Bob', 'Diana'])
+    self.assertEqual(fs.get_active_karma()['Diana'], 0)
+    dm_res = fs.send_direct_message('Alice', 'Di', 'Welcome Diana!')
+    self.assertIn('Alice sent a direct message to Diana', dm_res)
+
+    fs.remove_player('Bob')
+    self.assertEqual(fs.get_player_names(), ['Alice', 'Diana'])
+    self.assertFalse(fs.is_banned('Bob'))
+    self.assertNotIn('Bob', fs.get_active_karma())
+    # Historical karma remains recorded for post-simulation metrics.
+    self.assertEqual(fs.get_karma()['Bob'], -1)
+    self.assertNotIn('Bob', fs.get_karma_summary())
+
+    # Pinning a post does not crash or notify departed Bob, but notifies active.
+    fs.pin_post(pid, moderator='Alice')
+    self.assertNotEmpty(fs.drain_notifications('Diana'))
+
+  def test_dynamic_membership_persists_across_get_and_set_state(self):
+    fs1 = forum.ForumState(player_names=['Alice', 'Bob'])
+    fs1.add_player('Diana')
+    fs1.remove_player('Bob')
+    state = json.loads(json.dumps(fs1.get_state()))
+
+    fs2 = forum.ForumState(player_names=['Alice', 'Bob'])
+    fs2.set_state(state)
+    self.assertEqual(fs2.get_player_names(), ['Alice', 'Diana'])
+
+  def test_forum_resolution_discovers_dynamically_added_player(self):
+    mock_memory = mock.MagicMock(spec=memory_component.Memory)
+    action_json = json.dumps({
+        'action': 'post',
+        'author': 'Diana',
+        'title': 'Newcomer Post',
+        'content': 'Glad to join!',
+    })
+    mock_memory.scan.return_value = [
+        f'{PUTATIVE_EVENT_TAG} Diana: {action_json}'
+    ]
+
+    forum_state = forum.ForumState(player_names=['Alice', 'Bob'])
+    forum_state.add_player('Diana')
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.side_effect = lambda key, type_: {
+        forum.DEFAULT_FORUM_COMPONENT_KEY: forum_state,
+        memory_component.DEFAULT_MEMORY_COMPONENT_KEY: mock_memory,
+    }.get(key)
+
+    resolution = forum.ForumResolution(player_names=['Alice', 'Bob'])
+    resolution.set_entity(mock_entity)
+
+    result = resolution.pre_act(
+        entity_lib.ActionSpec(
+            call_to_action='resolve',
+            output_type=entity_lib.OutputType.RESOLVE,
+        )
+    )
+    self.assertIn('Diana created post #0', result)
+    self.assertEqual(resolution.get_active_entity_name(), 'Diana')
+
+  def test_forum_follows_the_game_masters_player_roster(self):
+    roster = player_roster.PlayerRoster(
+        players=[],
+        player_prefabs={'person': minimal_entity.Entity()},
+        model=no_language_model.NoLanguageModel(),
+        embedder=lambda text: np.ones(3),
+    )
+    for name in ('Alice', 'Bob'):
+      roster.join('person', {'name': name})
+    mock_gm = mock.MagicMock()
+    mock_gm.get_component.side_effect = lambda key, type_: {
+        player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY: roster,
+    }[key]
+    fs = forum.ForumState(player_names=['Alice', 'Bob'])
+    fs.set_entity(mock_gm)
+
+    roster.join('person', {'name': 'Cy'})
+    roster.leave('Bob')
+
+    # The forum adopts the roster's membership without being told of changes.
+    self.assertEqual(fs.get_player_names(), ['Alice', 'Cy'])
+    self.assertEqual(fs.get_active_karma(), {'Alice': 0, 'Cy': 0})
+    fs.queue_notification('Cy', 'Welcome, Cy!')
+    self.assertEqual(fs.drain_notifications('Cy'), ['Welcome, Cy!'])
+
+    # Any game master step (pre_act) also brings the forum up to date.
+    roster.leave('Alice')
+    fs.pre_act(
+        entity_lib.ActionSpec(
+            call_to_action='resolve',
+            output_type=entity_lib.OutputType.RESOLVE,
+        )
+    )
+    self.assertEqual(fs.get_active_karma(), {'Cy': 0})
+
+  def test_roster_changes_between_steps_are_seen_without_pre_act(self):
+    roster = player_roster.PlayerRoster(
+        players=[],
+        player_prefabs={'person': minimal_entity.Entity()},
+        model=no_language_model.NoLanguageModel(),
+        embedder=lambda text: np.ones(3),
+    )
+    for name in ('Alice', 'Bob'):
+      roster.join('person', {'name': name})
+    mock_gm = mock.MagicMock()
+    mock_gm.get_component.side_effect = lambda key, type_: {
+        player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY: roster,
+    }[key]
+    fs = forum.ForumState(
+        player_names=['Alice', 'Bob'], min_karma_to_direct_message=0
+    )
+    fs.set_entity(mock_gm)
+
+    # As a rules component's `update` does: change the roster, then
+    # immediately notify, without the game master acting in between.
+    roster.join('person', {'name': 'Cy'})
+    fs.queue_notification('Cy', 'Welcome, Cy!')
+    self.assertEqual(fs.drain_notifications('Cy'), ['Welcome, Cy!'])
+
+    roster.leave('Bob')
+    self.assertEqual(fs.get_active_karma(), {'Alice': 0, 'Cy': 0})
+    self.assertNotIn('Bob', fs.get_karma_summary())
+
+    roster.join('person', {'name': 'Dee'})
+    result = fs.parse_and_execute_action(
+        json.dumps({
+            'action': 'direct_message',
+            'author': 'Alice',
+            'recipient': 'Dee',
+            'content': 'Hi Dee',
+        }),
+        entity_name='Alice',
+    )
+    self.assertIn('Alice sent a direct message to Dee', result)
+
+  def test_forum_without_a_roster_keeps_its_own_players(self):
+    mock_gm = mock.MagicMock()
+    mock_gm.get_component.side_effect = KeyError('no roster')
+    fs = forum.ForumState(player_names=['Alice', 'Bob'])
+    fs.set_entity(mock_gm)
+
+    self.assertEqual(fs.get_player_names(), ['Alice', 'Bob'])
 
 
 if __name__ == '__main__':

@@ -42,13 +42,18 @@ class NextActingEligiblePlayers(
       self,
       player_names: Sequence[str] = (),
       forum_component_key: str = forum_module.DEFAULT_FORUM_COMPONENT_KEY,
+      roster_component_key: str | None = (
+          gm_components.player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
+      ),
       pre_act_label: str = (
           gm_components.next_acting.DEFAULT_NEXT_ACTING_PRE_ACT_LABEL
       ),
   ):
     super().__init__()
     self._player_names = list(player_names)
+    self._manually_removed: set[str] = set()
     self._forum_component_key = forum_component_key
+    self._roster_component_key = roster_component_key
     self._pre_act_label = pre_act_label
     self._lock = threading.Lock()
 
@@ -56,11 +61,25 @@ class NextActingEligiblePlayers(
     with self._lock:
       if player_name in self._player_names:
         self._player_names.remove(player_name)
+      self._manually_removed.add(player_name)
 
   def add_player(self, player_name: str) -> None:
     with self._lock:
       if player_name not in self._player_names:
         self._player_names.append(player_name)
+      self._manually_removed.discard(player_name)
+
+  def _get_roster_player_names(self) -> list[str] | None:
+    if not self._roster_component_key:
+      return None
+    try:
+      roster = self.get_entity().get_component(
+          self._roster_component_key,
+          type_=gm_components.player_roster.PlayerRoster,
+      )
+      return roster.get_player_names()
+    except (KeyError, AttributeError, RuntimeError):
+      return None
 
   def pre_act(
       self,
@@ -74,20 +93,38 @@ class NextActingEligiblePlayers(
             self._forum_component_key, type_=forum_module.ForumState
         )
         banned = forum_state.get_banned_players()
-      except (KeyError, AttributeError):
+      except (KeyError, AttributeError, RuntimeError):
         pass  # Forum component may not be registered yet.
+      roster_names = self._get_roster_player_names()
       with self._lock:
-        eligible = [n for n in self._player_names if n not in banned]
+        if roster_names is not None:
+          self._player_names = [
+              n for n in roster_names if n not in self._manually_removed
+          ]
+          candidates = roster_names
+        else:
+          candidates = self._player_names
+        eligible = [
+            n
+            for n in candidates
+            if n not in banned and n not in self._manually_removed
+        ]
         return ', '.join(eligible)
     return ''
 
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
-      return {'player_names': list(self._player_names)}
+      return {
+          'player_names': list(self._player_names),
+          'manually_removed': sorted(self._manually_removed),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
       self._player_names = list(state['player_names'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
+      self._manually_removed = {
+          str(x) for x in state.get('manually_removed', ())  # pyrefly: ignore[not-iterable]
+      }
 
 
 class ClockAwareActionSpec(
@@ -175,6 +212,30 @@ class TimestampedForumResolution(
     self._active_entity_name: str | None = None
     self._putative_action: str | None = None
 
+  def _known_player_names(self) -> list[str]:
+    with self._resolution_lock:
+      names = list(self._player_names)
+    seen = set(names)
+    try:
+      for name in self._get_forum_state().get_player_names():
+        if name not in seen:
+          names.append(name)
+          seen.add(name)
+    except (KeyError, AttributeError, RuntimeError):
+      pass
+    try:
+      roster = self.get_entity().get_component(
+          gm_components.player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY,
+          type_=gm_components.player_roster.PlayerRoster,
+      )
+      for name in roster.get_player_names():
+        if name not in seen:
+          names.append(name)
+          seen.add(name)
+    except (KeyError, AttributeError, RuntimeError):
+      pass
+    return names
+
   def _get_forum_state(self) -> forum_module.ForumState:
     return self.get_entity().get_component(
         self._forum_component_key, type_=forum_module.ForumState
@@ -206,16 +267,17 @@ class TimestampedForumResolution(
     # contamination.
     # NOTE: We cannot use threading.current_thread().ident here because
     # pre_act runs in a worker thread pool, not the entity loop thread.
+    known_names = self._known_player_names()
     thread_entity_name = None
     game_master = self.get_entity()
     if hasattr(game_master, '_active_capture_key'):
       capture_key = game_master._active_capture_key  # pylint: disable=protected-access
-      if capture_key in self._player_names:
+      if capture_key in known_names:
         thread_entity_name = capture_key
 
     with self._resolution_lock:
       names_to_check = (
-          [thread_entity_name] if thread_entity_name else self._player_names
+          [thread_entity_name] if thread_entity_name else known_names
       )
       for name in names_to_check:
         prefix = f'{putative_event_tag} {name}'

@@ -19,6 +19,7 @@ interactions on a Reddit-like forum using the asynchronous engine.
 """
 
 from collections.abc import Callable
+import dataclasses
 import datetime
 import os
 from typing import Any
@@ -123,6 +124,9 @@ def run_scenario(
   for instance in config.instances:
     if instance.role == prefab_lib.Role.GAME_MASTER:
       params = dict(instance.params)
+      if "player_prefabs" in params:
+        params.setdefault("embedder", embedder)
+        params.setdefault("player_model", override_agent_model or model)
       instance.params = params
 
   if engine is None:
@@ -133,6 +137,16 @@ def run_scenario(
     for instance in config.instances:
       params = dict(instance.params)
       params["measurements"] = reactive  # pyrefly: ignore[unsupported-operation]
+      if "player_prefabs" in params and isinstance(
+          params["player_prefabs"], dict
+      ):
+        updated_prefabs = {}
+        for key, pfab in params["player_prefabs"].items():
+          updated_prefabs[key] = dataclasses.replace(
+              pfab,
+              params={**pfab.params, "measurements": reactive},
+          )
+        params["player_prefabs"] = updated_prefabs
       instance.params = params
 
   sim = simulation.Simulation(
