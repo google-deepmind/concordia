@@ -14,18 +14,24 @@
 
 """A modular entity agent using the new component system."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from concurrent import futures
 import functools
 import threading
 import traceback
 import types
-from typing import cast, override
+from typing import Any, cast, override
 
 from absl import logging
 from concordia.typing import entity
 from concordia.typing import entity_component
 from concordia.utils import concurrency
+
+# Builds a context component from the name and the JSON-serializable spec it
+# was added with (see `EntityAgent.add_component`).
+ComponentFactory = Callable[
+    [str, entity_component.ComponentState], entity_component.ContextComponent
+]
 
 
 class EntityAgent(entity_component.EntityWithComponents):
@@ -36,6 +42,12 @@ class EntityAgent(entity_component.EntityWithComponents):
   call the ActComponent's `act` method when it needs to act, and the
   ObservationComponent's `observe` method when they need to process an
   observation.
+
+  Context components may be added and removed while the agent lives
+  (`add_component`, `remove_component`), including by its own components
+  during `act` or `observe`: a change requested during a call takes effect
+  when that call ends, so the components never change in the middle of a
+  phase.
   """
 
   def __init__(
@@ -45,6 +57,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
+      component_factory: ComponentFactory | None = None,
   ):
     """Initializes the agent.
 
@@ -55,6 +68,8 @@ class EntityAgent(entity_component.EntityWithComponents):
       agent_name: The name of the agent.
       act_component: The component that will be used to act.
       context_components: The ContextComponents that will be used by the agent.
+      component_factory: Optional. Rebuilds components added with a spec
+        (`add_component`) when `set_state` restores a state that has them.
     """
     super().__init__()
     self._agent_name = agent_name
@@ -70,6 +85,21 @@ class EntityAgent(entity_component.EntityWithComponents):
     self._context_components = dict(context_components)
     for component in self._context_components.values():
       component.set_entity(self)
+
+    # The components given at construction (restorable if removed), the specs
+    # of components added since (None: not restorable), and changes waiting
+    # for the current act or observe call to end.
+    self._component_factory = component_factory
+    self._built_in_components = dict(self._context_components)
+    self._added_specs: dict[str, entity_component.ComponentState | None] = {}
+    self._changes_lock = threading.Lock()
+    self._pending_changes: list[
+        tuple[
+            str,
+            entity_component.ContextComponent | None,
+            entity_component.ComponentState | None,
+        ]
+    ] = []
 
   @override
   @functools.cached_property
@@ -103,6 +133,110 @@ class EntityAgent(entity_component.EntityWithComponents):
       self,
   ) -> Mapping[str, entity_component.ContextComponent]:
     return types.MappingProxyType(self._context_components)
+
+  def add_component(
+      self,
+      name: str,
+      component: entity_component.ContextComponent,
+      spec: entity_component.ComponentState | None = None,
+  ) -> None:
+    """Adds a context component to the agent.
+
+    The component is owned by this agent from then on. Requested while the
+    agent is neither acting nor observing, it is added at once; requested
+    during `act` or `observe` (e.g. by one of the agent's components), it is
+    added when that call ends.
+
+    Args:
+      name: The component's name (its key in the agent's contexts).
+      component: The component, not owned by any other entity.
+      spec: Optional JSON-serializable description of the component. With a
+        `component_factory`, `set_state` rebuilds the component from it;
+        without a spec, a restored state does not include the component.
+
+    Raises:
+      ValueError: If the agent has, or is about to have, a component of that
+        name, or the component is owned by another entity.
+    """
+    try:
+      owner = component.get_entity()
+    except RuntimeError:
+      owner = None
+    if owner is not None and owner is not self:
+      raise ValueError(f'Component {name} belongs to another entity.')
+    with self._changes_lock:
+      if self._will_have_component(name):
+        raise ValueError(f'{self.name} already has a component named {name}.')
+      self._pending_changes.append((name, component, spec))
+    self._apply_changes_if_idle()
+
+  def remove_component(self, name: str) -> None:
+    """Removes a context component from the agent.
+
+    Requested while the agent is neither acting nor observing, the component
+    is removed at once; requested during `act` or `observe`, it is removed
+    when that call ends. A removed component is not reused by other agents.
+
+    Args:
+      name: The component's name.
+
+    Raises:
+      KeyError: If the agent has, or is about to have, no such component.
+      ValueError: If the acting component's explicit context order names it.
+    """
+    get_order = getattr(self._act_component, 'get_context_concat_order', None)
+    order = cast(Sequence[str] | None, get_order() if get_order else None)
+    if order is not None and name in order:
+      raise ValueError(
+          f'The acting component of {self.name} orders component {name}; it'
+          ' cannot be removed.'
+      )
+    with self._changes_lock:
+      if not self._will_have_component(name):
+        raise KeyError(f'{self.name} has no component named {name}.')
+      self._pending_changes.append((name, None, None))
+    self._apply_changes_if_idle()
+
+  def _will_have_component(self, name: str) -> bool:
+    """Whether the agent has the component once pending changes apply."""
+    present = name in self._context_components
+    for changed, component, _ in self._pending_changes:
+      if changed == name:
+        present = component is not None
+    return present
+
+  def _apply_changes_if_idle(self) -> None:
+    """Applies pending changes now unless a call is under way."""
+    if self._control_lock.acquire(blocking=False):
+      try:
+        self._apply_pending_changes()
+      finally:
+        self._control_lock.release()
+
+  def _apply_pending_changes(self) -> None:
+    """Applies added and removed components. Requires the control lock."""
+    with self._changes_lock:
+      changes, self._pending_changes = self._pending_changes, []
+    if not changes:
+      return
+    # Replaced, not changed in place: readers may hold the old mapping.
+    components = dict(self._context_components)
+    for name, component, spec in changes:
+      if component is None:
+        del components[name]
+        self._added_specs.pop(name, None)
+      else:
+        component.set_entity(self)
+        self._component_added(name, component)
+        components[name] = component
+        self._added_specs[name] = spec
+    self._context_components = components
+
+  def _component_added(
+      self, name: str, component: entity_component.ContextComponent
+  ) -> None:
+    """Called when a component joins the agent after construction."""
+    del name, component
 
   def _parallel_call_(
       self,
@@ -174,8 +308,6 @@ class EntityAgent(entity_component.EntityWithComponents):
         self._parallel_call_('update')
 
         self._set_phase(entity_component.Phase.READY)
-
-        return action_attempt
       except Exception:
         # Ensure correct error handling in the case of multiple threads
         # using the same entity by setting the phase to ready before raising.
@@ -183,6 +315,10 @@ class EntityAgent(entity_component.EntityWithComponents):
         raise
       finally:
         self._active_capture_key = self._agent_name
+        self._apply_pending_changes()
+    # Changes requested as the call ended, after the line above.
+    self._apply_changes_if_idle()
+    return action_attempt
 
   @override
   def observe(self, observation: str) -> None:
@@ -211,11 +347,37 @@ class EntityAgent(entity_component.EntityWithComponents):
         raise
       finally:
         self._active_capture_key = self._agent_name
+        self._apply_pending_changes()
+    # Changes requested as the call ended, after the line above.
+    self._apply_changes_if_idle()
 
   def set_state(
       self, entity_components_state: entity_component.EntityState
   ) -> None:
-    """Sets the state of the agent."""
+    """Sets the state of the agent.
+
+    Components added and removed after construction are added and removed
+    again as the state records them (rebuilding added components through the
+    `component_factory`), before every component's state is restored.
+
+    Args:
+      entity_components_state: A state from `get_state`.
+
+    Raises:
+      ValueError: If the state has added components but the agent has no
+        `component_factory`.
+    """
+    # A state without changes records the components given at construction.
+    dynamic = cast(
+        Mapping[str, Any],
+        entity_components_state.get('dynamic_components') or {},
+    )
+    changed = self._added_specs or set(self._context_components) != set(
+        self._built_in_components
+    )
+    if dynamic or changed:
+      with self._control_lock:
+        self._restore_component_set(dynamic)
 
     # Restore context components
     context_components_state = entity_components_state.get(
@@ -241,15 +403,57 @@ class EntityAgent(entity_component.EntityWithComponents):
             'Error setting state for act component: %s', traceback.format_exc()
         )
 
+  def _restore_component_set(self, dynamic: Mapping[str, Any]) -> None:
+    """Makes the components those a state records. Requires the lock."""
+    added: dict[str, entity_component.ComponentState] = dict(
+        dynamic.get('added', {})
+    )
+    removed = set(dynamic.get('removed', ()))
+    factory = self._component_factory
+    if added and factory is None:
+      raise ValueError(
+          f'{self.name} needs a component_factory to restore added components.'
+      )
+    with self._changes_lock:
+      self._pending_changes = []
+    components = {
+        name: component
+        for name, component in self._built_in_components.items()
+        if name not in removed
+    }
+    specs = {}
+    for name, spec in added.items():
+      current = self._context_components.get(name)
+      if current is not None and self._added_specs.get(name) == spec:
+        components[name] = current  # Already this component.
+      elif factory is not None:
+        component = factory(name, spec)
+        component.set_entity(self)
+        self._component_added(name, component)
+        components[name] = component
+      specs[name] = spec
+    self._added_specs = specs
+    self._context_components = components
+
   def get_state(self) -> entity_component.EntityState:
     """Returns the state of the agent as a dictionary."""
-    return {
+    components = self._context_components
+    state: dict[str, entity_component.ComponentState] = {
         'act_component': self._act_component.get_state(),
         'context_components': {
             component_name: component.get_state()
-            for component_name, component in self._context_components.items()
+            for component_name, component in components.items()
         },
     }
+    removed = sorted(set(self._built_in_components) - set(components))
+    added = {
+        name: spec
+        for name, spec in self._added_specs.items()
+        if spec is not None and name in components
+    }
+    if added or removed:
+      state['dynamic_components'] = {'added': added, 'removed': removed}
+    return state
 
   def set_phase(self, phase: entity_component.Phase) -> None:
     with self._phase_lock:
