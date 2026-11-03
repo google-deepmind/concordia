@@ -1,0 +1,170 @@
+# Twelve Words: the look. Semantics follow systems (GUIDE.md, Phase 5): every
+# event, temperament, condition and action in the ledger has exactly one
+# glyph, one word and one colour token here, and nothing else on the page
+# invents its own. `look_test.py` checks that every matrix property and every
+# ledger kind has a look, and that no two share a glyph or a word.
+
+title: Twelve Words
+tagline: One standing order. Every crew member reads it their own way.
+
+# How to play, in the order a new player needs it (shown folded on the menu).
+how_to_play:
+  - Your crew are raising a lighthouse on a bare rock; their ship lies anchored below. You command them with one order, in your own words, of at most 12 words.
+  - The crew follow that order every turn until you give a new one. A new order costs command (◆), more for longer orders; Hold keeps the current one for free.
+  - Each member reads the order their own way. Bold Ash pushes the work; cautious Bea mends leaks and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
+  - 'Say who does what, and when: "Build.", "Ash, build; Bea, repair leaks.", "If a leak opens, repair it.", "Don''t build."'
+  - Preview shows what each member would do before you spend anything; after each turn their cards say what they did and why.
+  - Each chapter says its task at the top of the board. Win to earn stars; stars open the next chapter. Later chapters add squalls, a watch, a rota, a bosun and timed orders.
+
+# Colour tokens, light and dark. The page defines them once as CSS variables.
+palette:
+  light:
+    paper: '#f5f2ea'
+    ink: '#1f1d1a'
+    muted: '#6e6a62'
+    line: '#d9d3c7'
+    calm: '#5b8c6a'
+    leak: '#2f6db5'
+    storm: '#6d5bb8'
+    squall: '#c2412d'
+    unseen: '#9a958b'
+    worn: '#b9861a'
+    bold: '#c8571b'
+    cautious: '#1f8a7a'
+    literal: '#4e5662'
+    contrary: '#8a3b8f'
+    hull: '#c2412d'
+    project: '#5b8c6a'
+    supplies: '#8a6b3d'
+    command: '#2f6db5'
+  dark:
+    paper: '#191815'
+    ink: '#ece8de'
+    muted: '#a39e93'
+    line: '#3a3731'
+    calm: '#7fb38e'
+    leak: '#6aa2e6'
+    storm: '#a294e6'
+    squall: '#ee7a63'
+    unseen: '#6f6b63'
+    worn: '#e0b04a'
+    bold: '#ef8a4a'
+    cautious: '#4fc2b1'
+    literal: '#a7afba'
+    contrary: '#d08bd4'
+    hull: '#ee7a63'
+    project: '#7fb38e'
+    supplies: '#c9a571'
+    command: '#6aa2e6'
+
+events:
+  quiet: {glyph: '○', word: calm, color: calm}
+  leak: {glyph: '◒', word: leak, color: leak}
+  storm: {glyph: '≋', word: storm, color: storm}
+  squall: {glyph: '✶', word: squall, color: squall}
+  unseen: {glyph: '?', word: unseen, color: unseen}
+
+temperaments:
+  bold: {glyph: '▲', word: bold, color: bold, means: 'pushes the work, even tired'}
+  cautious: {glyph: '●', word: cautious, color: cautious, means: 'mends leaks first, rests when worn'}
+  literal: {glyph: '■', word: literal, color: literal, means: 'does exactly what is said, nothing else'}
+  contrary: {glyph: '▼', word: contrary, color: contrary, means: 'does the opposite of what is said (told to rest, works)'}
+
+conditions:
+  fresh: {glyph: '·', word: fresh, color: muted}
+  worn: {glyph: '◐', word: worn, color: worn}
+  off_duty: {glyph: '◌', word: off duty, color: muted}
+
+actions:
+  repair: {glyph: '✚', word: repair, color: hull}
+  gather: {glyph: '⇣', word: gather, color: supplies}
+  build: {glyph: '▤', word: build, color: project}
+  rest: {glyph: '☾', word: rest, color: muted}
+  watch: {glyph: '◉', word: watch, color: command}
+
+stocks:
+  supplies: {glyph: '▣', word: supplies, color: supplies}
+  damage: {glyph: '✕', word: damage, color: hull}
+  progress: {glyph: '▥', word: lighthouse, color: project}
+  points: {glyph: '♦', word: command, color: command}
+  foresight: {glyph: '◔', word: forecast, color: command}
+
+# What the game is, for a first visit (cycle 95: the owner could not tell
+# what was going on, what the board meant, what to aim for or what they
+# could do, or why the game exists).
+intro:
+  - Twelve Words is a game about giving orders in plain language.
+  - "The story: your crew are raising a lighthouse on a bare rock before winter. Their ship lies anchored below and takes the weather: leaks, storms and squalls. They can build the lighthouse, haul supplies (stone and timber; each build uses one), repair the ship's hull, rest, or keep watch for the weather."
+  - Your crew are characters played by an AI language model. Each one reads your words through their own temperament, so the same order can mean different things to different people.
+  - You never steer them turn by turn. You give one standing order, and they act on it every turn until you change it. Words cost command, so the puzzle is to say exactly what you mean, to these people, in as few words as will do.
+
+# One line under each part of the board, saying what it is for.
+captions:
+  points: pays for a new order; holding is free
+  supplies: each build uses 1
+  hull: leaks and squalls do damage; at {wreck_at} the ship is lost
+  sea: what each turn brings; someone on watch sees the next turns
+
+# What to tap to say an action (short, so it costs few words), and what
+# actions without a stock change do.
+say:
+  build: build
+  gather: gather supplies
+  repair: repair the hull
+  rest: rest
+  watch: keep watch
+effects:
+  rest: worn-out members recover
+  watch: see the coming turns; a squall seen coming does no harm
+
+# Ways to say things, each from the chapter that first needs it.
+phrases:
+  - {from: one_hand, say: 'Build.', means: name the work}
+  - {from: two_hands, say: 'Ash, build; Cy, gather supplies.', means: say who does what}
+  - {from: two_hands, say: 'If a leak opens, repair it.', means: wait for a condition}
+  - {from: contrary, say: "Don't build.", means: forbid an action}
+  - {from: rota, say: 'Someone keep watch.', means: one member takes it up}
+  - {from: two_orders, say: 'Gather supplies for two turns, then build.', means: change on its own}
+
+# The three steps shown on the board (open in the first chapters and free
+# play, folded elsewhere), and the order box's example (cycle 93: a first
+# player did not know what to do).
+quick_start:
+  open_in: [one_hand, two_hands, free]
+  steps:
+    - Read the task above, then type an order in plain words, like "Build."
+    - Tap Preview to see what each crew member would do with it, then Send. They follow it every turn until you change it.
+    - A new order costs command (◆), longer ones more; Hold keeps the current order for free.
+placeholder: Type an order, e.g. “Build.”
+
+# The design's beats (isolate, develop, twist, catharsis) as a player
+# reads them on the menu and the board (cycle 90).
+beat_words:
+  isolate: lesson
+  develop: practice
+  twist: twist
+  catharsis: finale
+
+# How the page words a scene's star rules (view.star_rules): the first
+# star is the win; each limit is filled with its number.
+star_rules:
+  win: meet the goal
+  max_damage: hull damage at most {n}
+  max_damage_none: no hull damage
+  max_command: at most {n} command spent
+  max_words_spoken: at most {n} words spoken in all
+  max_words_spoken_one: one word spoken in all
+
+# The matrix's properties (data/orders_matrix.yaml `reading.properties`) and
+# where each one's look lives.
+properties:
+  quiet: events.quiet
+  leak: events.leak
+  storm: events.storm
+  worn: conditions.worn
+  no_supplies: stocks.supplies
+  bold: temperaments.bold
+  cautious: temperaments.cautious
+  literal: temperaments.literal
+  contrary: temperaments.contrary
+  off_duty: conditions.off_duty

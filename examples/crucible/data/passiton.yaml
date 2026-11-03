@@ -1,0 +1,147 @@
+# Pass it on (cycle 98): a message goes up the rock mouth to ear.
+#
+# Each level is a line of crew. You speak to the first; each relayer passes
+# what they heard to the next in their own way (their temperament's law of
+# relaying, carried out by a language model); the last stage acts on what
+# reached them, by the orders toy's laws of reading and their temperament.
+# The level is solved when they do what its goal asks.
+#
+#   line:  stages in order; a name relays, a list of names (the last stage)
+#          acts. A level's last stage may be a single name.
+#   goal:  what each of the last stage must do (an action of the orders toy)
+#   event: the turn's situation (quiet or leak): Bea mends an open leak
+#          unless a clause names her for something else
+#   stars: 1 for solving; 2 and 3 for at most this many words
+#   taboo: words the message may not use (or their -s, -es, -ed, -ing
+#          forms); the job has to be said another way (cycle 118: the
+#          owner found the game "incredibly easy")
+
+title: Pass it on
+tagline: Your words go up the rock mouth to ear. Make them arrive meaning what you need.
+max_words: 12
+attempts: 3
+default_scenario: straight_up
+
+# How each temperament passes things on in this game (the orders toy's
+# relaying laws; Dex flips, so a message can be pre-flipped for him).
+relays:
+  literal: word_for_word
+  contrary: flips
+  bold: drops_rest
+  cautious: adds_repair
+
+# Temperaments as this game tells them, over the orders toy's (cycle 107):
+# with nothing for them the bold build. The orders game's "or else gathers
+# supplies" never applies here (there is always a supply), and it drew a
+# live model to answer "gather" after reasoning that Ash builds.
+temperaments:
+  bold: {otherwise: [build]}
+
+# Other ways to say each job, shortest first: the bot says the first that a
+# level does not forbid (cycle 118).
+phrasings:
+  build: [build, construct, raise the tower, stack stones]
+  gather: [gather supplies, forage, fetch supplies]
+  repair: [repair the hull, patch the hull, plug the leak]
+  rest: [rest, nap, doze, relax]
+  watch: [keep watch, scout, stand sentry, scan the horizon]
+
+# What to tap to say an action, few words each.
+say:
+  build: build
+  gather: gather supplies
+  repair: repair the hull
+  rest: rest
+  watch: keep watch
+
+scenarios:
+  # Arc 1: mouth to ear. Cy passes things on word for word; the last in line
+  # read them by the laws of reading.
+  straight_up:
+    beat: isolate
+    title: Straight up
+    teaches: ['plain x literal', 'reading->verdict', 'message->verdict']
+    line: [Cy]
+    goal: {Cy: watch}
+    event: quiet
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: Cy is at the top of the rock and does exactly what Cy hears, nothing else. Get Cy to keep watch.
+    lesson: Cy does exactly what the words say. Name the work.
+  two_at_the_top:
+    beat: develop
+    title: Two at the top
+    teaches: ['word_for_word x two_clauses', 'named x cautious', 'named x bold', 'line->reading']
+    line: [Cy, [Ash, Bea]]
+    goal: {Ash: build, Bea: watch}
+    event: quiet
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: Cy passes your words on, word for word, to Ash and Bea. Get Ash to build and Bea to keep watch.
+    lesson: Words for everyone reach everyone. A name in front ("Bea, keep watch") gives one person their own job.
+  dex_at_the_top:
+    beat: twist
+    title: Dex at the top
+    teaches: ['plain x contrary', 'negated x contrary', 'verdict->message']
+    line: [Dex]
+    goal: {Dex: build}
+    event: quiet
+    stars: {2: {max_words: 3}, 3: {max_words: 1}}
+    task: Dex is at the top, and Dex does the opposite of whatever Dex is told. Get Dex to build.
+    lesson: To get something from Dex, ask for the opposite.
+  dex_among_them:
+    beat: catharsis
+    title: Dex among them
+    teaches: ['named x contrary', 'silence x bold', 'line->reading']
+    line: [Cy, [Ash, Dex]]
+    goal: {Ash: build, Dex: build}
+    event: quiet
+    stars: {2: {max_words: 5}, 3: {max_words: 3}}
+    task: Cy passes your words, word for word, to Ash and Dex. Ash pushes the work; Dex does the opposite of what Dex is told. Get them both to build.
+    lesson: One plain word for everyone, and a named exception for the one who reads it backwards.
+
+  # Arc 2: Dex in the middle, saying the opposite of every part.
+  dex_in_the_middle:
+    beat: isolate
+    title: Dex in the middle
+    teaches: ['flips x one_clause', 'flips x negated_clause', 'message->relay', 'relay->reading']
+    line: [Dex, Cy]
+    goal: {Cy: build}
+    event: quiet
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: Now Dex is in the middle. Dex passes your words on saying the opposite; Cy, at the top, does exactly what Cy hears. Get Cy to build.
+    lesson: Say the opposite of what you need, and Dex turns it the right way round.
+  two_through_dex:
+    beat: develop
+    title: Two through Dex
+    teaches: ['flips x two_clauses', 'flips x named_clause', 'temperament->relay']
+    line: [Dex, [Ash, Cy]]
+    goal: {Ash: build, Cy: watch}
+    event: quiet
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: Dex passes your words to Ash and Cy, saying the opposite of each part. Get Ash to build and Cy to keep watch.
+    lesson: Dex flips every part separately, so flip each part you send.
+  saying_less:
+    beat: twist
+    title: Saying less
+    teaches: ['silence x literal', 'temperament->reading', 'negated x literal']
+    line: [Dex, [Ash, Cy]]
+    goal: {Ash: watch, Cy: rest}
+    event: quiet
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: Dex passes your words to Ash and Cy, saying the opposite of each part. Cy does exactly what Cy hears, and with nothing to do, Cy rests. Get Ash to keep watch and Cy to rest.
+    lesson: For someone who does exactly what they hear, saying nothing is an order too.
+  everyone_through_dex:
+    beat: catharsis
+    title: Everyone through Dex
+    teaches: ['flips x named_clause', 'silence x literal', 'silence x bold', 'named x cautious']
+    line: [Dex, [Ash, Bea, Cy]]
+    goal: {Ash: build, Bea: watch, Cy: rest}
+    event: quiet
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: Dex passes your words to Ash, Bea and Cy, saying the opposite of each part. Get Ash to build, Bea to keep watch and Cy to rest.
+    lesson: Flip each part for Dex, name who does what, and leave Cy out.
+
+# Today's puzzle: a level made from the date (toys/passiton/daily.py), open
+# once Dex in the middle is.
+daily: {scenario: daily, seeds: 997, opens_with: dex_in_the_middle}
+
+campaign: [straight_up, two_at_the_top, dex_at_the_top, dex_among_them, dex_in_the_middle, two_through_dex, saying_less, everyone_through_dex]

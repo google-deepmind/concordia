@@ -1,0 +1,269 @@
+# The Night Wire (cycle 119): Pass it on as a story.
+#
+# Pinewood, a mill town, the night of 14 April 1926. The river is rising.
+# You are at the telegraph desk. Each chapter is one hour of the night and
+# one message that must reach someone across town through people with their
+# own habits; what they do decides what happens to the town.
+#
+# A chapter, like a Pass it on level:
+#   line:    who it passes through, in order; the last (a name or a list)
+#            act on what reached them
+#   goal:    the job each of the last must do (a key of `jobs`)
+#   jobs:    the jobs on offer to them this hour (keys of `jobs`)
+#   stars:   1 for solving; 2 and 3 for at most this many words
+#   time, headline, lesson: the story around it (failure: the headline
+#            when every wire fails)
+#   teaches: the matrix cells it is built on (data/nightwire_matrix.yaml)
+
+title: The Night Wire
+tagline: Pinewood, 14 April 1926. The river is rising, and every word you send costs a cent.
+setting: The Night Wire. Pinewood, a mill town, the night of 14 April 1926. The river is rising.
+max_words: 12
+attempts: 3
+default_scenario: the_sluice
+
+# The people (cycle 121: people, not laws). `character` is who they are and
+# how they handle a message, in the story's words; it is all the model is
+# told about them, and it decides in character. The owner, after "Dexter,
+# silence!" left the mayor at home: "The whole point of Concordia is that
+# using LLMs should allow more creative parsing to work. It shouldn't feel
+# like a game of logical negation." `relays`, `reads` and `default` are the
+# mock's rough copy (the CI's stand-in, not the judge) and the page's tags.
+people:
+  Edith:
+    role: the night clerk at the telegraph office
+    character: Edith is the night clerk at the telegraph office, careful and proper. She sends every message exactly as it is handed to her, word for word, and never adds or leaves out a thing.
+    relays: word_for_word
+    reads: literal
+    default: stay_put
+  Wilf:
+    role: the messenger boy, a prankster
+    character: Wilf is the messenger boy, and a prankster. He passes on every message he carries turned on its head, each part saying the opposite of what he was told, though he always keeps who each part is for; and the more anyone begs him to get it right, the more he enjoys getting it wrong.
+    relays: flips
+    reads: literal
+    default: stay_put
+  Harlan:
+    role: the miller
+    character: Harlan is the miller; the mill, its wheel, its sluice gates and its boats are his business. A practical man, he does what a message asks of him. With nothing in it for him, he keeps the mill wheel turning.
+    reads: literal
+    default: grind
+  Cyrus:
+    role: the stationmaster
+    character: Cyrus is the stationmaster; the station and its trains are his business, and nothing else is. A stickler, he does what a message asks of him. With nothing in it for him, he stays at his post.
+    reads: literal
+    default: stay_put
+  Penrose:
+    role: the doctor
+    character: Dr. Penrose is the town doctor; the sick and the hurt are her business. She does what a message asks of her. With nothing in it for her, she stays with her patients.
+    reads: literal
+    default: stay_put
+  Dexter:
+    role: the mayor, who never does as he is told
+    character: Dexter is the mayor of Pinewood, and he has the only key to the church bell. He is proud, stubborn and contrary. Whatever anyone tells him to do, he does the opposite, to show he will not be ordered about. Left alone, he stays put.
+    reads: contrary
+    default: stay_put
+  Pruitt:
+    role: the farmer's wife on the party line, who listens in on every call
+    character: Mrs. Pruitt is the farmer's wife on the party line, who listens in on every call. She passes each message on as she heard it, then can never resist adding her own advice, "Go to the church hall, everyone!"
+    relays: adds_hall
+    reads: literal
+    default: stay_put
+
+# The mock's ways of relaying (a rough copy of the characters above).
+relaying:
+  word_for_word: sends it exactly as given
+  flips: says the opposite of each part
+  adds_hall: adds "Go to the church hall, everyone!"
+
+# What a relayer adds of their own (the mock's copy of Mrs. Pruitt's habit).
+additions:
+  adds_hall: Go to the church hall, everyone!
+
+# How messages work in this world, told to every reader: conventions, not
+# rules of logic.
+conventions: On a telegram, STOP ends a sentence. One message can be for several people at once. A part that names someone (by name or by what they do) is their own instruction, and for them it replaces any part that names no one; a part that names no one is for everyone else it reaches.
+
+# The jobs. `text` is the option a reader picks; `say` the fewest words to
+# ask for it, in a telegram's style; `words` how the mock recognises it, and
+# `opposite` words that ask for its opposite ("Dexter, silence!"); the model
+# needs no list.
+jobs:
+  open_sluice: {text: open the sluice gates, say: open sluice, words: [sluice, sluices, gate, gates, open]}
+  hold_train: {text: hold the night train, say: hold train, words: [train, hold, halt]}
+  ring_bell: {text: ring the church bell, say: ring bell, words: [bell, ring, toll, peal], opposite: [silence, quiet, hush, sleep, bed]}
+  fetch_doctor: {text: go to the mill, say: go to mill, words: [mill, come, hurry]}
+  sandbag: {text: sandbag the bridge, say: sandbag bridge, words: [sandbag, sandbags, bridge, bank]}
+  grind: {text: keep the wheel turning, say: keep grinding, words: [grind, grinding, wheel, work, mind]}
+  # "and do nothing" (cycle 121: for the stationmaster, holding the train
+  # was staying at his post, and a live model took "stay put" for it).
+  stay_put: {text: stay put and do nothing, say: stay put, words: [stay, wait, put, home]}
+  launch_boats: {text: take the boats out, say: take boats out, words: [boat, boats, punt, punts, row]}
+  go_to_hall: {text: go to the church hall, say: go to hall, words: [hall, shelter]}
+
+scenarios:
+  the_sluice:
+    teaches: ['plain x literal', 'people->relay', 'verdict->story']
+    beat: isolate
+    time: '9:40 p.m.'
+    title: The sluice
+    line: [Edith, Harlan]
+    goal: {Harlan: open_sluice}
+    jobs: [open_sluice, grind, stay_put]
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: The water is a foot below the mill race. Your message goes from your desk to Edith at the telegraph key, and down the wire to Harlan at the mill. Get Harlan to open the sluice gates.
+    headline: SLUICE OPENED IN TIME STOP MILL RACE HOLDS
+    failure: MILL RACE BURSTS STOP LOWER STREET UNDER WATER
+    lesson: Edith sends exactly what you give her. Say the job.
+  the_station:
+    teaches: ['named x literal', 'others_named x literal', 'line->reading', 'word_for_word x two_parts', 'stop x literal', 'word_for_word x stopped']
+    beat: develop
+    time: '10:05 p.m.'
+    title: The night train
+    line: [Edith, [Cyrus, Harlan]]
+    goal: {Cyrus: hold_train, Harlan: open_sluice}
+    jobs: [hold_train, open_sluice, grind, stay_put]
+    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    task: The 10:40 is due over the river bridge. Edith's wire goes to the station and the mill at once. Get Cyrus to hold the night train, and Harlan to keep the sluice open. (On the wire, STOP ends a sentence, and costs nothing.)
+    headline: NIGHT TRAIN HELD AT PINEWOOD STOP NO ONE ON THE BRIDGE
+    failure: NIGHT TRAIN STRANDED ON RIVER BRIDGE
+    lesson: Everyone on the wire hears every word. A name in front gives one person their own job.
+  the_mayor:
+    teaches: ['plain x contrary', 'negated x contrary']
+    beat: twist
+    time: '10:30 p.m.'
+    title: The mayor
+    line: [Dexter]
+    goal: {Dexter: ring_bell}
+    jobs: [ring_bell, stay_put]
+    stars: {2: {max_words: 4}, 3: {max_words: 3}}
+    task: Only the church bell will wake the lower town, and only the mayor has the key. Mayor Dexter never does as he is told. You have him on the telephone. Get him to ring the church bell.
+    headline: CHURCH BELL WAKES LOWER TOWN AT 10:40
+    failure: LOWER TOWN SLEPT AS THE WATER ROSE
+    lesson: Tell the mayor not to, and he will.
+  the_council:
+    teaches: ['named x contrary', 'others_named x literal', 'word_for_word x negated_part']
+    beat: catharsis
+    time: '10:55 p.m.'
+    title: The council
+    line: [Edith, [Harlan, Dexter]]
+    goal: {Harlan: sandbag, Dexter: ring_bell}
+    jobs: [sandbag, ring_bell, grind, stay_put]
+    stars: {2: {max_words: 8}, 3: {max_words: 6}}
+    task: The bell has stopped and the bridge needs sandbags. Edith wires the mill and the mayor's house together. Get Harlan to sandbag the bridge and the mayor to ring the bell again.
+    headline: MILLER AND MAYOR SAVE BRIDGE STOP BELL RINGS ALL NIGHT
+    failure: BRIDGE GOES AT 11 P.M. STOP CHURCH BELL SILENT
+    lesson: 'One message, two readers: say each their part, the mayor''s the wrong way round.'
+  wilf:
+    teaches: ['flips x one_part', 'flips x negated_part', 'negated x literal']
+    beat: isolate
+    time: '11:20 p.m.'
+    title: Wilf
+    line: [Wilf, Penrose]
+    goal: {Penrose: fetch_doctor}
+    jobs: [fetch_doctor, stay_put]
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: The wire to the doctor's house is down. Wilf, the messenger boy, will cycle your message over, but Wilf is a prankster who says the opposite of everything. Get Dr. Penrose to go to the mill.
+    headline: DOCTOR AT THE MILL BY MIDNIGHT
+    failure: MILL HANDS HURT STOP NO DOCTOR TILL DAWN
+    lesson: Give Wilf the opposite of what you need, and he turns it the right way round.
+  two_doors:
+    teaches: ['flips x two_parts', 'flips x named_part']
+    beat: develop
+    time: '11:45 p.m.'
+    title: Two doors
+    line: [Wilf, [Penrose, Cyrus]]
+    goal: {Penrose: fetch_doctor, Cyrus: hold_train}
+    jobs: [fetch_doctor, hold_train, stay_put]
+    stars: {2: {max_words: 11}, 3: {max_words: 9}}
+    task: Wilf will knock at the doctor's and then the station. Get Dr. Penrose to go to the mill, and Cyrus to keep holding the train.
+    headline: TRAIN STILL HELD STOP DOCTOR ON HER WAY
+    failure: DOCTOR NEVER CAME STOP TRAIN LET THROUGH
+    lesson: 'Wilf flips every part on its own: flip each part you send.'
+  say_less:
+    teaches: ['silence x literal', 'silence x own_work', 'flips x named_part']
+    beat: twist
+    time: '12:10 a.m.'
+    title: Say less
+    line: [Wilf, [Harlan, Cyrus]]
+    goal: {Harlan: open_sluice, Cyrus: stay_put}
+    jobs: [open_sluice, hold_train, grind, stay_put]
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: The train has gone round by the hill line and Cyrus must stay at his post. Wilf runs the message to the mill and the station. Get Harlan to open the sluice again, and Cyrus to stay put.
+    headline: SECOND OPENING OF SLUICE AT MIDNIGHT STOP STATION QUIET
+    failure: STATION LEFT EMPTY STOP SLUICE SHUT AT MIDNIGHT
+    lesson: For someone who does exactly what they hear, saying nothing to them is an order too.
+  the_night:
+    teaches: ['flips x contrary_reader', 'silence x several', 'relay->reading']
+    beat: catharsis
+    time: '12:40 a.m.'
+    title: The whole night
+    line: [Wilf, [Harlan, Dexter, Penrose]]
+    goal: {Harlan: sandbag, Dexter: ring_bell, Penrose: stay_put}
+    jobs: [sandbag, ring_bell, fetch_doctor, grind, stay_put]
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: The crest is coming. One last message, through Wilf, to the mill, the mayor and the doctor. Get Harlan to sandbag the bridge, the mayor to ring the bell, and Dr. Penrose to stay put with her patients.
+    headline: PINEWOOD HOLDS STOP RIVER CRESTS AT 1 A.M. STOP NO LIVES LOST
+    failure: PINEWOOD LOSES BRIDGE AND MILL STOP RIVER CRESTS AT 1 A.M.
+    lesson: Flip each part for Wilf, the mayor's twice, and leave the doctor out.
+
+  # After the crest (cycle 120): the telegraph office is dark; the only
+  # line left is the farm party line, and Mrs. Pruitt is on it.
+  the_party_line:
+    teaches: ['adds x left_out', 'adds x named_part', 'two_asks x literal']
+    beat: isolate
+    time: '1:10 a.m.'
+    title: The party line
+    line: [Pruitt, [Harlan, Cyrus]]
+    goal: {Harlan: launch_boats, Cyrus: stay_put}
+    jobs: [launch_boats, go_to_hall, grind, stay_put]
+    stars: {2: {max_words: 8}, 3: {max_words: 6}}
+    task: The river has crested and the lower town is under water. The telegraph office is dark; the only line still up is the farm party line, and Mrs. Pruitt listens in on every call and passes it on with a word of her own. Get Harlan to take the mill's boats out to the rooftops, and Cyrus to stay at the station.
+    headline: MILLER ROWS FAMILIES OFF ROOFTOPS STOP STATION HOLDS
+    failure: STATIONMASTER LEAVES POST STOP ROOFTOPS WAIT TILL DAWN
+    lesson: Mrs. Pruitt has a word for anyone you leave out. Leave no one out.
+  gossip:
+    teaches: ['adds x left_out', 'others_named x literal', 'negated x contrary']
+    beat: develop
+    time: '1:35 a.m.'
+    title: Her own word
+    line: [Pruitt, [Harlan, Cyrus, Penrose, Dexter]]
+    goal: {Harlan: launch_boats, Cyrus: stay_put, Penrose: go_to_hall, Dexter: ring_bell}
+    jobs: [launch_boats, go_to_hall, ring_bell, stay_put, grind]
+    stars: {2: {max_words: 11}, 3: {max_words: 10}}
+    task: The families coming off the roofs are wet and cold and some are hurt; they are being taken to the church hall. Get Harlan to keep the boats out, Cyrus to stay at the station, Dr. Penrose to the church hall, and the mayor to ring the bell so the boats can find their way. Four parts will not fit in twelve words.
+    headline: DOCTOR TENDS THIRTY IN CHURCH HALL
+    failure: HURT AND COLD WAIT IN EMPTY HALL
+    lesson: Her word can do your work. Leave out only the one she will send the right way.
+  through_wilf:
+    teaches: ['adds x flipped_part', 'named x contrary', 'two_asks x literal']
+    beat: twist
+    time: '2:00 a.m.'
+    title: Wilf and Mrs. Pruitt
+    line: [Wilf, Pruitt, [Harlan, Dexter]]
+    goal: {Harlan: launch_boats, Dexter: ring_bell}
+    jobs: [launch_boats, ring_bell, go_to_hall, grind, stay_put]
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: Wilf has cycled out to the Pruitt farm to use her telephone, so your message goes through both of them. Get Harlan to keep the boats out, and the mayor to ring the bell, so the last families know where the boats are.
+    headline: BELL GUIDES BOATS THROUGH THE DARK
+    failure: LAST FAMILIES MISS THE BOATS
+    lesson: Wilf turns your words round; Mrs. Pruitt's come after him, the right way round.
+  pruitt_first:
+    teaches: ['flips x added_part', 'negated x contrary', 'negated x literal']
+    beat: catharsis
+    time: '2:40 a.m.'
+    title: Morning comes
+    line: [Pruitt, Wilf, [Harlan, Dexter, Penrose]]
+    goal: {Harlan: launch_boats, Dexter: go_to_hall, Penrose: stay_put}
+    jobs: [launch_boats, go_to_hall, ring_bell, stay_put, grind]
+    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    task: The last call of the night. This time Mrs. Pruitt takes your message first and Wilf carries it on. Get Harlan to take the boats out once more, the mayor to the church hall to open it to everyone, and Dr. Penrose to stay with her patients.
+    headline: PINEWOOD SAVED STOP ALL ACCOUNTED FOR AT DAWN
+    failure: DAWN FINDS PINEWOOD STILL COUNTING ITS MISSING
+    lesson: Wilf turns Mrs. Pruitt's word round too, and the mayor does what he is told not to.
+
+campaign: [the_sluice, the_station, the_mayor, the_council, wilf, two_doors, say_less, the_night]
+# Set aside in cycle 121, to be rebuilt on who Mrs. Pruitt is: built on
+# rules of addressing, her act was a coin flip once the people decided in
+# character (a stickler ignores a gossip's advice; a contrary mayor told
+# two things may defy either).
+set_aside: [the_party_line, gossip, through_wilf, pruitt_first]

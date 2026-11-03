@@ -1,0 +1,33 @@
+# The page's words for Pass it on (cycle 99). The server lays these over
+# orders_look.yaml, whose palette, glyphs and labels it shares.
+
+title: Pass it on
+tagline: Your words go up the rock mouth to ear. Make them arrive meaning what you need.
+
+intro:
+  - Pass it on is a word puzzle played with characters a language model brings to life.
+  - "Your crew are on a rock in a gale, too loud to shout. Your words go up the line mouth to ear, and each crew member passes them on in their own way: Cy word for word, Dex saying the opposite of each part, and others with their own habits."
+  - Each level has one goal for the people at the top of the line. Write one message, watch it change at every hop, and see what they do. The puzzle is to phrase it so it arrives meaning what you need, in as few words as you can.
+
+how_to_play:
+  - Read the goal at the top, and who is in the line.
+  - Write one message (up to 12 words) and send it up the line. Tap the words under the box to add them.
+  - Each card shows what that person heard and passed on; the last in line act on what reached them.
+  - A level gives you three tries. Solve it to earn a star, and more stars for fewer words; stars open the next level.
+
+# Card captions for the line.
+you: You
+at_top: at the top, acts on what they hear
+
+# How each relayer passes things on, in a few words for their card.
+passes_short:
+  word_for_word: passes it on word for word
+  flips: passes on the opposite of each part
+  drops_rest: drops anything about resting or watching
+  adds_repair: adds "Repair leaks." to whatever they pass on
+
+# Star rules in words (view.star_rules).
+star_rules:
+  win: solve it
+  max_words: at most {n} words
+  max_words_one: in one word
