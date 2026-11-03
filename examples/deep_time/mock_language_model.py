@@ -1473,6 +1473,14 @@ def adopt_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   return None
 
 
+def found_policy(prompt: str, options: Mapping[str, str]) -> str | None:
+  """Founds a town whenever a people can (a fixed rule, for CI)."""
+  del prompt
+  return next(
+      (o for o in options.values() if o.startswith('found a new town')), None
+  )
+
+
 def _calm(
     options: Mapping[str, str], neutral: str, prompt: str = ''
 ) -> str | None:
@@ -1486,6 +1494,7 @@ def _calm(
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
     offer_policy,
     adopt_policy,
+    found_policy,
     steward_policy,
     species_policy,
     grazer_policy,
@@ -1500,6 +1509,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'passive': (
         offer_policy,
         adopt_policy,
+        found_policy,
         passive_steward_policy,
         species_policy,
         grazer_policy,
@@ -1511,6 +1521,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'random': (
         offer_policy,
         adopt_policy,
+        found_policy,
         random_steward_policy,
         species_policy,
         grazer_policy,
@@ -1522,6 +1533,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'forecaster': (
         offer_policy,
         adopt_policy,
+        found_policy,
         forecasting_steward_policy,
         species_policy,
         grazer_policy,
@@ -1532,6 +1544,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'no_advice': (
         offer_policy,
         adopt_policy,
+        found_policy,
         steward_policy_without_advice,
         species_policy,
         grazer_policy,

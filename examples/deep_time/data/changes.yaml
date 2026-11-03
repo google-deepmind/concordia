@@ -1,7 +1,221 @@
 # What changed for players, newest first. The start screen shows the newest
-# with a button to its world, so a person knows what to look for. Add an
-# entry in the cycle that changes play.
+# with a button to its world (as `role`, if the change is about one), so a
+# person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night (4)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A courtship stands: a town's envoys (or feast) stay given from turn
+      to turn, marked "each turn until you cancel it", until you tap ✕ or
+      the courted town joins you. Marches and foundings are given once.
+      "Send them now (labor as it is)" under your towns' orders sends a
+      turn of town orders alone.
+  - when: 19 Oct, night (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      "Envoys from every town": one tap under the hint has each of your
+      towns that can send grain and envoys court a different town (the ones
+      you court already first). A feast answers one town a turn; several
+      courtships at once are how grain wins towns from a watchful people.
+  - when: 19 Oct, night (2)
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Where the peoples can go to war, your move says from the first turn
+      that your towns can give orders once you have the means (arms, grain
+      to spare, settlers). A town picked from the aim list gives its order
+      at once, and a town another of yours courts this turn is left out.
+  - when: 19 Oct, night
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A town's order, once given, shows at once: your move opens on the
+      orders queued (naming the town each goes to), says each town gives
+      one order a turn and how many more of your towns can give one.
+  - when: 19 Oct, evening (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Aiming a march, each town in the list shows its defence (its arms
+      and people, behind its walls) and your odds against it from the town
+      you march from. When a town you court is feasted, you hear that a
+      feast undoes a cart's worth of regard and costs its holder grain.
+  - when: 19 Oct, evening (2)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A town keeps the name it was first told by ("in the taiga of the
+      north"), though the land around it changes: a town you court is
+      the same town turn after turn. Aiming envoys, the towns you are
+      courting come first in the list.
+  - when: 19 Oct, evening
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Keeping your course keeps your courtship: a town's envoys or feast
+      given with "Keep 5 turns" go again each held turn, so a town warms
+      turn after turn while you wait (a march or a founding is given once).
+      Aiming, each town in the list shows what the choice turns on: the
+      arms seen in it for a march, how far it is from joining you for
+      envoys. A people's end recap is about its towns: "8 of the 17 towns
+      (founded 1, won over 3); holding 13 would have won the age alone",
+      without the Steward's temperature chart.
+  - when: 19 Oct, afternoon (4)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Courting a town takes carts turn after turn: when your envoys come
+      after skipped turns, the outcome says how far the town cooled
+      meanwhile. A town's card says what a march from it needs when it
+      holds no arms. At the end, a people's recap says which road decided
+      the age (the shared goal, or a people holding the map) and how many
+      towns would have won it alone.
+  - when: 19 Oct, afternoon (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Your towns that can give an order are listed under the hint in your
+      move, each a button: tap one to see the town and its orders, as a tap
+      on it on the map does. Aiming a march or envoys, the other peoples'
+      towns nearest it are listed too, to pick one without hitting it on
+      the map. "Keep 5 turns" now sends the town orders you gave this turn
+      with it (it dropped them before).
+  - when: 19 Oct, afternoon (2)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      When the game ends, a people's recap tells its own result and its
+      towns: how many it held of all, and how it gained them (founded,
+      taken, won over, risen to it). The Steward's forecasts and forest goal
+      are left to the Steward's recap.
+  - when: 19 Oct, afternoon
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Fire and Iron's peoples can make peace now (peace pacts, as on the
+      Great Acceleration), and an iron-age army eats less: a people of six
+      can keep a few levies without starving. Its third kind of arms is
+      axemen (from iron axes, which also clear the woods; they cost iron),
+      in place of riders, whose know-how lay beyond a game's reach there.
+  - when: 19 Oct, noon
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      The other peoples read the map as you do: each people's sheet now names
+      the arms seen in every town, and the computer's peoples strike the
+      weakest town of whoever wronged them, with about twice the strength it
+      shows, rather than throwing levies at walls. Watch your garrisons.
+  - when: 19 Oct, morning (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      The button that keeps your course now says so: "Keep 5 turns". The
+      characters' town orders are read by their words, so a people that
+      writes "hold a feast in it" holds the feast.
+  - when: 19 Oct, morning (2)
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Know your odds before you march: a march now says how strong the town
+      stands with its people and walls and your odds of taking it; your
+      people's sheet says it while the army marches, and a repulse says how
+      strong each side was. The What's new button now plays the role the
+      change is about.
+  - when: 19 Oct, sunrise
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      War comes to Fire and Iron too: play one of its peoples to found towns,
+      raise levies, archers (bows from coppiced woods) and riders, march to
+      take or raze, win towns with grain, make peace, or hold three of every
+      four towns and win alone. Its towns are small and its granaries thin,
+      so war there is short-handed and costly. On every world your towns that
+      can give their own order this turn are marked ● on the map, and the
+      move sheet says so; a town can be founded once you have three people
+      for each town besides your capital.
+  - when: 19 Oct, dawn
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      The other peoples fight back. Played by the computer, a people now
+      arms when an army marches on it, strikes back at whoever wronged it,
+      feasts a town you are close to winning over, and marches on a people
+      that holds half the map; and while you hold half the map, every town
+      you won or took grows restless unless your arms hold it. Towns defend
+      a little harder, arms eat more, a cart of grain and envoys costs 5
+      grain, and a town hears one people's envoys once a turn (send carts
+      from several towns to several towns).
+  - when: 19 Oct, morning
+    world: great_acceleration
+    text: >-
+      Conquest can win the age. Playing a people, hold three of every four
+      towns (taken by arms, won with grain, risen to you) and the game ends:
+      you win, every other player loses. Your goal says so beside the shared
+      one. Taking or razing a people's towns no longer ends the game as a
+      famine (your game of 19 Oct): only hunger breaks a people now, and a
+      people that loses its last town is gone from the map (every people
+      hears it) while the age goes on.
+  - when: 19 Oct, night
+    world: great_acceleration
+    text: >-
+      Peace and its breaking. Once anyone has raised arms, any two peoples
+      may offer each other a peace pact (no tech needed): neither marches on
+      the other's towns. A march on your partner breaks it at once, for every
+      people to hear, and stops trade between you for a while. Each people
+      remembers wrongs done to it (towns taken or razed, pacts broken), and
+      its sheet says so; a people holding half the towns is named to all.
+      You may send your own words to another people from the move sheet (it
+      hears them as it hears offers; its words to you show in your story,
+      marked 💬). Taking towns no longer makes you abandon your own. The tab
+      of moves you made is now "Past moves".
+  - when: 19 Oct, evening
+    world: great_acceleration
+    text: >-
+      Several orders a turn, given on the map. Tap one of your towns: its
+      sheet lists the orders it may give this turn (march from it with its
+      own arms, send grain and envoys, hold a feast in it, found a new town);
+      tap one, then tap where it should go. Each town gives one order a turn,
+      and they all go with your people's move, each with its own outcome
+      under Your moves. "What you read" now shows the whole prompt, the
+      question included.
+  - when: 19 Oct, later
+    world: great_acceleration
+    text: >-
+      Bread as a road to conquest, on the Great Acceleration. Send a cart of
+      grain and envoys to another people's town (3 grain, aimed on the map):
+      its regard for you grows, twice as fast while its people go hungry,
+      and it joins you when that reaches its loyalty to its holder. Each cart
+      tells you how far there is to go, and a ring round the town in your
+      colour fills as it nears. Capitals hold to their own. A town courted by
+      others, or one you took by arms, can be held with a feast in it.
+  - when: 19 Oct
+    world: great_acceleration
+    text: >-
+      War, on the Great Acceleration. With arms in your capital you may march
+      them on another people's town, aimed on the map, to take it or to raze
+      it: the army shows on the map with its strength and the turn it
+      arrives, and the fight is told to both sides at once. A taken town is
+      restless: hold it with arms or it warns, then rises back to its
+      founder. Every people hears of every march, fight and rising.
+  - when: 18 Oct, later still
+    world: great_acceleration
+    text: >-
+      Playing a people on the Great Acceleration you can raise arms, as
+      labour like any trade: levies with spears from your tools, riders once
+      you know the iron plough (its horses), riflemen once you make steel.
+      They gather in your capital and eat grain every turn (unfed, some
+      desert); your garrison's strength shows by the town on the map, and a
+      tap on a town lists its arms. Marching them comes next.
+  - when: 18 Oct, late
+    world: great_acceleration
+    text: >-
+      Playing a people on the Great Acceleration, you found your towns by
+      your own move: "found a new town", aimed on the map, once you have the
+      settlers (more people for each town you hold) and 4 grain and 2 tools.
+      Until then it waits among the moves you are saving for, saying what is
+      lacking, and you may plan it. Every people hears of a new town.
   - when: 18 Oct, night
     world: great_acceleration
     text: >-

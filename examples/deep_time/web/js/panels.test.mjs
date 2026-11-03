@@ -27,7 +27,7 @@ test('every card has one panel', () => {
 test('tabs show the panels with something in them, the active one pressed', () => {
   const html = tabsHtml('moves', {now: true, readings: true, moves: true, story: false, world: true});
   assert.equal((html.match(/role="tab"/g) || []).length, 4);
-  assert.match(html, /data-panel="moves" aria-selected="true" class="on">Moves</);
+  assert.match(html, /data-panel="moves" aria-selected="true" class="on">Past moves</);
   assert.doesNotMatch(html, /Story/);
 });
 

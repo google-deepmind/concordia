@@ -1287,6 +1287,9 @@ class Civilization:
         'env': list(self._env) if self._env else None,
         'biodiversity': self.biodiversity,
         'fish_stock': self.fish_stock,
+        # Each people's numbers at the start, moved with the towns that
+        # changed hands where conquest is played (what collapse measures).
+        'start_population': dict(self.start_population),
         'polities': {
             k: {
                 'population': p.population,
@@ -1316,6 +1319,9 @@ class Civilization:
     self.consumption = [dict(c) for c in state.get('consumption', [])]
     self.biodiversity = float(state.get('biodiversity', 0.0))
     self.fish_stock = float(state.get('fish_stock', self.fish_stock))
+    self.start_population.update(
+        {k: float(v) for k, v in state.get('start_population', {}).items()}
+    )
     env = state.get('env')
     self._env = (list(env[0]), float(env[1]), list(env[2])) if env else None
     for key, saved in state['polities'].items():

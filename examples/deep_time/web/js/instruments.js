@@ -156,8 +156,9 @@ export const INSTRUMENTS = {
     return {wide: true, html: `<div class="ichips">${chips.join('')}</div>`};
   },
   'civ.treaties'(d) {
-    const caps = Object.entries(d.caps || {}).map(([k, v]) => `<span>${escapeHtml(k)} cap ${fmt(v, 1)}</span>`);
-    const live = (d.treaties || []).map((t) => `<span>🤝 ${escapeHtml(typeof t === 'string' ? t : (t.members || t.parties || []).join(' & ') || JSON.stringify(t))}</span>`);
+    // Peace pacts (where conquest is played) cap nothing: a dove, no cap.
+    const caps = Object.entries(d.caps || {}).filter(([k]) => k !== 'peace').map(([k, v]) => `<span>${escapeHtml(k)} cap ${fmt(v, 1)}</span>`);
+    const live = (d.treaties || []).map((t) => `<span>${t.kind === 'peace' ? '🕊️' : '🤝'} ${escapeHtml(typeof t === 'string' ? t : (t.members || t.parties || []).join(' & ') || JSON.stringify(t))}</span>`);
     const embargoes = (d.embargoes || []).map((e) => `<span class="up">⛔ ${escapeHtml(Array.isArray(e) ? e.join(' & ') : String(e))}</span>`);
     return {html: `<div class="big">${(d.treaties || []).length} <small class="flat">in force</small></div>`
       + `<div class="ichips">${live.concat(embargoes, caps).join('')}</div>`};
