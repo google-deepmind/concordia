@@ -20,8 +20,8 @@ from typing import Any, override
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import text as text_utils
 from groq import Groq
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
@@ -116,7 +116,7 @@ class GroqModel(language_model.LanguageModel):
   ) -> str:
     del top_k  # unused
 
-    return self._sample_text(
+    sample = self._sample_text(
         prompt=prompt,
         max_tokens=max_tokens,
         terminators=terminators,
@@ -125,6 +125,7 @@ class GroqModel(language_model.LanguageModel):
         timeout=timeout,
         seed=seed,
     )
+    return text_utils.truncate(sample, delimiters=terminators)
 
   @override
   def sample_choice(

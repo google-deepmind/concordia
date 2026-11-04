@@ -22,6 +22,7 @@ from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
+from concordia.utils import text as text_utils
 import numpy as np
 import transformers
 
@@ -108,8 +109,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
 
     # It would be better to implement terminators in the model generation, but
     # this is a quick way to implement our API for now.
-    for terminator in terminators:
-      response = response[: response.find(terminator)]
+    response = text_utils.truncate(response, delimiters=terminators)
 
     if self._measurements is not None:
       self._measurements.publish_datum(
