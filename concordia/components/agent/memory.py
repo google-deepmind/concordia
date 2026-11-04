@@ -58,7 +58,7 @@ class Memory(entity_component.ContextComponent):
     """Retrieves most recent memories.
 
     Args:
-      limit: The number of memories to retrieve.
+      limit: The positive number of memories to retrieve.
 
     Returns:
       A list of memory results, sorted by their recency.
@@ -282,6 +282,8 @@ class ListMemory(Memory):
     """
 
     self._check_phase()
+    if limit <= 0:
+      raise ValueError('Limit must be positive.')
 
     with self._lock:
       return self._memory_bank[-limit:]
