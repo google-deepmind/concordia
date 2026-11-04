@@ -19,9 +19,9 @@ from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import text as text_utils
 from openai import AzureOpenAI
 from openai import OpenAI
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_VERBOSITY = 'low'
@@ -124,7 +124,7 @@ class BaseGPTModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> str:
     del top_k  # Unused
-    return self._sample_text(
+    sample = self._sample_text(
         prompt=prompt,
         reasoning_effort='minimal',
         verbosity=self._verbosity,
@@ -135,6 +135,7 @@ class BaseGPTModel(language_model.LanguageModel):
         timeout=timeout,
         seed=seed,
     )
+    return text_utils.truncate(sample, delimiters=terminators)
 
   @override
   def sample_choice(
