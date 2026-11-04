@@ -407,6 +407,82 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
 
     self.assertIsNone(result)
 
+  def test_edit_preserves_tool_use_and_commits_its_trace(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "lookup", "args": {"key": "hours"}}',
+        'Open until 5.',
+    ]
+    tool = MockTool('lookup', 'Read opening hours', 'Open until 5.')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    doc.statement('Original context')
+    original = doc.contents()
+
+    with doc.edit() as branch:
+      self.assertEmpty(branch.contents())
+      self.assertEqual(
+          branch.open_question('When does it close?'), 'Open until 5.'
+      )
+      self.assertEqual(tool.last_args, {'key': 'hours'})
+      self.assertEqual(tool.call_count, 1)
+      self.assertIn(
+          '[Tool Result: Open until 5.]',
+          branch.view(include_tags=['tool_result']).text(),
+      )
+      self.assertEqual(doc.contents(), original)
+      edited = branch.contents()
+
+    self.assertEqual(doc.contents(), original + edited)
+    self.assertEqual(model.sample_text.call_count, 2)
+
+  def test_clearing_edit_discards_text_not_tool_effects(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = ['{"tool": "lookup", "args": {}}', 'Done.']
+    tool = MockTool('lookup', 'Read a fixture', 'Fixture result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    doc.statement('Original context')
+    original = doc.contents()
+    with doc.edit() as branch:
+      self.assertEqual(branch.open_question('Look up the fixture.'), 'Done.')
+      branch.clear()
+
+    self.assertEqual(doc.contents(), original)
+    # clear() discards document content, not already executed tool effects.
+    self.assertEqual(tool.call_count, 1)
+
+  def test_edit_preserves_tool_call_and_result_limits(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = ['{"tool": "lookup", "args": {}}', 'Done.']
+    tool = MockTool('lookup', 'Read a fixture', '1234567890')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        max_tool_calls_per_question=1,
+        max_tool_result_length=8,
+    )
+    with doc.edit() as branch:
+      self.assertEqual(branch.open_question('Look up the fixture.'), 'Done.')
+      self.assertIn(
+          '[Tool Result: 12345...]',
+          branch.view(include_tags=['tool_result']).text(),
+      )
+      self.assertIn(
+          '[Max tool calls reached. Provide final answer.]',
+          model.sample_text.call_args.kwargs['prompt'],
+      )
+      self.assertEqual(tool.call_count, 1)
+      self.assertEqual(model.sample_text.call_count, 2)
+
   def test_copy_preserves_tools(self):
     """Copying document should preserve tool configuration."""
     model = mock.create_autospec(
