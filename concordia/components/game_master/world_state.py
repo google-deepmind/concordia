@@ -15,6 +15,7 @@
 """A component to represent any world state variables the GM deems important."""
 
 from collections.abc import Sequence
+import re
 from typing import cast
 
 from concordia.components.agent import action_spec_ignored
@@ -305,17 +306,21 @@ class Locations(
     """
     if not location:
       return ''
-    location = location.strip().rstrip('.')
+    location = location.strip()
     if not self._valid_locations:
-      return location
+      return location.rstrip('.')
     if location in self._valid_locations:
       return location
     location_lower = location.lower()
     for valid in self._valid_locations:
       if valid.lower() == location_lower:
         return valid
-    for valid in self._valid_locations:
-      if valid.lower() in location_lower:
+    for valid in sorted(
+        self._valid_locations, key=lambda label: (-len(label), label)
+    ):
+      if re.search(
+          r'(?<!\w)' + re.escape(valid.lower()) + r'(?!\w)', location_lower
+      ):
         return valid
     return ''
 
