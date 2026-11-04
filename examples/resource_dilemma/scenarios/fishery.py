@@ -553,7 +553,7 @@ def build_config(
         )
     )
 
-    # 3. Harvesting GM (concurrent)
+    # 3. Harvesting GM (private choices, joint resolution)
     call_to_action = (
         'Remember that many fishers share this lake. If the fish stock is'
         ' completely depleted, the fishery collapses permanently and'
@@ -627,6 +627,10 @@ def build_config(
     )
 
     steps_per_cycle = len(player_names) * 5
+
+  # All participants harvest, including leaders in election mode. Replace the
+  # previous single harvest step with one private decision step per participant.
+  steps_per_cycle += len(player_names) - 1
 
   # Step 4: Create config
   if mode == 'election':
