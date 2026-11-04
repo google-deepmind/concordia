@@ -368,7 +368,9 @@ class SwitchAct(
     return {
         'entity_names': list(self._entity_names),
         'component_order': (
-            list(self._component_order) if self._component_order else None
+            list(self._component_order)
+            if self._component_order is not None
+            else None
         ),
     }
 
@@ -378,5 +380,7 @@ class SwitchAct(
       self._entity_names = state['entity_names']  # pyrefly: ignore[bad-assignment]
     if 'component_order' in state:
       self._component_order = (
-          tuple(state['component_order']) if state['component_order'] else None  # pyrefly: ignore[bad-argument-type]
+          tuple(state['component_order'])  # pyrefly: ignore[bad-argument-type]
+          if state['component_order'] is not None
+          else None
       )

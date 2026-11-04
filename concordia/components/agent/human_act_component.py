@@ -207,7 +207,9 @@ class HumanActComponent(
     # Match ConcatAct's state format; the input reader remains runtime-only.
     return {
         'component_order': (
-            list(self._component_order) if self._component_order else None
+            list(self._component_order)
+            if self._component_order is not None
+            else None
         ),
     }
 
@@ -215,4 +217,4 @@ class HumanActComponent(
   def set_state(self, state: entity_component.ComponentState) -> None:
     if 'component_order' in state:
       order = cast(Sequence[str] | None, state['component_order'])
-      self._component_order = tuple(order) if order else None
+      self._component_order = tuple(order) if order is not None else None
