@@ -82,6 +82,89 @@ class ThreadSafeGenerativeClockTest(absltest.TestCase):
     clock.set_entity(mock_gm)
     return roster, clock
 
+  def test_overlapping_aliases_complete_a_round_for_distinct_players(self):
+    for prefix in ('', 'Event: '):
+      with self.subTest(prefix=prefix):
+        _, clock = self._make_roster_and_clock(
+            ['Alice', 'Bob'], aliases={'A': 'Alice', 'AA': 'Bob'}
+        )
+        clock.pre_act(_resolve_spec())
+        clock.post_act(f'{prefix}AA posted.')
+        self.assertEqual(clock.get_state()['acted_this_round'], ['Bob'])
+        self.assertEqual(clock.get_step_count(), 0)
+
+        clock.pre_act(_resolve_spec())
+        clock.post_act(f'{prefix}A posted.')
+        self.assertEqual(clock.get_step_count(), 1)
+        self.assertEqual(clock.get_pre_act_value().strip(), 'Hour 1')
+
+  def test_longest_known_identifier_matches_before_a_shorter_name(self):
+    cases = (
+        (['Ann', 'Ann Marie'], {}, 'Ann Marie posted.', 'Ann Marie'),
+        (
+            ['Alice', 'Bob'],
+            {'Alice Smith': 'Bob'},
+            'Alice Smith posted.',
+            'Bob',
+        ),
+        (['Alice', 'Bob'], {'A': 'Alice', 'A A': 'Bob'}, 'A A posted.', 'Bob'),
+    )
+    for players, aliases, event, actor in cases:
+      for prefix in ('', 'Event: '):
+        with self.subTest(players=players, event=event, prefix=prefix):
+          _, clock = self._make_roster_and_clock(players, aliases=aliases)
+          clock.pre_act(_resolve_spec())
+          clock.post_act(prefix + event)
+          self.assertEqual(clock.get_state()['acted_this_round'], [actor])
+          self.assertEqual(clock.get_step_count(), 0)
+
+  def test_unknown_word_prefix_is_not_an_actor(self):
+    for event in (
+        'AliceX posted.',
+        'AliceÉ posted.',
+        'Alice_extra posted.',
+        'Ax posted.',
+    ):
+      for prefix in ('', 'Event: '):
+        with self.subTest(event=event, prefix=prefix):
+          _, clock = self._make_roster_and_clock(
+              ['Alice', 'Bob'], aliases={'A': 'Alice'}
+          )
+          clock.pre_act(_resolve_spec())
+          clock.post_act(prefix + event)
+          self.assertEmpty(clock.get_state()['acted_this_round'])
+          self.assertEqual(clock.get_step_count(), 0)
+
+  def test_identifier_spelling_and_existing_event_formats_are_preserved(self):
+    cases = (
+        ('Alice', 'Alice: posted.'),
+        ('Alice', "Alice's post appeared."),
+        ('Alice', 'Alice'),
+        ('A[1]', 'A[1] posted.'),
+        ('Event: Alice', 'Event: Alice posted.'),
+    )
+    for name, event in cases:
+      for prefix in ('', 'Event: '):
+        with self.subTest(name=name, prefix=prefix):
+          _, clock = self._make_roster_and_clock([name, 'Bob'])
+          clock.pre_act(_resolve_spec())
+          clock.post_act(prefix + event)
+          self.assertEqual(clock.get_state()['acted_this_round'], [name])
+
+  def test_literal_identifier_does_not_treat_regex_characters_as_syntax(self):
+    _, clock = self._make_roster_and_clock(['A[1]', 'Bob'])
+    clock.pre_act(_resolve_spec())
+    clock.post_act('Event: A1 posted.')
+    self.assertEmpty(clock.get_state()['acted_this_round'])
+
+  def test_canonical_name_wins_an_identical_alias(self):
+    _, clock = self._make_roster_and_clock(
+        ['Alice', 'Bob'], aliases={'Alice': 'Bob'}
+    )
+    clock.pre_act(_resolve_spec())
+    clock.post_act('Event: Alice posted.')
+    self.assertEqual(clock.get_state()['acted_this_round'], ['Alice'])
+
   def test_player_leaving_before_acting_does_not_block_the_round(self):
     roster, clock = self._make_roster_and_clock(['Alice', 'Bob'])
     self.assertEqual(clock.get_player_names(), frozenset({'Alice', 'Bob'}))
