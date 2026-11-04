@@ -34,6 +34,7 @@ being guessed.
 
 from collections.abc import Mapping, Sequence
 import json
+import math
 import os
 import re
 from typing import Any
@@ -2396,6 +2397,10 @@ def _parse_dimension(name: str, raw: Any, applicable: bool) -> dict[str, Any]:
     raise AutoraterParseError(
         f'Dimension {name!r} score {score_raw!r} is not numeric.'
     ) from err
+  if not math.isfinite(score):
+    raise AutoraterParseError(
+        f'Dimension {name!r} score {score_raw!r} is not finite.'
+    )
   if not evidence_for or not evidence_against:
     raise AutoraterParseError(
         f'Dimension {name!r} must cite both evidence_for and evidence_against.'
