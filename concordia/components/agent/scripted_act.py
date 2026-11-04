@@ -115,7 +115,10 @@ class ScriptedActComponent(
         name=self.get_entity().name
     )
     output = ''
-    if self._prefix_entity_name:
+    if (
+        self._prefix_entity_name
+        and action_spec.output_type in entity_lib.FREE_ACTION_TYPES
+    ):
       output = self.get_entity().name + ' '
     if self._line_index < len(self._lines):
       training_target = self._lines[self._line_index]
