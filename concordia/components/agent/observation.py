@@ -158,9 +158,9 @@ class ObservationsSinceLastPreAct(
 ):
   """A component to retrieve observations added since the last ``pre_act``.
 
-  Relies on the assumption that ``memory.retrieve_recent()`` returns
+  Relies on the assumption that ``memory.get_all_memories_as_text()`` returns
   memories in chronological (append) order and that memories are never
-  deleted, so ``len(all_recent)`` is a monotonically increasing watermark.
+  deleted, so the total memory count is a monotonically increasing watermark.
   """
 
   def __init__(
@@ -191,8 +191,8 @@ class ObservationsSinceLastPreAct(
     )
 
     # Retrieve all memories to determine current bank size.
-    # retrieve_recent returns memories in chronological (append) order;
-    all_recent = memory.retrieve_recent(limit=1_000_000)
+    # The full-bank API preserves chronological (append) order.
+    all_recent = memory.get_all_memories_as_text()
     new_count = len(all_recent) - self._last_seen_index
 
     result = ''
