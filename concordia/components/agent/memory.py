@@ -259,7 +259,10 @@ class ListMemory(Memory):
 
   def get_state(self) -> Mapping[str, Any]:
     with self._lock:
-      return {'memory_bank': json.dumps(self._memory_bank)}
+      return {
+          'memory_bank': json.dumps(self._memory_bank),
+          'buffer': list(self._buffer),
+      }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
     with self._lock:
@@ -267,6 +270,8 @@ class ListMemory(Memory):
       if isinstance(value, str):
         value = json.loads(value)
       self._memory_bank = value
+      # Legacy checkpoints contain no pending additions.
+      self._buffer = list(state.get('buffer', []))
 
   def retrieve_recent(
       self,
