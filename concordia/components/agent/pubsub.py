@@ -87,6 +87,8 @@ class _PhaseSafeMemoryProxy(memory_component.Memory):
       with lock:
         if method_name == 'retrieve_recent' and isinstance(bank, list):
           limit = args[0] if args else kwargs.get('limit', 1)
+          if limit <= 0:
+            raise ValueError('Limit must be positive.')
           return bank[-limit:]
         if method_name == 'scan' and isinstance(bank, list):
           selector_fn = args[0] if args else kwargs['selector_fn']
