@@ -281,7 +281,12 @@ class TimestampedForumResolution(
       )
       for name in names_to_check:
         prefix = f'{putative_event_tag} {name}'
-        entity_suggestions = [s for s in suggestions if prefix in s]
+        entity_suggestions = [
+            suggestion
+            for suggestion in suggestions
+            if prefix in suggestion
+            and forum_module._actor_from_putative_event(suggestion, known_names) == name  # pylint: disable=protected-access
+        ]
         resolved = self._resolved_per_entity.get(name, 0)
         if len(entity_suggestions) > resolved:
           selected = entity_suggestions[resolved]
