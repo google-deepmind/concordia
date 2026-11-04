@@ -93,7 +93,7 @@ class InteractiveDocument(document.Document):
   def edit(self) -> Iterator['InteractiveDocument']:
     """See base class."""
     # TODO: b/311192069 - what about rng?
-    edit = InteractiveDocument(model=self._model, rng=self._rng)
+    edit = self.new()
     yield edit
     self.extend(edit.contents())
 
