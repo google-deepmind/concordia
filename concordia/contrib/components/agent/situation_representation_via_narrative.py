@@ -15,7 +15,7 @@
 """A component for representing the current situation via narrative.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 import datetime
 
 from concordia.components.agent import action_spec_ignored
@@ -32,7 +32,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       observation_component_key: str,
-      components: Sequence[str] = (),
+      components: Sequence[str] | Mapping[str, str] = (),
       declare_entity_as_protagonist: bool = True,
       clock_now: Callable[[], datetime.datetime] | None = None,
       pre_act_label: str = 'The current situation',
@@ -44,7 +44,8 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       model: The language model to use.
       observation_component_key: The name of the component that contains the
         latest observations.
-      components: Keys of components to condition the pre_act value on.
+      components: Component keys to condition the pre_act value on, using each
+        component's pre-act label; or a mapping from keys to custom labels.
       declare_entity_as_protagonist: Whether to declare the entity to be the
         protagonist in the prompt.
       clock_now: Optional function that returns the current time.
@@ -56,7 +57,11 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     self._model = model
     self._clock_now = clock_now
     self._observation_component_key = observation_component_key
-    self._components = dict(components)  # pyrefly: ignore[no-matching-overload]
+    self._components: Sequence[str] | Mapping[str, str] = (
+        dict(components)
+        if isinstance(components, Mapping)
+        else tuple(components)
+    )
     self._declare_entity_as_protagonist = declare_entity_as_protagonist
     self._logging_channel = logging_channel
 
@@ -69,9 +74,22 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
   ) -> None:
     """Adds components to the chain of thought if any are present."""
     if self._components:
+      component_items: Iterable[tuple[str, str]]
+      if isinstance(self._components, Mapping):
+        component_items = self._components.items()
+      else:
+        component_items = (
+            (
+                key,
+                self.get_entity()
+                .get_component(key, type_=action_spec_ignored.ActionSpecIgnored)
+                .get_pre_act_label(),
+            )
+            for key in self._components
+        )
       component_states = '\n'.join([
           f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
+          for key, prefix in component_items
       ])
       chain_of_thought.statement(f'Considerations:\n{component_states}\n')
 
