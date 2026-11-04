@@ -128,7 +128,10 @@ class EntityAgent(entity_component.EntityWithComponents):
       the method call.
     """
     # 1. Identify unique component instances.
-    unique_components = list(set(self._context_components.values()))
+    unique_components = {
+        id(component): component
+        for component in self._context_components.values()
+    }.values()
 
     # 2. Create and execute tasks for each unique component instance once.
     tasks_for_unique = {
