@@ -101,6 +101,9 @@ class ChoiceOfComponentWithoutPreAct(
   def get_pre_act_value(self) -> str:
     return self._component.get_pre_act_value()
 
+  def get_pre_act_label(self) -> str:
+    return self._component.get_pre_act_label()
+
   def pre_act(
       self,
       unused_action_spec: entity_lib.ActionSpec,
