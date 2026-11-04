@@ -460,7 +460,10 @@ class Publisher(
           return
         self._latest_completed_sequence_id = sequence_id
         self._latest_value = value
-      self._subject.on_next(value)
+      try:
+        self._subject.on_next(value)
+      except Exception:  # pylint: disable=broad-exception-caught
+        logging.exception('Error notifying Publisher observers.')
 
   def _on_task_completed(self) -> None:
     with self._condition_lock:

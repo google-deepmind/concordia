@@ -28,6 +28,7 @@ from concordia.components.agent import pubsub
 from concordia.components.agent import report_function
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
+from reactivex import scheduler as reactivex_scheduler
 from reactivex import subject as reactivex_subject
 
 
@@ -437,6 +438,60 @@ class PubSubTest(parameterized.TestCase):
     finally:
       subscriber.close()
       publisher.close()
+
+  @parameterized.product(threaded=(False, True), skip_if_busy=(False, True))
+  def test_observer_error_does_not_stop_subsequent_actions(
+      self, threaded: bool, skip_if_busy: bool
+  ):
+    calls = []
+    notifications = []
+
+    def compute() -> str:
+      calls.append(len(calls) + 1)
+      return str(calls[-1])
+
+    def failing_observer(value: str) -> None:
+      notifications.append(value)
+      raise ValueError('Synthetic observer failure')
+
+    scheduler = (
+        reactivex_scheduler.ThreadPoolScheduler(max_workers=1)
+        if threaded
+        else reactivex_scheduler.ImmediateScheduler()
+    )
+    publisher = pubsub.Publisher(
+        function=compute, scheduler=scheduler, skip_if_busy=skip_if_busy
+    )
+    bad_subscription = publisher.observable.subscribe(failing_observer)
+    agent = entity_agent.EntityAgent(
+        agent_name='Alice',
+        act_component=_ContextEchoActComponent(),
+        context_components={'publisher': publisher},
+    )
+    received = []
+    good_subscription = None
+    try:
+      agent.act()
+      self.assertTrue(publisher.wait(timeout=1.0))
+      self.assertFalse(publisher.is_busy())
+      self.assertEqual(notifications, ['1'])
+      self.assertEqual(publisher.compute_count, 1)
+      bad_subscription.dispose()
+      good_subscription = publisher.observable.subscribe(received.append)
+
+      agent.act()
+      self.assertTrue(publisher.wait(timeout=1.0))
+      self.assertFalse(publisher.is_busy())
+      self.assertEqual(calls, [1, 2])
+      self.assertEqual(received, ['2'])
+      self.assertEqual(publisher.compute_count, 2)
+    finally:
+      bad_subscription.dispose()
+      if good_subscription is not None:
+        good_subscription.dispose()
+      publisher.close()
+      if isinstance(scheduler, reactivex_scheduler.ThreadPoolScheduler):
+        scheduler.executor.shutdown(wait=True)
 
   def test_invalid_publisher_init_arguments_raise_value_error(self):
     with self.assertRaises(ValueError):
