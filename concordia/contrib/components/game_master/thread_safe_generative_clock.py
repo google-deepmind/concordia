@@ -24,6 +24,7 @@ safe use with concurrent entity loops (e.g. the asynchronous engine):
 """
 
 from collections.abc import Sequence
+import re
 import threading
 
 from concordia.components.agent import action_spec_ignored
@@ -196,12 +197,18 @@ class ThreadSafeGenerativeClock(
       self, event: str, active_players: frozenset[str]
   ) -> str | None:
     """Best-effort extraction of the acting player from an event string."""
-    for name in active_players | self._player_names:
-      if event.startswith(name) or event.startswith(f'Event: {name}'):
-        return name
-    for alias, full_name in self._aliases.items():
-      if event.startswith(alias) or event.startswith(f'Event: {alias}'):
-        return full_name
+    actor_by_label = dict(self._aliases)
+    # Preserve canonical names when an alias has the exact same spelling.
+    actor_by_label.update(
+        {name: name for name in active_players | self._player_names}
+    )
+    candidate_events = (event, event.removeprefix('Event: '))
+    for label in sorted(actor_by_label, key=len, reverse=True):
+      # Prefer the most specific known label and do not credit a shorter
+      # identifier for an unrelated word that merely begins with it.
+      pattern = re.escape(label) + r'(?!\w)'
+      if any(re.match(pattern, text) for text in candidate_events):
+        return actor_by_label[label]
     return None
 
   def post_act(
