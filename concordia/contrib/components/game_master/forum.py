@@ -64,6 +64,27 @@ DEFAULT_CALL_TO_MAKE_OBSERVATION = (
 )
 
 
+def _actor_from_putative_event(
+    event: str, player_names: Sequence[str]
+) -> str | None:
+  """Finds a known actor after the first tag, retaining legacy separators."""
+  _, tag, action = event.partition(event_resolution.PUTATIVE_EVENT_TAG)
+  if not tag:
+    return None
+  actor = None
+  for name in player_names:
+    prefix = f' {name}'
+    if not action.startswith(prefix):
+      continue
+    suffix = action[len(prefix) :]
+    # Engines emit a colon; older callers also use " -- " or a bare space.
+    if suffix and suffix[0] != ':' and not suffix[0].isspace():
+      continue
+    if actor is None or len(name) > len(actor):
+      actor = name
+  return actor
+
+
 @dataclasses.dataclass
 class Post:
   """A single forum post with its metadata, votes, replies, and activity."""
@@ -1782,7 +1803,12 @@ class ForumResolution(
       )
       for name in names_to_check:
         prefix = f'{putative_event_tag} {name}'
-        entity_suggestions = [s for s in suggestions if prefix in s]
+        entity_suggestions = [
+            suggestion
+            for suggestion in suggestions
+            if prefix in suggestion
+            and _actor_from_putative_event(suggestion, known_names) == name
+        ]
         resolved = self._resolved_per_entity.get(name, 0)
         if len(entity_suggestions) > resolved:
           selected = entity_suggestions[resolved]
