@@ -576,10 +576,13 @@ class SimulationLog:
         if key in ('Step', 'Summary', 'date', 'thread'):
           continue
 
-        if 'Entity' in key:
-          entity_name = key.replace('Entity [', '').replace(']', '').strip()
-          if entity_name == 'Entity':
+        if key == 'Entity' or (
+            key.startswith('Entity [') and key.endswith(']')
+        ):
+          if key == 'Entity':
             entity_name = thread or 'Unknown'
+          else:
+            entity_name = key[len('Entity [') : -1]
 
           raw_data = {'key': key, 'value': value} if value else {}
           if thread:
