@@ -145,6 +145,79 @@ class AsynchronousTest(absltest.TestCase):
         max_steps=2,
     )
 
+  def test_run_loop_honors_initialization_termination(self):
+    for skipped_steps in (0, 2):
+      with self.subTest(skipped_steps=skipped_steps):
+        env = asynchronous.Asynchronous(sleep_time=0.0)
+        game_master = MockEntity(name='game_master')
+        player = MockEntity(name=_ENTITY_NAMES[0])
+        original_act = game_master.act
+        calls = []
+        termination_checks = 0
+
+        def act(action_spec=entity_lib.DEFAULT_ACTION_SPEC):
+          nonlocal termination_checks
+          calls.append(action_spec.output_type)
+          if action_spec.output_type == entity_lib.OutputType.TERMINATE:
+            termination_checks += 1
+            # Only the first stop decision is affirmative: a later query
+            # must not be allowed to undo that decision.
+            return entity_lib.BINARY_OPTIONS[
+                'affirmative'
+                if termination_checks == skipped_steps + 1
+                else 'negative'
+            ]
+          if (
+              action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC
+              and termination_checks <= skipped_steps
+          ):
+            return json.dumps(entity_lib.skip_this_step_action_spec().to_dict())
+          return original_act(action_spec)
+
+        log = []
+        completed_steps = []
+        with mock.patch.object(game_master, 'act', side_effect=act):
+          env.run_loop(
+              game_masters=[game_master],
+              entities=[player],
+              max_steps=3,
+              log=log,
+              step_callback=lambda data: completed_steps.append(data.step),
+          )
+
+        setup_calls = [
+            entity_lib.OutputType.TERMINATE,
+            entity_lib.OutputType.NEXT_ACTING,
+            entity_lib.OutputType.NEXT_ACTION_SPEC,
+            entity_lib.OutputType.MAKE_OBSERVATION,
+        ]
+        self.assertEqual(
+            calls,
+            setup_calls * skipped_steps + [entity_lib.OutputType.TERMINATE],
+        )
+        self.assertEqual(player._act_count, 0)
+        self.assertEmpty(log)
+        self.assertEqual(completed_steps, list(range(1, skipped_steps + 1)))
+        self.assertIsNone(env._log_list)
+
+  def test_run_loop_continues_after_negative_initialization_termination(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    game_master = MockEntity(name='game_master')
+    player = MockEntity(name=_ENTITY_NAMES[0])
+    log = []
+    with mock.patch.object(game_master, 'act', wraps=game_master.act) as act:
+      env.run_loop(
+          game_masters=[game_master], entities=[player], max_steps=1, log=log
+      )
+    output_types = [
+        call.kwargs['action_spec'].output_type for call in act.call_args_list
+    ]
+    self.assertEqual(output_types.count(entity_lib.OutputType.TERMINATE), 2)
+    self.assertEqual(output_types.count(entity_lib.OutputType.RESOLVE), 1)
+    self.assertEqual(player._act_count, 1)
+    self.assertLen(log, 1)
+    self.assertIsNone(env._log_list)
+
   def test_next_acting_only_queries_for_passed_entities(self):
     env = asynchronous.Asynchronous()
     gm = SelectiveGMEntity(
@@ -505,9 +578,7 @@ class AsynchronousTest(absltest.TestCase):
         ),
     )
 
-    self.assertEqual(
-        checkpoints, [(i, slow.name) for i in range(1, 6)]
-    )
+    self.assertEqual(checkpoints, [(i, slow.name) for i in range(1, 6)])
 
   def test_an_error_in_one_loop_stops_the_run(self):
     env = asynchronous.Asynchronous(sleep_time=0.0)
