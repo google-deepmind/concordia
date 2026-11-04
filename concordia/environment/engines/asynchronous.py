@@ -579,10 +579,12 @@ class Asynchronous(engine_lib.Engine):
       premise = f'{EVENT_TAG} {premise}'
       game_master.observe(premise)
 
+    terminate_event = threading.Event()
     init_steps = 0
     max_init_steps = max_steps
     while init_steps < max_init_steps:
       if self.terminate(game_master, verbose):
+        terminate_event.set()
         break
 
       game_master = self.next_game_master(game_master, game_masters, verbose)
@@ -636,7 +638,6 @@ class Asynchronous(engine_lib.Engine):
 
       break
 
-    terminate_event = threading.Event()
     # Only the first entity's loop saves checkpoints (make_checkpoint_data()
     # snapshots every entity and game master), as entity 0's always has; if
     # it leaves the list, the next first entity's loop takes over.
