@@ -20,8 +20,8 @@ from typing import override
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
+from concordia.utils import text as text_utils
 from langchain_community.llms import ollama
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
@@ -64,7 +64,7 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
     self._terminators = []
     if 'llama3' in self._model_name:
       self._terminators.extend(['<|eot_id|>'])
-    self._client = ollama.Ollama(model=model_name, stop=self._terminators)
+    self._client = ollama.Ollama(model=model_name)
 
     self._measurements = measurements
     self._channel = channel
@@ -86,15 +86,11 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
-    terminators = (
-        # pyrefly: ignore [bad-assignment]
-        self._terminators.extend(terminators)
-        if terminators is not None
-        else self._terminators
+    terminators = self._terminators + (
+        list(terminators) if terminators is not None else []
     )
 
-    # pyrefly: ignore [not-callable]
-    response = self._client(
+    response = self._client.invoke(
         prompt_with_system_message,
         stop=terminators,
         temperature=temperature,
@@ -106,7 +102,7 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
           self._channel, {'raw_text_length': len(response)}
       )
 
-    return response
+    return text_utils.truncate(response, delimiters=terminators)
 
   @override
   def sample_choice(
