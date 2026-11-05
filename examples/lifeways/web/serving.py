@@ -54,13 +54,16 @@ Everything it does with the world is read the simulation
 """
 
 from collections.abc import Callable, Mapping
+import faulthandler
 import http.server
 import json
 import os
 import re
 import subprocess
+import sys
 import threading
-from typing import Any
+import time
+from typing import Any, TextIO
 import urllib.parse
 
 from absl import logging
@@ -83,6 +86,46 @@ _DATA = {
     '/data/people.csv': 'people_csv',
     '/data/surveys.csv': 'surveys_csv',
 }
+
+
+def watch_for_stalls(
+    served: 'Served',
+    stall_seconds: float,
+    stop: threading.Event,
+    poll_seconds: float = 60.0,
+    file: TextIO | None = None,
+) -> None:
+  """Logs every thread's stack once the served world stops closing years.
+
+  A world that plays, unpaused, and closes no year for `stall_seconds` is
+  stuck. The report is made once a stall, so the log keeps what each thread
+  was doing when it stuck. Only the year and the pace are read, without the
+  World GM's lock, which a stuck world may hold.
+
+  Args:
+    served: The session served (a new world may replace it).
+    stall_seconds: How long without a year's close is a stall.
+    stop: Ends the watch once set.
+    poll_seconds: How often the year is read.
+    file: Where the stacks go (standard error by default: the server's log).
+  """
+  last: tuple[Any, int] | None = None
+  since = time.monotonic()
+  reported = False
+  while not stop.wait(poll_seconds):
+    session = served.session
+    now = (session, session.run.world().year)
+    if now != last or not session.running or session.input.paused:
+      last, since, reported = now, time.monotonic(), False
+      continue
+    if not reported and time.monotonic() - since >= stall_seconds:
+      logging.warning(
+          'Lifeways: no year has closed for %.0f s (year %d). Every thread:',
+          time.monotonic() - since,
+          now[1],
+      )
+      faulthandler.dump_traceback(file=file or sys.stderr, all_threads=True)
+      reported = True
 
 
 def build() -> str:

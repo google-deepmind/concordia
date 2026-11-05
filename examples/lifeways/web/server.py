@@ -27,7 +27,9 @@ The page and its API are `serving`'s.
 """
 
 from collections.abc import Sequence
+import faulthandler
 import signal
+import threading
 from typing import Any
 
 from absl import app
@@ -60,6 +62,13 @@ _FREE = flags.DEFINE_float(
 )
 _SAVE = flags.DEFINE_string(
     'save', '', 'File the world is saved to and restored from (none if empty).'
+)
+_STALL_MINUTES = flags.DEFINE_float(
+    'stall_minutes',
+    10.0,
+    "If above 0, every thread's stack is logged once a world that plays,"
+    ' unpaused, closes no year for so many minutes (`kill -USR1` logs them'
+    ' at any time).',
 )
 _PLAY_AS = flags.DEFINE_bool(
     'play_as',
@@ -127,6 +136,16 @@ def main(argv: Sequence[str]) -> None:
   )
   # launchd and the test script stop the server with SIGTERM: save first.
   signal.signal(signal.SIGTERM, _stopped)
+  # A stuck server can be asked what each thread is doing.
+  faulthandler.register(signal.SIGUSR1, all_threads=True)
+  watching = threading.Event()
+  if _STALL_MINUTES.value > 0:
+    threading.Thread(
+        target=serving.watch_for_stalls,
+        args=(served, _STALL_MINUTES.value * 60.0, watching),
+        name='lifeways-stall-watch',
+        daemon=True,
+    ).start()
   # The server prints nothing: the engine's own prints, from every world and
   # until their last turns have ended, go to the null device.
   with simulation.quiet():
@@ -140,6 +159,7 @@ def main(argv: Sequence[str]) -> None:
       session.close()
       session_lib.await_engines()
       server.server_close()
+      watching.set()
 
 
 if __name__ == '__main__':

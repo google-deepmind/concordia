@@ -151,6 +151,43 @@ class CloseTest(absltest.TestCase):
     self.assertEqual(session_lib.engine_loops(), 0)
 
 
+class StallWatchTest(absltest.TestCase):
+
+  def _watch(self, years: list[int], paused: bool = False) -> str:
+    """What the watch logs of a stand-in world whose years are `years`."""
+    world = types.SimpleNamespace(year=years[0])
+    session = types.SimpleNamespace(
+        run=types.SimpleNamespace(world=lambda: world),
+        running=True,
+        input=types.SimpleNamespace(paused=paused),
+    )
+    stop = threading.Event()
+    path = self.create_tempfile().full_path
+    with open(path, 'w') as out:
+      watch = threading.Thread(
+          target=serving.watch_for_stalls,
+          args=(types.SimpleNamespace(session=session), 0.2, stop, 0.02, out),
+      )
+      watch.start()
+      for year in years:
+        world.year = year
+        time.sleep(0.15)
+      stop.set()
+      watch.join(5)
+    with open(path) as written:
+      return written.read()
+
+  def test_a_world_that_closes_no_year_has_its_threads_logged_once(self):
+    logged = self._watch([7] * 4)
+
+    self.assertIn('Current thread', logged)
+    self.assertEqual(logged.count('Current thread'), 1)  # Once a stall.
+
+  def test_a_paused_or_playing_world_is_not_reported(self):
+    self.assertEqual(self._watch([7] * 4, paused=True), '')
+    self.assertEqual(self._watch([1, 2, 3, 4]), '')
+
+
 class SaveTest(absltest.TestCase):
 
   def setUp(self):

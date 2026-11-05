@@ -505,6 +505,11 @@ class PageInput:
       self._closed = True
       self._changed.notify_all()
 
+  @property
+  def paused(self) -> bool:
+    """Whether the person has paused the years (read without the lock)."""
+    return self._paused
+
   def settings(self) -> dict[str, Any]:
     """The pace, whether paused, the moves queued and the standing choice."""
     with self._changed:
