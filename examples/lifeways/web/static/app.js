@@ -1852,6 +1852,8 @@ const PART_WORDS = {
       'rites, food shared and visits make, and that fade unless renewed',
   Rumors: 'the word going round: news that passes along ties, and ' +
       'changes as it is retold',
+  Reputation: 'what people think of one another\'s generosity, from what ' +
+      'they saw and the word they heard; courting prefers a good name',
 };
 
 /** Where a part comes from, in words. */
@@ -1930,6 +1932,7 @@ async function showPerson(name) {
   document.getElementById('person-body').textContent =
       `${age} years old, born of the ${person.descent || 'valley'}; food ` +
       `stored ${person.food} (a year's eating is 1).` +
+      knownForText(person.known_for || []) +
       (person.judged ? ` Has judged at a court ${person.judged === 1 ?
         'once' : `${person.judged} times`}: those who heed judges take up ` +
         `${person.name}'s ways more readily.` : '');
@@ -2099,6 +2102,18 @@ const EXAMPLE_SAYS = {
   question: 'What would my elders do in a situation such as this?',
   story: 'In the year of the great fire, we fled to the hills.',
 };
+
+/**
+ * What a person is known for, in words (a sentence, or '').
+ * @param {!Array<!Object>} known [{quality, standing, by}].
+ * @return {string} E.g. ' Known as generous by 4 who saw or heard of it.'
+ */
+function knownForText(known) {
+  const generous = known.find((k) => k.quality === 'generous');
+  if (!generous || Math.abs(generous.standing) < 0.05) return '';
+  const word = generous.standing > 0 ? 'generous' : 'stingy';
+  return ` Known as ${word} by ${generous.by} who saw or heard of it.`;
+}
 
 /** What brought two people together, by the kind of their tie. */
 const BOND_WORDS = {
@@ -3715,6 +3730,6 @@ if (typeof document !== 'undefined') {
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
-    tieText, wordMove, rumourText,
+    tieText, wordMove, rumourText, knownForText,
   };
 }

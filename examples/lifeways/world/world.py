@@ -32,6 +32,7 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from examples.lifeways.world import culture as culture_lib
@@ -200,6 +201,17 @@ RUMOR_TIE = 0.1
 DISASTER_NEWS = 'disaster'
 DEATH_NEWS = 'death'
 WORD_NEWS = 'word'
+# Reputation (the `reputation` setting): what people think of one another's
+# generosity. Food shared with the hungry is good report; full stores kept
+# while a neighbour had none, bad. Those who saw it take it at full weight;
+# word of it (a rumour of praise or blame) at a hearsay weight. Courting
+# prefers the one thought best of, before the nearest.
+GENEROUS = 'generous'
+PRAISE = 'praise'
+BLAME = 'blame'
+DEED_WEIGHT = 1.0
+# The standing past which one is renowned (or shunned), for the census.
+RENOWN = 0.5
 _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 
 # The deeds others see a person do by its customs, and so may copy. Teaching,
@@ -440,10 +452,13 @@ class Mechanics:
   Attributes:
     ties: Who is close to whom (`SocialTies`, the `ties` setting).
     rumors: The word going round (`Rumors`, the `rumours` setting).
+    reputation: What people think of one another (`Reputation`, the
+      `reputation` setting).
   """
 
   ties: social_ties.SocialTies | None = None
   rumors: rumors_lib.Rumors | None = None
+  reputation: reputation_lib.Reputation | None = None
 
 
 class World:
@@ -465,6 +480,7 @@ class World:
     mechanics = mechanics or Mechanics()
     self.ties = mechanics.ties
     self.rumors = mechanics.rumors
+    self.reputation = mechanics.reputation
     self._heard = 0  # Rumours heard this year.
     # Encounters this year: (a, b, kind) with a < b, made ties at its close.
     self._met: set[tuple[str, str, str]] = set()
@@ -1520,7 +1536,11 @@ class World:
     wooing = [o for o in singles if self.courting.get(o) == person.name]
     nearest = sorted(
         (o for o in singles if o not in wooing),
-        key=lambda o: (self._distance(person, o), o),
+        key=lambda o: (
+            -self._regard(person.name, o),
+            self._distance(person, o),
+            o,
+        ),
     )
     return wooing + nearest[:most]
 
@@ -1775,6 +1795,8 @@ class World:
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
     self._spread_word()
+    if self.reputation is not None:
+      self.reputation.step()
     self.norm_acts = {
         name: [
             name in seen,
@@ -1907,6 +1929,12 @@ class World:
         self._fed.add(other.name)
         self._meet(name, other.name, SHARE)
         self._tell(other.name, f'{name} shares food with {other.name}.')
+        self._deed(
+            name,
+            DEED_WEIGHT,
+            [other.name, *self._in_sight(person)],
+            f'{name} shared food with {other.name}, who had none.',
+        )
     elif move.startswith(f'{VISIT} '):
       self._visit(person, move.removeprefix(f'{VISIT} '), enacted)
     elif move.startswith(f'{SHAME} '):
@@ -2700,6 +2728,34 @@ class World:
           f'{person.name} visits',
       )
 
+  def _deed(
+      self, actor: str, weight: float, witnesses: Sequence[str], told: str
+  ) -> None:
+    """A deed of generosity (or its lack) seen: report, and word of it."""
+    if self.reputation is None:
+      return
+    seen = [w for w in witnesses if w in self.people and w != actor]
+    self.reputation.witness(actor, GENEROUS, weight, seen)
+    self._start_rumor(
+        told, seen, about=actor, kind=PRAISE if weight > 0 else BLAME
+    )
+
+  def _regard(self, observer: str, actor: str) -> float:
+    """What one thinks of another's generosity (0 if nothing known)."""
+    if self.reputation is None:
+      return 0.0
+    return round(self.reputation.view(observer, actor, GENEROUS), 6)
+
+  def _renowned(self, sign: int) -> int:
+    """How many living are of good (1) or bad (-1) report for generosity."""
+    if self.reputation is None:
+      return 0
+    return sum(
+        1
+        for name in self.people
+        if sign * self.reputation.standing(name, GENEROUS) >= RENOWN
+    )
+
   def _start_rumor(
       self, text: str, knowers: Collection[str], about: str = '', kind: str = ''
   ) -> None:
@@ -2753,6 +2809,14 @@ class World:
             f'Word reaches {heard.hearer} from {heard.teller}: {heard.text}',
         )
         self._heard += 1
+        if self.reputation is not None and heard.kind in (PRAISE, BLAME):
+          sign = 1.0 if heard.kind == PRAISE else -1.0
+          self.reputation.hear(
+              heard.hearer,
+              heard.about,
+              GENEROUS,
+              reputation_lib.hearsay_weight(sign * DEED_WEIGHT, heard.fidelity),
+          )
 
   def _tie_up(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """The year's encounters make ties; then every tie fades a little.
@@ -2905,6 +2969,12 @@ class World:
               f'{name} kept full stores and gave nothing to'
               f' {" or ".join(needy)}, who had none.',
           )
+      self._deed(
+          name,
+          -DEED_WEIGHT,
+          self._in_sight(person),
+          f'{name} kept full stores while {" and ".join(needy)} went hungry.',
+      )
 
   def _pair_partners(self, allowed: Mapping[str, Sequence[str]]) -> None:
     """Pairs those looking for a partner, nearest first, in name order.
@@ -2947,7 +3017,10 @@ class World:
       ]
       if not matches:
         continue
-      other = min(matches, key=lambda o: (self._distance(person, o), o))
+      other = min(
+          matches,
+          key=lambda o: (-self._regard(name, o), self._distance(person, o), o),
+      )
       taken.update((name, other))
       person.partner, self.people[other].partner = other, name
       self._tell(name, f'{name} and {other} are now partners.')
@@ -3122,6 +3195,8 @@ class World:
     del self.dead[:-DEAD_KEPT]
     if self.ties is not None:
       self.ties.remove(name)
+    if self.reputation is not None:
+      self.reputation.forget(name)
     if self.rumors is not None:
       self.rumors.forget(name)
       age = person.age(self.year)
@@ -3246,6 +3321,9 @@ class World:
         # Rumours (none if the world keeps none): going round, heard.
         'rumours': len(self.rumors.rumors()) if self.rumors is not None else 0,
         'heard': self._heard,
+        # Reputation: the living of good report for generosity, and of bad.
+        'renowned': self._renowned(1),
+        'shunned': self._renowned(-1),
         # Social ties (none if the world keeps none): how many, how close.
         'ties': self.ties.size() if self.ties is not None else 0,
         'closeness': (

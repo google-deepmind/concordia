@@ -24,6 +24,7 @@
 | `lifeways_world` | `WorldComponent`: the world, its state the GM's |
 | `__social_ties__` | contrib `SocialTies`: who is close to whom (the `ties` setting) |
 | `__rumors__` | contrib `Rumors`: the word going round (the `rumours` setting) |
+| `__reputation__` | contrib `Reputation`: what people think of one another (the `reputation` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -46,6 +47,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
@@ -90,7 +92,15 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
         forget_after=int(word.get('forget_after', rumors_lib.FORGET_AFTER)),
         max_rumors=int(word.get('max', rumors_lib.MAX_RUMORS)),
     )
-  return world_lib.Mechanics(ties=ties, rumors=rumors)
+  reputation = None
+  if settings.get('reputation'):
+    report = dict(settings['reputation'])
+    reputation = reputation_lib.Reputation(
+        decay=float(report.get('decay', reputation_lib.DECAY)),
+        floor=float(report.get('floor', reputation_lib.FLOOR)),
+        max_known=int(report.get('max_known', reputation_lib.MAX_KNOWN)),
+    )
+  return world_lib.Mechanics(ties=ties, rumors=rumors, reputation=reputation)
 
 
 @dataclasses.dataclass
@@ -201,6 +211,10 @@ class WorldGameMaster(prefab_lib.Prefab):
       components[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = mechanics.ties
     if mechanics.rumors is not None:
       components[rumors_lib.DEFAULT_RUMORS_COMPONENT_KEY] = mechanics.rumors
+    if mechanics.reputation is not None:
+      components[reputation_lib.DEFAULT_REPUTATION_COMPONENT_KEY] = (
+          mechanics.reputation
+      )
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

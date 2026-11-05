@@ -139,6 +139,13 @@ SANDBOX: Mapping[str, Any] = {
     # each such tie with `chance`; a retelling keeps `keep` of its truth and
     # with `garble` drops a word. One untold for `forget_after` years is
     # forgotten; at most `max` go round. None: no word goes round.
+    # Reputation (contrib `Reputation`): food shared with the hungry is good
+    # report for generosity, full stores kept while a neighbour had none
+    # bad, among those who saw it and (as hearsay) those who hear the word;
+    # each year every view fades by `decay`, one fainter than `floor` is
+    # forgotten, and each keeps views of `max_known` at most. Courting
+    # prefers the one thought best of. None: nobody keeps a good name.
+    'reputation': {'decay': 0.05, 'floor': 0.05, 'max_known': 20},
     'rumours': {
         'chance': 0.5,
         'tell_for': 3,

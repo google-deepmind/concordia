@@ -27,7 +27,7 @@ const {
   crossedText, labLines, labStatus, prevalenceSeries, previewText,
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
-  letGoText, mapText, tieText, wordMove, rumourText,
+  letGoText, mapText, tieText, wordMove, rumourText, knownForText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -957,4 +957,12 @@ test('word is spread where the ring is, and rumours read as news', () => {
   assert.equal(rumourText({...rumour, furthest: rumour.text, reach: 1,
     kind: 'word'}, 10), '"A flood struck near row 3." (your word, this ' +
       'year) · 1 has heard it');
+});
+
+test('a good name or a bad one reads as a sentence', () => {
+  assert.equal(knownForText([{quality: 'generous', standing: 0.8, by: 4}]),
+      ' Known as generous by 4 who saw or heard of it.');
+  assert.equal(knownForText([{quality: 'generous', standing: -1, by: 1}]),
+      ' Known as stingy by 1 who saw or heard of it.');
+  assert.equal(knownForText([]), '');
 });

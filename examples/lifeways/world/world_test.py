@@ -18,6 +18,7 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from examples.lifeways import scenarios
@@ -2177,6 +2178,80 @@ class RumoursTest(absltest.TestCase):
     world.actions = {name: world_lib.GATHER for name in world.people}
     world.close_year()
     self.assertEqual(world.history[-1]['rumours'], 0)
+
+
+class ReputationTest(absltest.TestCase):
+  """A good name for generosity, kept by the GM's `Reputation`."""
+
+  def setUp(self):
+    super().setUp()
+    self.ties = social_ties.SocialTies()
+    self.rumors = rumors_lib.Rumors(chance=1.0, garble=0.0, keep=1.0)
+    self.reputation = reputation_lib.Reputation(decay=0.0)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL, 'mode': 'sexual'},
+        world_lib.Mechanics(
+            ties=self.ties, rumors=self.rumors, reputation=self.reputation
+        ),
+    )
+    for name, sex, tile, food in (
+        ('Ada', 'f', (2, 2), 8.0),
+        ('Bo', 'm', (2, 3), 0.0),
+        ('Cy', 'f', (2, 4), 2.0),
+        ('Far', 'm', (14, 14), 2.0),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - 30, sex=sex, tile=tile, food=food
+      )
+    self.ties.strengthen('Cy', 'Far', 0.6)
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_food_shared_is_good_report_seen_and_then_heard(self):
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+
+    # Bo had it, Cy saw it: full weight. Far was not there.
+    self.assertEqual(self.reputation.view('Bo', 'Ada', world_lib.GENEROUS), 1.0)
+    self.assertEqual(self.reputation.view('Cy', 'Ada', world_lib.GENEROUS), 1.0)
+    self.assertEqual(self.reputation.view('Far', 'Ada', world_lib.GENEROUS), 0)
+    self._year()  # Cy tells Far, its friend, the year after.
+    self.assertEqual(
+        self.reputation.view('Far', 'Ada', world_lib.GENEROUS),
+        reputation_lib.HEARSAY,
+    )
+    self.assertEqual(self.world.history[-1]['renowned'], 1)
+
+  def test_full_stores_kept_from_the_hungry_are_bad_report(self):
+    self._year()  # Ada could have shared with Bo, and did not.
+
+    self.assertEqual(
+        self.reputation.view('Cy', 'Ada', world_lib.GENEROUS), -1.0
+    )
+    self.assertEqual(self.world.history[-1]['shunned'], 1)
+
+  def test_courting_prefers_the_one_thought_best_of_before_the_nearest(self):
+    self.reputation.witness('Far', world_lib.GENEROUS, 1.0, ['Ada'])
+
+    suitors = [
+        m.removeprefix(f'{world_lib.COURT_ONE} ')
+        for m in self.world.moves('Ada')
+        if m.startswith(f'{world_lib.COURT_ONE} ')
+    ]
+    self.assertEqual(suitors, ['Far', 'Bo'])  # Bo is nearer.
+    self._year(Ada=world_lib.COURT, Bo=world_lib.COURT, Far=world_lib.COURT)
+    self.assertEqual(self.world.people['Ada'].partner, 'Far')
+
+  def test_the_dead_keep_no_name(self):
+    self.reputation.witness('Ada', world_lib.GENEROUS, 1.0, ['Bo'])
+
+    self.world._die('Ada')
+
+    self.assertEqual(self.reputation.known_for('Ada'), [])
 
 
 class SeasonsTest(absltest.TestCase):

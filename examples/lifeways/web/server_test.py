@@ -1339,6 +1339,8 @@ class ServerTest(absltest.TestCase):
 
     self.assertEqual(kin['person']['name'], name)
     self.assertIn('from', person['customs'][0])
+    self.assertIsInstance(person['known_for'], list)
+    self.assertIsInstance(person['heard'], list)
     self.assertNotEmpty(lineage['variants'])
     # The founders' family and work have made ties by now (the Sandbox keeps
     # them), read from the World GM's contrib `SocialTies`.

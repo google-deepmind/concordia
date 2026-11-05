@@ -64,6 +64,7 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
@@ -2392,7 +2393,21 @@ class Session:
         'judged': int(world.get('judgments', {}).get(name, 0)),
         'close_to': self._close_to(name),
         'heard': self._heard_by(name),
+        'known_for': self._known_for(name),
     }
+
+  def _known_for(self, name: str) -> list[dict[str, Any]]:
+    """What a person is known for, from the GM's reputation."""
+    reputation = self.run.gm_component(
+        reputation_lib.DEFAULT_REPUTATION_COMPONENT_KEY,
+        reputation_lib.Reputation,
+    )
+    if reputation is None:
+      return []
+    return [
+        {'quality': quality, 'standing': round(standing, 2), 'by': by}
+        for quality, standing, by in reputation.known_for(name)
+    ]
 
   def _heard_by(self, name: str) -> list[dict[str, Any]]:
     """The latest word a person heard (`HEARD_SHOWN`), from the GM's."""
