@@ -26,6 +26,7 @@
 | `__rumors__` | contrib `Rumors`: the word going round (the `rumours` setting) |
 | `__reputation__` | contrib `Reputation`: what people think of one another (the `reputation` setting) |
 | `__reciprocity__` | contrib `Reciprocity`: who owes whom food they were given (the `debts` setting) |
+| `__contagion__` | contrib `Contagion`: a sickness passing between those who meet (the `sickness` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -48,6 +49,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -110,8 +112,25 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
         return_share=float(owed.get('return_share', reciprocity.RETURN_SHARE)),
         max_open=int(owed.get('max_open', reciprocity.MAX_OPEN)),
     )
+  sickness = None
+  if settings.get('sickness'):
+    sick = dict(settings['sickness'])
+    sickness = contagion.Contagion(
+        seed=int(settings.get('seed', 0)),
+        transmission=float(sick.get('transmission', contagion.TRANSMISSION)),
+        incubation=int(sick.get('incubation', contagion.INCUBATION)),
+        infectious_for=int(
+            sick.get('infectious_for', contagion.INFECTIOUS_FOR)
+        ),
+        immunity_for=int(sick.get('immunity_for', contagion.IMMUNITY_FOR)),
+        mortality=float(sick.get('mortality', contagion.MORTALITY)),
+    )
   return world_lib.Mechanics(
-      ties=ties, rumors=rumors, reputation=reputation, debts=debts
+      ties=ties,
+      rumors=rumors,
+      reputation=reputation,
+      debts=debts,
+      sickness=sickness,
   )
 
 
@@ -231,6 +250,8 @@ class WorldGameMaster(prefab_lib.Prefab):
       components[reciprocity.DEFAULT_RECIPROCITY_COMPONENT_KEY] = (
           mechanics.debts
       )
+    if mechanics.sickness is not None:
+      components[contagion.DEFAULT_CONTAGION_COMPONENT_KEY] = mechanics.sickness
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

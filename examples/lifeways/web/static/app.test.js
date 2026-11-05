@@ -28,6 +28,7 @@ const {
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
+  sickNote, sicknessText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -976,4 +977,15 @@ test('debts read both ways, and a name for repaying', () => {
   assert.deepEqual(debtLines({}, 1), []);
   assert.equal(knownForText([{quality: 'reliable', standing: -1, by: 2}]),
       ' Known as one who does not repay by 2 who saw or heard of it.');
+});
+
+test('the sick are named, and a person\'s sickness reads plainly', () => {
+  assert.equal(sickNote(['Ada', 'Bo']),
+      '2 are sick (Ada, Bo): a sickness passes between neighbours.');
+  assert.equal(sickNote(['a', 'b', 'c', 'd']),
+      '4 are sick: a sickness passes between neighbours.');
+  assert.equal(sickNote([]), '');
+  assert.equal(sicknessText({state: 'immune', left: 1}),
+      ' Had the sickness: safe from it for 1 more year.');
+  assert.equal(sicknessText({state: 'susceptible', left: 0}), '');
 });

@@ -1856,6 +1856,8 @@ const PART_WORDS = {
       'they saw and the word they heard; courting prefers a good name',
   Reciprocity: 'who owes whom food they were given, by when; returns ' +
       'and debts left unpaid make a name',
+  Contagion: 'a sickness that passes between neighbours and close kin, ' +
+      'and ends in recovery (and a while safe from it) or death',
 };
 
 /** Where a part comes from, in words. */
@@ -1935,6 +1937,7 @@ async function showPerson(name) {
       `${age} years old, born of the ${person.descent || 'valley'}; food ` +
       `stored ${person.food} (a year's eating is 1).` +
       knownForText(person.known_for || []) +
+      sicknessText(person.sickness) +
       (person.judged ? ` Has judged at a court ${person.judged === 1 ?
         'once' : `${person.judged} times`}: those who heed judges take up ` +
         `${person.name}'s ways more readily.` : '');
@@ -2124,6 +2127,36 @@ function knownForText(known) {
   return known.filter((k) => words[k.quality] && Math.abs(k.standing) >= 0.05)
       .map((k) => ` Known as ${words[k.quality][k.standing > 0 ? 0 : 1]} ` +
         `by ${k.by} who saw or heard of it.`).join('');
+}
+
+/**
+ * Who is sick now, in words.
+ * @param {!Array<string>} sick Their names.
+ * @return {string} E.g. '2 are sick (Ada, Bo): a sickness passes between
+ *     neighbours.'
+ */
+function sickNote(sick) {
+  if (!sick.length) return '';
+  const names = sick.length <= 3 ? ` (${sick.join(', ')})` : '';
+  return `${sick.length} ${sick.length === 1 ? 'is' : 'are'} sick${names}:` +
+      ' a sickness passes between neighbours.';
+}
+
+/**
+ * A person's sickness or immunity, in words (a sentence, or '').
+ * @param {?Object} sickness {state, left}.
+ * @return {string} E.g. ' Sick this year: gathers half as much.'
+ */
+function sicknessText(sickness) {
+  if (!sickness) return '';
+  if (sickness.state === 'infectious') {
+    return ' Sick this year: gathers half as much.';
+  }
+  if (sickness.state === 'immune') {
+    return ` Had the sickness: safe from it for ${sickness.left} more ` +
+        `year${sickness.left === 1 ? '' : 's'}.`;
+  }
+  return '';
 }
 
 /**
@@ -2755,6 +2788,9 @@ async function refreshOnce() {
         `${world.people.length} ${world.lean ? 'alive, a lean year' :
           'people alive'}` +
         (world.running ? '' : ' (the world has stopped)');
+    const sick = world.sick || [];
+    document.getElementById('sick-note').hidden = !sick.length;
+    document.getElementById('sick-note').textContent = sickNote(sick);
     document.getElementById('anew-box').hidden = world.running;
     document.getElementById('play-as-box').hidden = !world.playable;
     document.getElementById('stop').hidden = !world.running;
@@ -3759,6 +3795,7 @@ if (typeof document !== 'undefined') {
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
-    tieText, wordMove, rumourText, knownForText, debtLines,
+    tieText, wordMove, rumourText, knownForText, debtLines, sickNote,
+    sicknessText,
   };
 }

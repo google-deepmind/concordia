@@ -32,6 +32,7 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import contagion as contagion_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -70,6 +71,9 @@ SHARE = 'share food with'  # ... a name.
 VISIT = 'visit'
 # ... a name: one the person owes food it was given (the `debts` setting).
 REPAY = 'repay'
+# Offered while someone within sight is sick (the `sickness` setting): one
+# who keeps apart cannot catch it this year, and does no other work.
+KEEP_APART = 'keep apart from the sick'
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
 WRITE = 'write at the library'
@@ -221,6 +225,16 @@ DEED_WEIGHT = 1.0
 # else its partner); what it owes is let go.
 RELIABLE = 'reliable'
 DEFAULT_NEWS = 'default'
+# Sickness (the `sickness` setting): it passes each year between those
+# within sight and to close kin and friends (ties at least `SICK_TIE`). The
+# sick gather half as much. An illness's end is death with the setting's
+# `mortality` times a vulnerability: `FRAIL` for small children and elders.
+# Now and then (`chance` a year) it comes to someone from outside; a plague
+# sent brings it to all within reach.
+SICK_TIE = 0.5
+FRAIL = 2.5
+FRAIL_YOUNG = 5
+FRAIL_OLD = 60
 # What each rumour of a deed says of the one it is about.
 NEWS_REPORT: Mapping[str, tuple[str, float]] = {
     PRAISE: (GENEROUS, DEED_WEIGHT),
@@ -473,12 +487,15 @@ class Mechanics:
       `reputation` setting).
     debts: Who owes whom food they were given (`Reciprocity`, the `debts`
       setting).
+    sickness: A sickness that passes between those who meet (`Contagion`,
+      the `sickness` setting).
   """
 
   ties: social_ties.SocialTies | None = None
   rumors: rumors_lib.Rumors | None = None
   reputation: reputation_lib.Reputation | None = None
   debts: reciprocity.Reciprocity | None = None
+  sickness: contagion_lib.Contagion | None = None
 
 
 class World:
@@ -502,6 +519,8 @@ class World:
     self.rumors = mechanics.rumors
     self.reputation = mechanics.reputation
     self.debts = mechanics.debts
+    self.sickness = mechanics.sickness
+    self._died_sick = 0  # Deaths of sickness this year.
     self._repaid = 0  # Returns made this year.
     self._defaults = 0  # Debts gone past due this year.
     self._heard = 0  # Rumours heard this year.
@@ -949,6 +968,9 @@ class World:
           ):
             texts += len(place.shelf)
             place.shelf.clear()
+    elif kind == PLAGUE and self.sickness is not None:
+      for name in self.sickness.infect(near, self.year):
+        self._tell(name, f'{name} falls sick.')
     elif kind == PLAGUE:
       for name in near:
         age = self.people[name].age(self.year)
@@ -1219,6 +1241,8 @@ class World:
       found.extend(f'{SHARE} {other}' for _, other in needy[:2])
     found.extend(f'{VISIT} {other}' for other in self._closest(person))
     found.extend(f'{REPAY} {other}' for other in self._creditors(person))
+    if any(self._is_sick(other) for other in self._in_sight(person)):
+      found.append(KEEP_APART)
     if culture_lib.SANCTION in self.channels:
       found.extend(
           f'{SHAME} {other}'
@@ -1697,6 +1721,11 @@ class World:
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'
         f' {name} is of the {person.descent or "valley"}.'
+        + (
+            f' {name} is sick: {name} gathers half as much.'
+            if self._is_sick(name)
+            else ''
+        )
         + self._suitors_line(person)
         + (
             ' The rite falls this year.'
@@ -1817,6 +1846,7 @@ class World:
     # Disasters strike after the year's work, before everyone eats.
     deaths = self._send(self.actions.get(EXPERIMENTER, ''))
     deaths += self._disaster()
+    deaths += self._sicken(did)
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
     self._spread_word()
@@ -1925,6 +1955,8 @@ class World:
       effort = 2.0 if person.age(self.year) >= ADULT_AGE else 1.0
       if move in (GATHER, SPARE):
         effort *= self._skill(enacted, culture_lib.FOOD)
+      if self._is_sick(name):
+        effort *= 0.5
       spare = self._fields_of_others(person) if move == SPARE else []
       person.food += self.land.gather(person.tile, effort, spare)
     elif move == SOW:
@@ -2835,6 +2867,69 @@ class World:
           kind=DEFAULT_NEWS,
       )
 
+  def _is_sick(self, name: str) -> bool:
+    """Whether someone is sick now (passing the sickness on)."""
+    return (
+        self.sickness is not None
+        and self.sickness.status(name)[0] == contagion_lib.INFECTIOUS
+    )
+
+  def _sicken(self, did: Mapping[str, tuple[str, list[str]]]) -> list[str]:
+    """A year of sickness: it comes, passes on, and ends in death or not.
+
+    Args:
+      did: The year's moves (who kept apart).
+
+    Returns:
+      Who died of it.
+    """
+    self._died_sick = 0
+    if self.sickness is None:
+      return []
+    sick_settings = self.settings.get('sickness') or {}
+    living = self.living()
+    if living and self._rng('outbreak').random() < float(
+        sick_settings.get('chance', 0.0)
+    ):
+      first = living[int(self._rng('outbreak', 'who').integers(len(living)))]
+      if self.sickness.infect([first], self.year):
+        self._tell(first, f'{first} falls sick.')
+        self._start_rumor(
+            f'In the year {self.year}, a sickness came to'
+            f' {where(self.people[first].tile)}.',
+            [first, *self._in_sight(self.people[first])],
+            kind=DISASTER_NEWS,
+        )
+    close = (
+        self.ties.contacts(living, min_strength=SICK_TIE)
+        if self.ties is not None
+        else {}
+    )
+    contacts = {
+        name: sorted({*self._in_sight(self.people[name]), *close.get(name, ())})
+        for name in living
+    }
+    frail = {
+        name: FRAIL
+        for name in living
+        if not FRAIL_YOUNG <= self.people[name].age(self.year) < FRAIL_OLD
+    }
+    apart = [name for name, (move, _) in did.items() if move == KEEP_APART]
+    outbreak = self.sickness.step(
+        contacts, self.year, vulnerability=frail, protected=apart
+    )
+    for name in outbreak.sick:
+      if name in self.people:
+        self._tell(name, f'{name} falls sick.')
+    for name in outbreak.recovered:
+      if name in self.people:
+        self._tell(name, f'{name} has recovered from the sickness.')
+    died = [name for name in outbreak.died if name in self.people]
+    for name in died:
+      self._die(name)
+    self._died_sick = len(died)
+    return died
+
   def _regard(self, observer: str, actor: str) -> float:
     """What one thinks of another's generosity (0 if nothing known)."""
     if self.reputation is None:
@@ -3294,6 +3389,8 @@ class World:
       self.reputation.forget(name)
     if self.debts is not None:
       self.debts.settle_estate(name, heir=self._heir_of(person) or None)
+    if self.sickness is not None:
+      self.sickness.forget(name)
     if self.rumors is not None:
       self.rumors.forget(name)
       age = person.age(self.year)
@@ -3429,6 +3526,12 @@ class World:
         'debts': self.debts.size() if self.debts is not None else 0,
         'repaid': self._repaid,
         'defaults': self._defaults,
+        # Sickness: the sick and the immune now, and its dead this year.
+        'sick': len(self.sickness.infectious()) if self.sickness else 0,
+        'immune': (
+            self.sickness.counts()[contagion_lib.IMMUNE] if self.sickness else 0
+        ),
+        'died_sick': self._died_sick,
         # Social ties (none if the world keeps none): how many, how close.
         'ties': self.ties.size() if self.ties is not None else 0,
         'closeness': (

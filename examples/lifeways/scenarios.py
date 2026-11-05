@@ -152,6 +152,21 @@ SANDBOX: Mapping[str, Any] = {
     # report and word that goes round. Each owes at most `max_open` debts.
     # None: gifts are not owed back.
     'debts': {'term': 6, 'return_share': 1.0, 'max_open': 6},
+    # Sickness (contrib `Contagion`): it passes each year from the sick to
+    # each within sight or close to them with `transmission`; an illness
+    # lasts `infectious_for` years and ends in death with `mortality` (times
+    # 2.5 for small children and elders), else in `immunity_for` years'
+    # immunity. It comes from outside to someone with `chance` a year (and
+    # a plague sent brings it to all within reach). One who keeps apart
+    # cannot catch it that year. None: no sickness passes.
+    'sickness': {
+        'transmission': 0.3,
+        'incubation': 0,
+        'infectious_for': 2,
+        'immunity_for': 15,
+        'mortality': 0.08,
+        'chance': 0.03,
+    },
     'rumours': {
         'chance': 0.5,
         'tell_for': 3,

@@ -260,6 +260,9 @@ def _choose(
   lean = seasons[-1] == 'lean' if seasons else food < 4.0
   if food < 2.5 or ('lean' in texts and lean):
     return follow(world_lib.GATHER, culture_lib.FOOD)
+  # With sickness within sight, some keep apart (the draw decides who).
+  if world_lib.KEEP_APART in moves and food >= 3.0 and draw < 0.4:
+    return world_lib.KEEP_APART
   # A debt is returned when the stores allow, unless the draw says not yet.
   repay = [m for m in moves if m.startswith(f'{world_lib.REPAY} ')]
   if repay and food >= 4.0 and draw < 0.7:

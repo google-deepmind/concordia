@@ -64,6 +64,7 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2098,7 +2099,16 @@ class Session:
         'played': self._played_state(people) if self.played else None,
         # The word going round (None if the world keeps no rumours).
         'rumours': self._rumours(),
+        # Who is sick now (none if no sickness passes).
+        'sick': self._sick(),
     }
+
+  def _sick(self) -> list[str]:
+    """Who is sick now, from the GM's contagion."""
+    sickness = self.run.gm_component(
+        contagion.DEFAULT_CONTAGION_COMPONENT_KEY, contagion.Contagion
+    )
+    return sickness.infectious() if sickness is not None else []
 
   def _rumours(self) -> list[dict[str, Any]] | None:
     """The rumours going round (`RUMOURS_SHOWN`), from the GM's.
@@ -2396,7 +2406,18 @@ class Session:
         'heard': self._heard_by(name),
         'known_for': self._known_for(name),
         'debts': self._debts_of(name),
+        'sickness': self._sickness_of(name),
     }
+
+  def _sickness_of(self, name: str) -> dict[str, Any]:
+    """Whether a person is sick or immune, and for how long."""
+    sickness = self.run.gm_component(
+        contagion.DEFAULT_CONTAGION_COMPONENT_KEY, contagion.Contagion
+    )
+    if sickness is None:
+      return {'state': contagion.SUSCEPTIBLE, 'left': 0}
+    state, left = sickness.status(name)
+    return {'state': state, 'left': left}
 
   def _debts_of(self, name: str) -> dict[str, list[dict[str, Any]]]:
     """What a person owes and is owed, from the GM's ledger."""

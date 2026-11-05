@@ -18,6 +18,7 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2329,6 +2330,74 @@ class DebtsTest(absltest.TestCase):
     self.world._die('Ada')
 
     self.assertEqual(self.debts.owes('Bo', 'Cy'), 1.5)
+
+
+class SicknessTest(absltest.TestCase):
+  """A sickness passing between those who meet, the GM's `Contagion`."""
+
+  def setUp(self):
+    super().setUp()
+    self.sickness = contagion.Contagion(transmission=1.0, mortality=0.0)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL},
+        world_lib.Mechanics(sickness=self.sickness),
+    )
+    for name, tile in (('Ada', (2, 2)), ('Bo', (2, 3)), ('Far', (14, 14))):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - 30, sex='f', tile=tile, food=8.0
+      )
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_it_passes_to_those_within_sight_and_the_sick_gather_less(self):
+    self.sickness.infect(['Ada'], step=0)
+
+    self.assertIn('Ada is sick', self.world.status('Ada'))
+    self.assertIn(world_lib.KEEP_APART, self.world.moves('Bo'))
+    self.assertNotIn(world_lib.KEEP_APART, self.world.moves('Far'))
+    self._year(Ada=world_lib.GATHER)
+
+    self.assertIn('Bo falls sick.', self.world.queued['Bo'])
+    self.assertIn(
+        'Ada has recovered from the sickness.', self.world.queued['Ada']
+    )
+    self.assertEqual(self.sickness.status('Far')[0], contagion.SUSCEPTIBLE)
+    row = self.world.history[-1]
+    self.assertEqual((row['sick'], row['immune']), (1, 1))
+
+  def test_one_who_keeps_apart_does_not_catch_it(self):
+    self.sickness.infect(['Ada'], step=0)
+
+    self._year(Bo=world_lib.KEEP_APART)
+
+    self.assertEqual(self.sickness.status('Bo')[0], contagion.SUSCEPTIBLE)
+
+  def test_a_plague_sent_brings_the_sickness(self):
+    self.world._strike(world_lib.PLAGUE, (2, 2), 'world')
+
+    self.assertEqual(self.sickness.infectious(), ['Ada', 'Bo'])
+    self.assertIn('Ada falls sick.', self.world.queued['Ada'])
+
+  def test_an_illness_may_end_in_death_and_the_frail_die_more(self):
+    deadly = contagion.Contagion(mortality=1.0)
+    world = world_lib.World(
+        {'seed': 0, 'founders': 0}, world_lib.Mechanics(sickness=deadly)
+    )
+    world.people['Ada'] = world_lib.Person(
+        name='Ada', born=-30, sex='f', tile=(2, 2), food=8.0
+    )
+    deadly.infect(['Ada'], step=0)
+    world.actions = {'Ada': world_lib.REST}
+
+    outcome = world.close_year()
+
+    self.assertEqual(outcome.deaths, ['Ada'])
+    self.assertEqual(world.history[-1]['died_sick'], 1)
 
 
 class SeasonsTest(absltest.TestCase):
