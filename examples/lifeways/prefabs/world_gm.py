@@ -27,6 +27,8 @@
 | `__reputation__` | contrib `Reputation`: what people think of one another (the `reputation` setting) |
 | `__reciprocity__` | contrib `Reciprocity`: who owes whom food they were given (the `debts` setting) |
 | `__contagion__` | contrib `Contagion`: a sickness passing between those who meet (the `sickness` setting) |
+| `__gatherings__` | contrib `Gatherings`: gatherings held every few years (the `gatherings` setting) |
+| `__assembly__` | contrib `Assembly`: the valley's motions, votes and laws (the `assembly` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -49,7 +51,9 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -125,12 +129,33 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
         immunity_for=int(sick.get('immunity_for', contagion.IMMUNITY_FOR)),
         mortality=float(sick.get('mortality', contagion.MORTALITY)),
     )
+  calendar = None
+  if settings.get('gatherings'):
+    calendar = gatherings.Gatherings(
+        seed=int(settings.get('seed', 0)),
+        max_gatherings=int(
+            dict(settings['gatherings']).get('max', gatherings.MAX_GATHERINGS)
+        ),
+    )
+  council = None
+  if settings.get('assembly'):
+    rules = dict(settings['assembly'])
+    council = assembly_lib.Assembly(
+        rule=str(rules.get('rule', assembly_lib.MAJORITY)),
+        quorum=float(rules.get('quorum', assembly_lib.QUORUM)),
+        open_for=int(rules.get('open_for', assembly_lib.OPEN_FOR)),
+        term=int(rules.get('term', assembly_lib.TERM)),
+        max_motions=int(rules.get('max_motions', assembly_lib.MAX_MOTIONS)),
+        max_laws=int(rules.get('max_laws', assembly_lib.MAX_LAWS)),
+    )
   return world_lib.Mechanics(
       ties=ties,
       rumors=rumors,
       reputation=reputation,
       debts=debts,
       sickness=sickness,
+      gatherings=calendar,
+      assembly=council,
   )
 
 
@@ -252,6 +277,14 @@ class WorldGameMaster(prefab_lib.Prefab):
       )
     if mechanics.sickness is not None:
       components[contagion.DEFAULT_CONTAGION_COMPONENT_KEY] = mechanics.sickness
+    if mechanics.gatherings is not None:
+      components[gatherings.DEFAULT_GATHERINGS_COMPONENT_KEY] = (
+          mechanics.gatherings
+      )
+    if mechanics.assembly is not None:
+      components[assembly_lib.DEFAULT_ASSEMBLY_COMPONENT_KEY] = (
+          mechanics.assembly
+      )
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

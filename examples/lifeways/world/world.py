@@ -32,7 +32,9 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion as contagion_lib
+from concordia.contrib.components.game_master import gatherings as gatherings_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -74,6 +76,16 @@ REPAY = 'repay'
 # Offered while someone within sight is sick (the `sickness` setting): one
 # who keeps apart cannot catch it this year, and does no other work.
 KEEP_APART = 'keep apart from the sick'
+# ... at <row>,<col>: offered to the grown and youths within the setting's
+# `reach` of a gathering held this year (the `gatherings` setting).
+GO_GATHER = 'go to the gathering'
+# The assembly (the `assembly` setting): an elder may propose a law (one of
+# `LAWS` not in force, while no motion is open); while one is open, the
+# grown may vote for or against it instead of the year's work.
+PROPOSE = 'propose the law'
+VOTE_FOR = 'vote for the law'
+VOTE_AGAINST = 'vote against the law'
+_GO_GATHER = re.compile(r'^go to the gathering at (?P<row>\d+),(?P<col>\d+)$')
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
 WRITE = 'write at the library'
@@ -192,6 +204,13 @@ _INSTITUTION = re.compile(
     r' (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
 )
 MIGRANTS_FORM = 'bring migrants at <row>,<col>'
+# The Experimenter's: a gathering held every few years at a place (the
+# `gatherings` setting's `every`), from next year.
+CALL = 'call a gathering'
+CALL_FORM = 'call a gathering at <row>,<col>'
+_CALL = re.compile(
+    r'^call a gathering at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$', re.IGNORECASE
+)
 # The Experimenter's: start a rumour among those near a place (the
 # `rumours` setting). It travels along people's ties, changing as it goes.
 WORD = 'spread word'
@@ -232,6 +251,29 @@ DEFAULT_NEWS = 'default'
 # Now and then (`chance` a year) it comes to someone from outside; a plague
 # sent brings it to all within reach.
 SICK_TIE = 0.5
+# Gatherings (the `gatherings` setting): held every `every` years at a
+# place, drawing the grown and youths within `reach`. Those who come grow
+# closer (`TIE_AMOUNTS[GATHERING]`), each sees the ways of `SEEN_AT` others
+# drawn among them, and word passes among them that year. A world keeps a
+# gathering at its most crowded place from its first year; the Experimenter
+# may call more.
+GATHERING = 'gathering'
+SEEN_AT = 3
+# The laws an assembly may pass, by kind, and what each asks. A law in force
+# is in everyone's status; one seen breaking it is thought less `LAWFUL` by
+# those who saw (a deed's weight). Breaches: gathering from others' fields
+# (`SPARE_LAW`), keeping full stores from the hungry in a lean year
+# (`SHARE_LAW`), and staying near the sick (`APART_LAW`, in a world with
+# sickness).
+SPARE_LAW = 'spare'
+SHARE_LAW = 'share'
+APART_LAW = 'apart'
+LAWS: Mapping[str, str] = {
+    SPARE_LAW: 'We take nothing from the fields others tend.',
+    SHARE_LAW: 'In lean years, those with full stores share with the hungry.',
+    APART_LAW: 'When sickness comes near, the well keep apart.',
+}
+LAWFUL = 'lawful'
 FRAIL = 2.5
 FRAIL_YOUNG = 5
 FRAIL_OLD = 60
@@ -270,6 +312,7 @@ TIE_AMOUNTS: Mapping[str, float] = {
     culture_lib.OBSERVATION: 0.03,
     culture_lib.PREACHING: 0.03,
     culture_lib.READING: 0.02,
+    GATHERING: 0.08,
 }
 # How many of one's closest a person is offered to visit.
 VISITS_OFFERED = 2
@@ -489,6 +532,10 @@ class Mechanics:
       setting).
     sickness: A sickness that passes between those who meet (`Contagion`,
       the `sickness` setting).
+    gatherings: Gatherings held every few years (`Gatherings`, the
+      `gatherings` setting).
+    assembly: The valley's assembly and its laws (`Assembly`, the
+      `assembly` setting).
   """
 
   ties: social_ties.SocialTies | None = None
@@ -496,6 +543,8 @@ class Mechanics:
   reputation: reputation_lib.Reputation | None = None
   debts: reciprocity.Reciprocity | None = None
   sickness: contagion_lib.Contagion | None = None
+  gatherings: gatherings_lib.Gatherings | None = None
+  assembly: assembly_lib.Assembly | None = None
 
 
 class World:
@@ -520,6 +569,13 @@ class World:
     self.reputation = mechanics.reputation
     self.debts = mechanics.debts
     self.sickness = mechanics.sickness
+    self.gatherings = mechanics.gatherings
+    self.assembly = mechanics.assembly
+    self._votes = 0  # Votes cast this year.
+    self._law_breaches = 0  # Laws seen broken this year.
+    # This year's gatherings: who came, and whom each met there.
+    self._gathered = 0
+    self._met_at: dict[str, list[str]] = {}
     self._died_sick = 0  # Deaths of sickness this year.
     self._repaid = 0  # Returns made this year.
     self._defaults = 0  # Debts gone past due this year.
@@ -1186,6 +1242,7 @@ class World:
           MIGRANTS_FORM,
           *INSTITUTION_FORMS,
           *([WORD_FORM] if self.rumors is not None else []),
+          *([CALL_FORM] if self.gatherings is not None else []),
           STOP,
       ]
     person = self.people[name]
@@ -1195,6 +1252,7 @@ class World:
           *self._library_moves(person),
           *self._school_moves(person),
           *self._shrine_moves(person),
+          *(self._gathering_moves(person) if age >= APPRENTICE_AGE else []),
       ]
       spare = [SPARE] if self._fields_of_others(person) else []
       if age >= APPRENTICE_AGE and culture_lib.APPRENTICESHIP in self.channels:
@@ -1211,6 +1269,8 @@ class World:
         *self._shrine_moves(person),
         *self._court_moves(person),
         *self._market_moves(person),
+        *self._gathering_moves(person),
+        *self._assembly_moves(person),
     ]
     if (
         self.farming
@@ -1733,6 +1793,12 @@ class World:
             else ''
         )
         + ''.join(
+            f' A gathering is held at {m.removeprefix(GO_GATHER + " at ")}'
+            ' this year.'
+            for m in self._gathering_moves(person)
+        )
+        + ''.join(f' The valley\'s law: {law["text"]}' for law in self._laws())
+        + ''.join(
             f' Within sight is {self._describe(place)}.'
             for place in self._nearest_places(person)
         )
@@ -1804,6 +1870,7 @@ class World:
     self._crossed = 0
     self._shares = 0
     self._repaid = 0
+    self._votes = 0
     self._fed = set()
     self._releases = []
     self._disasters = []
@@ -1831,11 +1898,13 @@ class World:
     brought = self._bring(self.actions.get(EXPERIMENTER, ''))
     self._institution(self.actions.get(EXPERIMENTER, ''))
     self._word(self.actions.get(EXPERIMENTER, ''))
+    self._call(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
     self._trade(did)
     self._schools(did)
     self._rites(did)
+    self._gather(did)
     self._transmit(did)
     self._tie_up(did)
     worked = [
@@ -1851,6 +1920,9 @@ class World:
     self._see_breaches(did, allowed)
     self._spread_word()
     self._see_defaults()
+    # Laws judge the year's moves before this year's motions are decided.
+    self._see_lawbreaking(did, allowed)
+    self._decide()
     if self.reputation is not None:
       self.reputation.step()
     self.norm_acts = {
@@ -1893,6 +1965,7 @@ class World:
     del self.history[: max(0, len(self.history) - kept)]
     self.actions = {}
     self.lean = self._next_lean()
+    self._first_gathering()
     self.year += 1
     for name in self.participants():
       self._tell(name, self.status(name))
@@ -2005,6 +2078,16 @@ class World:
             )
     elif move.startswith(f'{REPAY} '):
       self._repay(person, move.removeprefix(f'{REPAY} '))
+    elif move.startswith((PROPOSE, VOTE_FOR, VOTE_AGAINST)):
+      self._take_part(person, move)
+    elif move.startswith(GO_GATHER) and self.gatherings is not None:
+      match = _GO_GATHER.match(move)
+      if match is not None:
+        self.gatherings.attend(
+            name,
+            _gathering_id((int(match['row']), int(match['col']))),
+            self.year,
+        )
     elif move.startswith(f'{VISIT} '):
       self._visit(person, move.removeprefix(f'{VISIT} '), enacted)
     elif move.startswith(f'{SHAME} '):
@@ -2867,6 +2950,212 @@ class World:
           kind=DEFAULT_NEWS,
       )
 
+  def _laws(self) -> list[dict[str, Any]]:
+    """The laws in force (none without an assembly)."""
+    return self.assembly.in_force() if self.assembly is not None else []
+
+  def _assembly_moves(self, person: Person) -> list[str]:
+    """A grown person's part in the assembly this year, as moves."""
+    if self.assembly is None:
+      return []
+    open_now = self.assembly.open_motions(self.year)
+    if open_now:
+      return [
+          f'{verb}: {motion["text"]}'
+          for motion in open_now
+          for verb in (VOTE_FOR, VOTE_AGAINST)
+      ]
+    if person.age(self.year) < ELDER_AGE:
+      return []
+    standing = {law['kind'] for law in self._laws()}
+    return [
+        f'{PROPOSE}: {text}'
+        for kind, text in LAWS.items()
+        if kind not in standing and (kind != APART_LAW or self.sickness)
+    ]
+
+  def _take_part(self, person: Person, move: str) -> None:
+    """A proposal or a vote in the assembly."""
+    if self.assembly is None:
+      return
+    verb, _, text = move.partition(': ')
+    if verb == PROPOSE:
+      kind = next((k for k, t in LAWS.items() if t == text), '')
+      if kind and self.assembly.propose(person.name, text, self.year, kind):
+        for name in self.living():
+          if self.people[name].age(self.year) >= ADULT_AGE:
+            self._tell(
+                name,
+                f'{person.name} proposes a law: {text} The grown vote on it'
+                ' next year.',
+            )
+      return
+    for motion in self.assembly.open_motions(self.year):
+      if motion['text'] == text:
+        if self.assembly.vote(
+            person.name, motion['id'], verb == VOTE_FOR, self.year
+        ):
+          self._votes += 1
+
+  def _decide(self) -> None:
+    """The motions whose year is up are decided by the grown."""
+    if self.assembly is None:
+      return
+    grown = [
+        name
+        for name in self.living()
+        if self.people[name].age(self.year) >= ADULT_AGE
+    ]
+    for decision in self.assembly.close(self.year, grown):
+      told = (
+          f'The law "{decision.text}" '
+          + ('passed' if decision.passed else 'failed')
+          + f': {len(decision.votes_for)} for,'
+          f' {len(decision.votes_against)} against.'
+      )
+      for name in grown:
+        self._tell(name, told)
+      self._report(told)
+
+  def _see_lawbreaking(
+      self,
+      did: Mapping[str, tuple[str, list[str]]],
+      allowed: Mapping[str, Sequence[str]],
+  ) -> None:
+    """Those seen breaking a law in force: bad report among those who saw."""
+    self._law_breaches = 0
+    kinds = {law['kind']: law['text'] for law in self._laws()}
+    if not kinds:
+      return
+    for name in self.living():
+      person = self.people[name]
+      move = did.get(name, ('', []))[0]
+      broke = []
+      if (
+          SPARE_LAW in kinds
+          and move == GATHER
+          and SPARE in allowed.get(name, ())
+      ):
+        broke.append(kinds[SPARE_LAW])
+      if SHARE_LAW in kinds and self.lean and name in self.breaches:
+        broke.append(kinds[SHARE_LAW])
+      if (
+          APART_LAW in kinds
+          and KEEP_APART in allowed.get(name, ())
+          and move != KEEP_APART
+          and not self._is_sick(name)
+      ):
+        broke.append(kinds[APART_LAW])
+      if not broke:
+        continue
+      witnesses = self._in_sight(person)
+      self._law_breaches += len(broke)
+      for text in broke:
+        for witness in witnesses:
+          self._tell(witness, f'{name} broke the law: {text}')
+        if self.reputation is not None:
+          self.reputation.witness(name, LAWFUL, -DEED_WEIGHT, witnesses)
+
+  def _gathering_moves(self, person: Person) -> list[str]:
+    """The gatherings held this year within reach of a person, as moves."""
+    if self.gatherings is None:
+      return []
+    reach = int((self.settings.get('gatherings') or {}).get('reach', 6))
+    found = []
+    for gathering_id in self.gatherings.due(self.year):
+      tile = _gathering_tile(gathering_id)
+      if tile is not None and self.places.distance(person.tile, tile) <= reach:
+        found.append(f'{GO_GATHER} at {tile[0]},{tile[1]}')
+    return found
+
+  def _call(self, answer: str) -> None:
+    """The Experimenter calls a gathering at a place (`CALL_FORM`)."""
+    answer = answer.strip()
+    if self.gatherings is None or not answer.lower().startswith(CALL):
+      return
+    match = _CALL.match(answer)
+    if match is None:
+      self._report('The gathering is not understood: ' + answer)
+      return
+    tile = self.land.wrap(int(match['row']), int(match['col']))
+    self._add_gathering(tile, EXPERIMENTER)
+    self._report(
+        f'A gathering is called at {where(tile)}, every'
+        f' {self._gathering_every()} years from next year.'
+    )
+
+  def _gathering_every(self) -> int:
+    return int((self.settings.get('gatherings') or {}).get('every', 5))
+
+  def _add_gathering(self, tile: land_lib.Tile, host: str) -> None:
+    """A gathering at a tile, held every few years from next year."""
+    if self.gatherings is None:
+      return
+    every = self._gathering_every()
+    self.gatherings.add(
+        _gathering_id(tile),
+        place=where(tile),
+        every=every,
+        phase=(self.year + 1) % every,
+        host=host,
+        step=self.year,
+    )
+
+  def _first_gathering(self) -> None:
+    """A world's own gathering, at its most crowded place, once."""
+    if (
+        self.gatherings is None
+        or self.gatherings.gatherings()
+        or not self.people
+    ):
+      return
+    crowds = collections.Counter(p.tile for p in self.people.values())
+    tile = min(crowds, key=lambda t: (-crowds[t], t))
+    self._add_gathering(tile, '')
+
+  def _gather(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """The year's gatherings: those who came meet and see each other.
+
+    Each who came grows closer to everyone there, and sees the customs that
+    `SEEN_AT` others drawn among them enacted this year (what they did it
+    by); word passes among them this year.
+
+    Args:
+      did: The year's moves, by person.
+    """
+    self._gathered = 0
+    self._met_at = {}
+    if self.gatherings is None:
+      return
+    for held in self.gatherings.close(self.year):
+      came = [n for n in held.attendees if n in self.people]
+      self._gathered += len(came)
+      for i, a in enumerate(came):
+        others = [b for b in came if b != a]
+        self._met_at[a] = others
+        for b in came[i + 1 :]:
+          self._meet(a, b, GATHERING)
+        rng = self._rng('gathering', held.id, a)
+        drawn = (
+            rng.choice(
+                len(others), size=min(SEEN_AT, len(others)), replace=False
+            )
+            if others
+            else []
+        )
+        for b in sorted(others[int(k)] for k in drawn):
+          for custom_id in did.get(b, ('', []))[1]:
+            self._offer(
+                a,
+                b,
+                custom_id,
+                culture_lib.OBSERVATION,
+                f'At the gathering, {a} sees {b}',
+            )
+        self._tell(a, f'{len(came)} came to the gathering at {held.place}.')
+      if came:
+        self._report(f'The gathering at {held.place} drew {len(came)}.')
+
   def _is_sick(self, name: str) -> bool:
     """Whether someone is sick now (passing the sickness on)."""
     return (
@@ -2992,6 +3281,9 @@ class World:
       contacts = {
           name: self._in_sight(self.people[name]) for name in self.living()
       }
+    for name, met in self._met_at.items():
+      if name in contacts:
+        contacts[name] = sorted({*contacts[name], *met})
     for heard in self.rumors.spread(contacts, self.year):
       if heard.hearer in self.people:
         self._tell(
@@ -3532,6 +3824,15 @@ class World:
             self.sickness.counts()[contagion_lib.IMMUNE] if self.sickness else 0
         ),
         'died_sick': self._died_sick,
+        # Gatherings: how many came this year, and how many are kept.
+        'gathered': self._gathered,
+        # The assembly: laws in force, votes cast, laws seen broken.
+        'laws': len(self._laws()),
+        'votes': self._votes,
+        'law_breaches': self._law_breaches,
+        'gatherings': (
+            len(self.gatherings.gatherings()) if self.gatherings else 0
+        ),
         # Social ties (none if the world keeps none): how many, how close.
         'ties': self.ties.size() if self.ties is not None else 0,
         'closeness': (
@@ -3726,6 +4027,17 @@ def _move_kind(move: str) -> str:
     if move.startswith(f'{kind} '):
       return kind
   return move
+
+
+def _gathering_id(tile: Sequence[int]) -> str:
+  """A gathering's id: where it is held ('gathering 3,4')."""
+  return f'{GATHERING} {int(tile[0])},{int(tile[1])}'
+
+
+def _gathering_tile(gathering_id: str) -> tuple[int, int] | None:
+  """Where a gathering is held, from its id (None if not one of ours)."""
+  match = re.match(rf'^{GATHERING} (\d+),(\d+)$', gathering_id)
+  return (int(match[1]), int(match[2])) if match else None
 
 
 def _amount(food: float) -> str:

@@ -18,7 +18,9 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2398,6 +2400,164 @@ class SicknessTest(absltest.TestCase):
 
     self.assertEqual(outcome.deaths, ['Ada'])
     self.assertEqual(world.history[-1]['died_sick'], 1)
+
+
+class GatheringsTest(absltest.TestCase):
+  """Gatherings every few years, the GM's `Gatherings`."""
+
+  def setUp(self):
+    super().setUp()
+    self.calendar = gatherings.Gatherings()
+    self.ties = social_ties.SocialTies(decay=0.0)
+    self.world = world_lib.World(
+        {
+            'seed': 0,
+            'founders': 0,
+            'channels': _FAITHFUL,
+            'gatherings': {'every': 2, 'reach': 6},
+        },
+        world_lib.Mechanics(ties=self.ties, gatherings=self.calendar),
+    )
+    self.belief = self.world.culture.add('belief', 'sacred', 'Hills.').id
+    for name, tile in (
+        ('Ada', (2, 2)),
+        ('Bo', (2, 2)),
+        ('Cy', (4, 4)),
+        ('Far', (14, 14)),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name,
+          born=self.world.year - 30,
+          sex='f',
+          tile=tile,
+          food=8.0,
+          given=[self.belief],
+      )
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_a_world_keeps_a_gathering_at_its_most_crowded_place(self):
+    self._year()  # Year 0 closes: a gathering at 2,2 from year 1, every 2.
+
+    self.assertEqual(
+        [g['place'] for g in self.calendar.gatherings()],
+        [world_lib.where((2, 2))],
+    )
+    go = f'{world_lib.GO_GATHER} at 2,2'
+    self.assertIn(go, self.world.moves('Cy'))  # 4 steps away: within reach.
+    self.assertNotIn(go, self.world.moves('Far'))
+    self.assertIn(
+        'A gathering is held at 2,2 this year.', self.world.status('Cy')
+    )
+
+  def test_those_who_come_meet_and_see_each_others_ways(self):
+    self._year()
+    go = f'{world_lib.GO_GATHER} at 2,2'
+
+    self._year(Ada=f'{go} {self.belief}', Cy=go)
+
+    self.assertIn(world_lib.GATHERING, self.ties.kinds('Ada', 'Cy'))
+    self.assertIn(
+        '2 came to the gathering at row 2, column 2.', self.world.queued['Cy']
+    )
+    offered = '\n'.join(self.world.queued['Cy'])
+    self.assertIn('At the gathering, Cy sees Ada', offered)
+    self.assertEqual(self.world.history[-1]['gathered'], 2)
+
+  def test_the_experimenter_calls_a_gathering(self):
+    self.assertIn(world_lib.CALL_FORM, self.world.moves(world_lib.EXPERIMENTER))
+    self.world.actions = {world_lib.EXPERIMENTER: 'call a gathering at 14,14'}
+
+    self.world.close_year()
+
+    places = [g['place'] for g in self.calendar.gatherings()]
+    self.assertIn(world_lib.where((14, 14)), places)
+    self.assertIn(f'{world_lib.GO_GATHER} at 14,14', self.world.moves('Far'))
+
+
+class AssemblyTest(absltest.TestCase):
+  """The valley's assembly and its laws, the GM's `Assembly`."""
+
+  def setUp(self):
+    super().setUp()
+    self.council = assembly_lib.Assembly(quorum=0.5)
+    self.reputation = reputation_lib.Reputation(decay=0.0)
+    self.world = world_lib.World(
+        {
+            'seed': 0,
+            'founders': 0,
+            'channels': _FAITHFUL,
+            'farming': {'yield': 1.0, 'fallow': 10, 'inherit': None},
+        },
+        world_lib.Mechanics(reputation=self.reputation, assembly=self.council),
+    )
+    for name, age, tile in (
+        ('Eld', 70, (2, 2)),
+        ('Ada', 30, (2, 2)),
+        ('Bo', 30, (2, 3)),
+        ('Kid', 8, (2, 2)),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - age, sex='f', tile=tile, food=8.0
+      )
+    self.spare = world_lib.LAWS[world_lib.SPARE_LAW]
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_an_elder_proposes_the_grown_vote_and_it_passes_into_law(self):
+    propose = f'{world_lib.PROPOSE}: {self.spare}'
+    self.assertIn(propose, self.world.moves('Eld'))
+    self.assertNotIn(propose, self.world.moves('Ada'))  # Not an elder.
+
+    self._year(Eld=propose)
+    self.assertIn(
+        f'Eld proposes a law: {self.spare} The grown vote on it next year.',
+        self.world.queued['Ada'],
+    )
+    ballot = f'{world_lib.VOTE_FOR}: {self.spare}'
+    self.assertIn(ballot, self.world.moves('Ada'))
+    self._year(Ada=ballot, Bo=ballot)
+
+    self.assertEqual(
+        [law['kind'] for law in self.council.in_force()], ['spare']
+    )
+    self.assertIn(
+        f'The law "{self.spare}" passed: 2 for, 0 against.',
+        self.world.queued['Eld'],
+    )
+    self.assertIn(f"The valley's law: {self.spare}", self.world.status('Kid'))
+    self.assertEqual(self.world.history[-1]['votes'], 2)
+
+  def test_too_few_votes_fail(self):
+    self._year(Eld=f'{world_lib.PROPOSE}: {self.spare}')
+
+    self._year(Ada=f'{world_lib.VOTE_FOR}: {self.spare}')  # 1 of 3 grown.
+
+    self.assertEqual(self.council.in_force(), [])
+
+  def test_one_seen_breaking_a_law_is_thought_less_lawful(self):
+    self.council.propose('Eld', self.spare, step=-1, kind=world_lib.SPARE_LAW)
+    self.council.vote('Ada', 'm1', True, step=0)
+    self.council.vote('Bo', 'm1', True, step=0)
+    self._year()  # The law passes as year 0 closes.
+    self.world.land.fields[(2, 3)] = (3, self.world.year, 'Bo')
+
+    self.assertIn(world_lib.SPARE, self.world.moves('Ada'))
+    self._year(Ada=world_lib.GATHER)  # Gathered from Bo's field too.
+
+    self.assertLess(self.reputation.view('Eld', 'Ada', world_lib.LAWFUL), 0.0)
+    self.assertIn(f'Ada broke the law: {self.spare}', self.world.queued['Eld'])
+    self.assertEqual(self.world.history[-1]['law_breaches'], 1)
 
 
 class SeasonsTest(absltest.TestCase):

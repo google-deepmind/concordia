@@ -64,7 +64,9 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2101,7 +2103,52 @@ class Session:
         'rumours': self._rumours(),
         # Who is sick now (none if no sickness passes).
         'sick': self._sick(),
+        # The gatherings kept (None if nobody gathers).
+        'gatherings': self._gatherings(world['year']),
+        # The assembly's laws and open motion (None without an assembly).
+        'assembly': self._assembly(world['year']),
     }
+
+  def _assembly(self, year: int) -> dict[str, Any] | None:
+    """The laws in force and the motions open, from the GM's assembly."""
+    council = self.run.gm_component(
+        assembly_lib.DEFAULT_ASSEMBLY_COMPONENT_KEY, assembly_lib.Assembly
+    )
+    if council is None:
+      return None
+    return {
+        'laws': [
+            {k: law[k] for k in ('text', 'proposer', 'passed', 'expires')}
+            for law in council.in_force()
+        ],
+        'open': [
+            {
+                k: m[k]
+                for k in ('text', 'proposer', 'proposed', 'for', 'against')
+            }
+            for m in council.open_motions(year)
+        ],
+    }
+
+  def _gatherings(self, year: int) -> list[dict[str, Any]] | None:
+    """The gatherings kept, from the GM's calendar."""
+    calendar = self.run.gm_component(
+        gatherings.DEFAULT_GATHERINGS_COMPONENT_KEY, gatherings.Gatherings
+    )
+    if calendar is None:
+      return None
+    return [
+        {
+            'place': g['place'],
+            'every': g['every'],
+            'host': g['host'],
+            'held': g['held'],
+            'last': g['last'],
+            'last_count': g['last_count'],
+            'next': calendar.next_held(g['id'], year),
+        }
+        for g in calendar.gatherings()
+    ]
 
   def _sick(self) -> list[str]:
     """Who is sick now, from the GM's contagion."""

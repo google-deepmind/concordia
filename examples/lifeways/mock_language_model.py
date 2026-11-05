@@ -67,6 +67,12 @@ _SUITOR = re.compile(
 )
 
 
+def _in_keeping(text: str, customs: Sequence[tuple[str, str, str]]) -> bool:
+  """Whether some custom says much the same (two or more words alike)."""
+  said = _stems(text)
+  return any(len(said & _stems(custom)) >= 2 for _, _, custom in customs)
+
+
 def _bearing_on(
     question: str, customs: Sequence[tuple[str, str, str]], most: int = 3
 ) -> list[str]:
@@ -248,6 +254,10 @@ def _choose(
     return ' '.join([world_lib.LEAD_RITE, *sacred])
   if world_lib.JOIN_RITE in moves and draw < 0.75:
     return world_lib.JOIN_RITE
+  # A gathering near draws most, naming the ways they hold dear.
+  gather = [m for m in moves if m.startswith(world_lib.GO_GATHER)]
+  if gather and food >= 1.5 and draw < 0.6:
+    return ' '.join([gather[0], *sacred])
   if world_lib.PLAY in moves and age < 12:
     return (
         world_lib.PLAY
@@ -260,6 +270,19 @@ def _choose(
   lean = seasons[-1] == 'lean' if seasons else food < 4.0
   if food < 2.5 or ('lean' in texts and lean):
     return follow(world_lib.GATHER, culture_lib.FOOD)
+  # The assembly: a law in keeping with one's customs gets one's vote, and
+  # an elder now and then proposes one; votes cost the year's work, so
+  # only those with food to spare take part.
+  ballots = [m for m in moves if m.startswith(world_lib.VOTE_FOR)]
+  if ballots and food >= 3.0 and draw < 0.6:
+    law = ballots[0].partition(': ')[2]
+    if _in_keeping(law, customs) or draw < 0.25:
+      return ballots[0]
+    return f'{world_lib.VOTE_AGAINST}: {law}'
+  proposals = [m for m in moves if m.startswith(world_lib.PROPOSE)]
+  if proposals and food >= 4.0 and draw < 0.1:
+    fitting = [m for m in proposals if _in_keeping(m, customs)]
+    return (fitting or proposals)[0]
   # With sickness within sight, some keep apart (the draw decides who).
   if world_lib.KEEP_APART in moves and food >= 3.0 and draw < 0.4:
     return world_lib.KEEP_APART

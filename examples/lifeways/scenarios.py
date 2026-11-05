@@ -159,6 +159,24 @@ SANDBOX: Mapping[str, Any] = {
     # immunity. It comes from outside to someone with `chance` a year (and
     # a plague sent brings it to all within reach). One who keeps apart
     # cannot catch it that year. None: no sickness passes.
+    # Gatherings (contrib `Gatherings`): held every `every` years at a place,
+    # drawing the grown and youths within `reach`; those who come grow
+    # closer, see some of the others' ways, and pass word among them. The
+    # valley keeps one at its most crowded place; the Experimenter may call
+    # more, `max` in all. None: nobody gathers.
+    'gatherings': {'every': 5, 'reach': 6, 'max': 6},
+    # The assembly (contrib `Assembly`): an elder proposes one of the World's
+    # `LAWS`; the grown vote the next year; it passes by `rule` if at least
+    # `quorum` of the grown voted, and stands `term` years. Those seen
+    # breaking a law in force are thought less lawful. None: no assembly.
+    'assembly': {
+        'rule': 'majority',
+        'quorum': 0.3,
+        'open_for': 1,
+        'term': 40,
+        'max_motions': 1,
+        'max_laws': 3,
+    },
     'sickness': {
         'transmission': 0.3,
         'incubation': 0,

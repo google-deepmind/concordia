@@ -47,6 +47,12 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import human_input
 
 
+# How long a test waits for many years to pass: the suite plays a world in
+# each of its workers at once, and each mechanic is a GM component the stock
+# entity calls on a thread of its own.
+_SLOW = 240.0
+
+
 def _wait(condition, seconds: float = 30.0) -> bool:
   deadline = time.monotonic() + seconds
   while time.monotonic() < deadline:
@@ -109,7 +115,7 @@ class FreeModeTest(absltest.TestCase):
     session = session_lib.Session(free=0.02, years_per_second=50)
     session.start()
     try:
-      self.assertTrue(_wait(lambda: session.state()['year'] >= 80, 120))
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 80, _SLOW))
       self.assertEqual(session.state()['error'], '')
     finally:
       session.close()
@@ -347,7 +353,7 @@ class SaveTest(absltest.TestCase):
     try:
       # Until fields stand (a few years of First Farmers, longer under
       # load), then a save made after.
-      self.assertTrue(_wait(lambda: first.state()['fields'], 120))
+      self.assertTrue(_wait(lambda: first.state()['fields'], _SLOW))
       sown = first.state()['year']
       self.assertTrue(_wait(lambda: (first.saved_year or 0) > sown, 60))
     finally:
@@ -454,7 +460,7 @@ class TwinTest(absltest.TestCase):
         _wait(
             lambda: min(self.session.state()['year'], twin.state()['year'])
             > year + 20,
-            240,  # Two worlds at once, beside other tests' worlds.
+            _SLOW,
         )
     )
     # Richer land holds more food (whether more live on it within a few
@@ -514,7 +520,7 @@ class TwinTest(absltest.TestCase):
         _wait(
             lambda: min(self.session.state()['year'], twin.state()['year'])
             > year + 12,
-            90,
+            _SLOW,
         )
     )
     self.assertEqual(
@@ -615,7 +621,7 @@ class TreesTest(absltest.TestCase):
     super().setUpClass()
     cls.session = session_lib.Session(years_per_second=50)
     cls.session.start()
-    assert _wait(lambda: cls.session.state()['year'] >= 40, 120)
+    assert _wait(lambda: cls.session.state()['year'] >= 40, _SLOW)
     cls.session.pace(paused=True)
     time.sleep(0.3)
 
@@ -1053,7 +1059,7 @@ class ReplayTest(absltest.TestCase):
       row, col, _ = session.state()['reach'][0]
       session.move(f'release habit food as a song at {row},{col}: Eat fish.')
       session.move('survey 3: Why do you share?')
-      self.assertTrue(_wait(lambda: session.state()['year'] >= 12))
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 12, _SLOW))
       session.pace(paused=True)
       time.sleep(0.3)
       replay = json.loads(json.dumps(session.replay()))
@@ -1129,7 +1135,8 @@ class ReleasesTest(absltest.TestCase):
       self.assertTrue(
           _wait(
               lambda: len(session.releases()) == 2
-              and len(session.releases()[1]['holders']) >= 10
+              and len(session.releases()[1]['holders']) >= 10,
+              _SLOW,
           )
       )
     finally:
@@ -1856,7 +1863,7 @@ class LivingOnTest(absltest.TestCase):
 
     played.start()
     try:
-      self.assertTrue(_wait(lived_on, 120))
+      self.assertTrue(_wait(lived_on, _SLOW))
       state = played.state()['played']
       heir = state['lives'][1]
       self.assertEqual(state['lives'][0], founder)

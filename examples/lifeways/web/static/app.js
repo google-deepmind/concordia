@@ -1620,6 +1620,7 @@ const INSTITUTIONS = ['library', 'school', 'shrine', 'court', 'market'];
  */
 function fateChoices(world) {
   return world.disaster_kinds.concat(['migrants'],
+      world.gatherings ? ['call a gathering'] : [],
       INSTITUTIONS.map((kind) => `found ${kind}`),
       INSTITUTIONS.map((kind) => `close ${kind}`));
 }
@@ -1634,6 +1635,7 @@ function fateChoices(world) {
 function fateMove(kind, at) {
   const where = at.join(',');
   if (kind === 'migrants') return `bring migrants at ${where}`;
+  if (kind === 'call a gathering') return `call a gathering at ${where}`;
   const [act, place] = kind.split(' ');
   if (act === 'found') return `found a ${place} at ${where}`;
   if (act === 'close') return `close the ${place} at ${where}`;
@@ -1648,6 +1650,43 @@ function fateMove(kind, at) {
  */
 function wordMove(text, at) {
   return `spread word at ${at.join(',')}: ${text.trim()}`;
+}
+
+/**
+ * The valley's laws and the motion open, a line each, in words.
+ * @param {!Object} assembly {laws: [{text, proposer, passed, expires}],
+ *     open: [{text, proposer, for, against}]}.
+ * @return {!Array<string>} E.g. '"We spare..." (passed in the year 40,
+ *     proposed by Ada; stands until 80)'.
+ */
+function lawLines(assembly) {
+  const laws = (assembly.laws || []).map((law) => `"${law.text}" (passed ` +
+      `in the year ${law.passed}, proposed by ${law.proposer}` +
+      (law.expires === null || law.expires === undefined ? ')' :
+        `; stands until the year ${law.expires})`));
+  const open = (assembly.open || []).map((motion) => `Proposed by ` +
+      `${motion.proposer}, voted on this year: "${motion.text}" (so far ` +
+      `${motion.for} for, ${motion.against} against)`);
+  const lines = [...laws, ...open];
+  return lines.length ? lines : ['No law yet, and nothing proposed.'];
+}
+
+/**
+ * A gathering, in words.
+ * @param {!Object} gathering {place, every, host, held, last, last_count,
+ *     next}.
+ * @return {string} E.g. 'At row 3, column 4, every 5 years (the valley's
+ *     own): next in the year 20; last in the year 15, with 12 people.'
+ */
+function gatheringText(gathering) {
+  const whose = gathering.host === 'Experimenter' ? 'called by you' :
+      'the valley\'s own';
+  const last = gathering.last === null || gathering.last === undefined ?
+    'not held yet' : `last in the year ${gathering.last}, with ` +
+      `${gathering.last_count} ${gathering.last_count === 1 ? 'person' :
+        'people'}`;
+  return `At ${gathering.place}, every ${gathering.every} years (${whose}): ` +
+      `next in the year ${gathering.next}; ${last}.`;
 }
 
 /** What a rumour is news of, in words. */
@@ -1858,6 +1897,10 @@ const PART_WORDS = {
       'and debts left unpaid make a name',
   Contagion: 'a sickness that passes between neighbours and close kin, ' +
       'and ends in recovery (and a while safe from it) or death',
+  Gatherings: 'gatherings every few years, where those who come grow ' +
+      'closer, see each other\'s ways and pass word',
+  Assembly: 'the valley\'s laws: proposed by elders, voted on by the ' +
+      'grown, standing for a term',
 };
 
 /** Where a part comes from, in words. */
@@ -2123,7 +2166,8 @@ const EXAMPLE_SAYS = {
  */
 function knownForText(known) {
   const words = {generous: ['generous', 'stingy'],
-    reliable: ['reliable', 'one who does not repay']};
+    reliable: ['reliable', 'one who does not repay'],
+    lawful: ['law-abiding', 'a lawbreaker']};
   return known.filter((k) => words[k.quality] && Math.abs(k.standing) >= 0.05)
       .map((k) => ` Known as ${words[k.quality][k.standing > 0 ? 0 : 1]} ` +
         `by ${k.by} who saw or heard of it.`).join('');
@@ -2810,6 +2854,18 @@ async function refreshOnce() {
           return item;
         }));
     document.getElementById('rumours-none').hidden = rumours.length > 0;
+    document.getElementById('laws').replaceChildren(
+        ...lawLines(world.assembly || {laws: [], open: []}).map((line) => {
+          const item = document.createElement('li');
+          item.textContent = line;
+          return item;
+        }));
+    document.getElementById('gatherings').replaceChildren(
+        ...(world.gatherings || []).map((gathering) => {
+          const item = document.createElement('li');
+          item.textContent = gatheringText(gathering);
+          return item;
+        }));
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
@@ -3796,6 +3852,6 @@ if (typeof document !== 'undefined') {
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
     tieText, wordMove, rumourText, knownForText, debtLines, sickNote,
-    sicknessText,
+    sicknessText, gatheringText, lawLines,
   };
 }

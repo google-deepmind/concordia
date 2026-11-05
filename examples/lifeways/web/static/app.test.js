@@ -28,7 +28,7 @@ const {
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
-  sickNote, sicknessText,
+  sickNote, sicknessText, gatheringText, lawLines,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -988,4 +988,28 @@ test('the sick are named, and a person\'s sickness reads plainly', () => {
   assert.equal(sicknessText({state: 'immune', left: 1}),
       ' Had the sickness: safe from it for 1 more year.');
   assert.equal(sicknessText({state: 'susceptible', left: 0}), '');
+});
+
+test('a gathering reads where, how often, next and last', () => {
+  assert.equal(gatheringText({place: 'row 3, column 4', every: 5, host: '',
+    held: 2, last: 15, last_count: 12, next: 20}), 'At row 3, column 4, ' +
+      'every 5 years (the valley\'s own): next in the year 20; last in ' +
+      'the year 15, with 12 people.');
+  assert.equal(gatheringText({place: 'row 1, column 1', every: 5, host:
+    'Experimenter', held: 0, last: null, last_count: 0, next: 21}),
+  'At row 1, column 1, every 5 years (called by you): next in the year ' +
+      '21; not held yet.');
+});
+
+test('laws and the motion open read as lines', () => {
+  assert.deepEqual(lawLines({laws: [{text: 'We spare.', proposer: 'Ada',
+    passed: 40, expires: 80}], open: [{text: 'We share.', proposer: 'Bo',
+    for: 3, against: 1}]}), [
+    '"We spare." (passed in the year 40, proposed by Ada; stands until ' +
+        'the year 80)',
+    'Proposed by Bo, voted on this year: "We share." (so far 3 for, 1 ' +
+        'against)',
+  ]);
+  assert.deepEqual(lawLines({laws: [], open: []}),
+      ['No law yet, and nothing proposed.']);
 });
