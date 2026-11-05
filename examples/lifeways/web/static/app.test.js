@@ -27,7 +27,7 @@ const {
   crossedText, labLines, labStatus, prevalenceSeries, previewText,
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
-  letGoText, mapText, tieText,
+  letGoText, mapText, tieText, wordMove, rumourText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -944,4 +944,17 @@ test('a tie says how close two are and what brought them together', () => {
   assert.equal(tieText({strength: 0.35, kinds: ['work']}),
       'close: worked the same land');
   assert.equal(tieText({strength: 0.1, kinds: []}), 'known to each other');
+});
+
+test('word is spread where the ring is, and rumours read as news', () => {
+  assert.equal(wordMove('  The hills hide gold. ', [3, 4]),
+      'spread word at 3,4: The hills hide gold.');
+  const rumour = {text: 'A flood struck near row 3.', furthest:
+    'A flood struck.', reach: 7, started: 10, kind: 'disaster'};
+  assert.equal(rumourText(rumour, 12), '"A flood struck near row 3." ' +
+      '(a disaster seen, 2 years ago) · 7 have heard it · reached the ' +
+      'furthest as "A flood struck."');
+  assert.equal(rumourText({...rumour, furthest: rumour.text, reach: 1,
+    kind: 'word'}, 10), '"A flood struck near row 3." (your word, this ' +
+      'year) · 1 has heard it');
 });

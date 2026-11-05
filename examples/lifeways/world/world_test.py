@@ -18,6 +18,7 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from examples.lifeways import scenarios
 from examples.lifeways.world import culture as culture_lib
@@ -2015,7 +2016,8 @@ class TiesTest(absltest.TestCase):
     super().setUp()
     self.ties = social_ties.SocialTies(decay=0.1)
     self.world = world_lib.World(
-        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL}, ties=self.ties
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL},
+        world_lib.Mechanics(ties=self.ties),
     )
     self.belief = self.world.culture.add('belief', 'sacred', 'Hills.').id
     for name, tile, food in (
@@ -2097,6 +2099,84 @@ class TiesTest(absltest.TestCase):
     world.actions = {name: world_lib.GATHER for name in world.people}
     world.close_year()
     self.assertEqual(world.history[-1]['ties'], 0)
+
+
+class RumoursTest(absltest.TestCase):
+  """Rumours: news passing along ties, kept by the GM's `Rumors`."""
+
+  def setUp(self):
+    super().setUp()
+    self.ties = social_ties.SocialTies()
+    self.rumors = rumors_lib.Rumors(chance=1.0, garble=0.0)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL},
+        world_lib.Mechanics(ties=self.ties, rumors=self.rumors),
+    )
+    for name, tile, age in (
+        ('Ada', (2, 2), 30),
+        ('Bo', (2, 3), 30),
+        ('Cy', (12, 12), 30),
+        ('Eld', (12, 13), 70),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - age, sex='f', tile=tile, food=8.0
+      )
+    self.ties.strengthen('Bo', 'Cy', 0.6, kind=world_lib.FRIEND)
+
+  def _year(self, experimenter=world_lib.WATCH):
+    self.world.queued.clear()
+    self.world.actions = {name: world_lib.REST for name in self.world.people}
+    self.world.actions[world_lib.EXPERIMENTER] = experimenter
+    return self.world.close_year()
+
+  def test_word_of_a_disaster_travels_along_ties_the_next_year(self):
+    self.world._strike(world_lib.DROUGHT, (2, 2), 'world')
+
+    self._year()  # Ada and Bo saw it this year.
+    self._year()  # Bo tells Cy, its friend.
+
+    self.assertEqual(self.rumors.rumors()[0]['kind'], world_lib.DISASTER_NEWS)
+    told = [t for t in self.world.queued['Cy'] if t.startswith('Word')]
+    self.assertEqual(
+        told,
+        [
+            'Word reaches Cy from Bo: In the year 0, a drought struck near'
+            f' {world_lib.where((2, 2))}.'
+        ],
+    )
+    self.assertEqual(self.world.history[-1]['heard'], 1)
+    self.assertEqual(self.world.history[-1]['rumours'], 1)
+
+  def test_an_elders_death_is_news_and_the_dead_hear_no_more(self):
+    self.world._die('Eld')
+
+    news = self.rumors.rumors()[0]
+    self.assertEqual((news['about'], news['kind']), ('Eld', 'death'))
+    self.assertEqual(news['reach'], 1)  # Cy lived within sight.
+    self.world._die('Cy')
+    self.assertEqual(self.rumors.rumors()[0]['reach'], 0)
+
+  def test_the_experimenter_spreads_word_near_a_place(self):
+    self.assertIn(world_lib.WORD_FORM, self.world.moves(world_lib.EXPERIMENTER))
+
+    self._year('spread word at 2,2: The hills hide gold.')
+
+    self.assertIn(
+        'Ada hears it said: The hills hide gold.', self.world.queued['Ada']
+    )
+    self.assertEqual(self.rumors.rumors()[0]['reach'], 2)  # Ada and Bo.
+    self._year('spread word at 20,20: Nobody hears this.')
+    self.assertIn(
+        'Nobody lives within', ' '.join(self.world.history[-1]['reports'])
+    )
+
+  def test_a_world_without_rumours_has_no_word_to_spread(self):
+    world = world_lib.World({'seed': 0, 'founders': 2})
+
+    self.assertNotIn(world_lib.WORD_FORM, world.moves(world_lib.EXPERIMENTER))
+    world.actions = {name: world_lib.GATHER for name in world.people}
+    world.close_year()
+    self.assertEqual(world.history[-1]['rumours'], 0)
 
 
 class SeasonsTest(absltest.TestCase):

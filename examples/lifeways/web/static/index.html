@@ -165,6 +165,12 @@ limitations under the License.
         little, and one left alone is forgotten.</p>
       <ul id="person-ties"></ul>
     </div>
+    <div id="person-heard-box" hidden>
+      <h3>Word they heard</h3>
+      <p class="hint">News that reached this person lately, in the words it
+        reached them in, and from whom.</p>
+      <ul id="person-heard"></ul>
+    </div>
     <h3>Their customs</h3>
     <p class="hint">The ways this person lives by, and how each came to them.
       Copying loses words, so some read oddly; "how it has changed" shows a
@@ -300,6 +306,26 @@ limitations under the License.
     </form>
     <p id="fate-queued" class="hint"></p>
     <p id="fate-error" class="hint" role="alert"></p>
+    <div id="word-box" hidden>
+      <h3>Spread word</h3>
+      <p class="hint">Those within sight of the ring hear it first. Each year
+        it passes along people's ties; a retelling may drop a word, and is
+        less sure than the one before.</p>
+      <form id="word">
+        <label class="wide">What people say
+          <input id="word-text" maxlength="160"
+            placeholder="The hills hide good land.">
+        </label>
+        <button type="submit">Spread it next year</button>
+      </form>
+      <p id="word-error" class="hint" role="alert"></p>
+      <h3>Word going round</h3>
+      <p class="hint">News of disasters, of elders' deaths, and your word,
+        as first told; where a retelling changed it, how it reached the
+        furthest.</p>
+      <ul id="rumours"></ul>
+      <p id="rumours-none" class="hint" hidden>No word is going round.</p>
+    </div>
   </section>
 
   <section id="graphs" aria-label="The census">

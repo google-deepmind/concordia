@@ -64,6 +64,7 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
 from examples.lifeways import scenarios
@@ -93,6 +94,9 @@ SAVE_VERSION = 2
 _ENTITY_LOOP = asynchronous.Asynchronous._entity_loop.__code__
 # The most of a person's closest the inspector shows.
 CLOSE_SHOWN = 6
+# The most rumours going round the page shows, and of a person's heard.
+RUMOURS_SHOWN = 5
+HEARD_SHOWN = 3
 # Variants nobody holds any more that the page remembers, for lineages.
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
@@ -2090,7 +2094,40 @@ class Session:
             self._settings.get('channels', world_lib.DEFAULT_CHANNELS)
         ),
         'played': self._played_state(people) if self.played else None,
+        # The word going round (None if the world keeps no rumours).
+        'rumours': self._rumours(),
     }
+
+  def _rumours(self) -> list[dict[str, Any]] | None:
+    """The rumours going round (`RUMOURS_SHOWN`), from the GM's.
+
+    The Experimenter's word first, then disasters, then the rest (elders'
+    deaths, which are many), each the latest first.
+
+    Returns:
+      The rumours, or None if the world keeps none.
+    """
+    rumors = self.run.gm_component(
+        rumors_lib.DEFAULT_RUMORS_COMPONENT_KEY, rumors_lib.Rumors
+    )
+    if rumors is None:
+      return None
+    first = (world_lib.WORD_NEWS, world_lib.DISASTER_NEWS)
+    going = sorted(
+        rumors.rumors(),
+        key=lambda r: (
+            first.index(r['kind']) if r['kind'] in first else len(first),
+            -r['started'],
+        ),
+    )
+    return [
+        {
+            k: r[k]
+            for k in ('text', 'furthest', 'reach', 'started', 'kind', 'about')
+        }
+        | {'least': round(float(r['least']), 2)}
+        for r in going[:RUMOURS_SHOWN]
+    ]
 
   def _played_state(
       self, people: Sequence[Mapping[str, Any]]
@@ -2354,7 +2391,20 @@ class Session:
         # Its standing: how often it has judged at a court.
         'judged': int(world.get('judgments', {}).get(name, 0)),
         'close_to': self._close_to(name),
+        'heard': self._heard_by(name),
     }
+
+  def _heard_by(self, name: str) -> list[dict[str, Any]]:
+    """The latest word a person heard (`HEARD_SHOWN`), from the GM's."""
+    rumors = self.run.gm_component(
+        rumors_lib.DEFAULT_RUMORS_COMPONENT_KEY, rumors_lib.Rumors
+    )
+    if rumors is None:
+      return []
+    return [
+        {k: r[k] for k in ('text', 'teller', 'heard')}
+        for r in rumors.known_by(name)[:HEARD_SHOWN]
+    ]
 
   def _close_to(self, name: str) -> list[dict[str, Any]]:
     """Those a person is closest to (`CLOSE_SHOWN`), from the GM's ties."""

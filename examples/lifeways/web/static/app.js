@@ -1641,6 +1641,41 @@ function fateMove(kind, at) {
 }
 
 /**
+ * The Experimenter's word, in the form the World reads.
+ * @param {string} text What people are to say.
+ * @param {!Array<number>} at [row, col].
+ * @return {string} The move.
+ */
+function wordMove(text, at) {
+  return `spread word at ${at.join(',')}: ${text.trim()}`;
+}
+
+/** What a rumour is news of, in words. */
+const NEWS_WORDS = {
+  disaster: 'a disaster seen',
+  death: 'a death',
+  word: 'your word',
+};
+
+/**
+ * A rumour going round, in words.
+ * @param {!Object} rumour {text, furthest, reach, started, kind}.
+ * @param {number} year The year now.
+ * @return {string} E.g. '"A flood struck near row 3." (a disaster seen,
+ *     2 years ago) · 7 have heard it · furthest: "A flood struck."'
+ */
+function rumourText(rumour, year) {
+  const age = year - rumour.started;
+  const when = age <= 0 ? 'this year' : age === 1 ? 'a year ago' :
+      `${age} years ago`;
+  const what = NEWS_WORDS[rumour.kind] || 'news';
+  return `"${rumour.text}" (${what}, ${when}) · ` +
+      `${rumour.reach} ${rumour.reach === 1 ? 'has' : 'have'} heard it` +
+      (rumour.furthest && rumour.furthest !== rumour.text ?
+        ` · reached the furthest as "${rumour.furthest}"` : '');
+}
+
+/**
  * The Experimenter's question to a person, in the form the World reads.
  * @param {string} name The person's name.
  * @param {string} question The question.
@@ -1815,6 +1850,8 @@ const PART_WORDS = {
   Terminate: 'ends the world when you end it',
   SocialTies: 'who is close to whom: ties that family, work, teaching, ' +
       'rites, food shared and visits make, and that fade unless renewed',
+  Rumors: 'the word going round: news that passes along ties, and ' +
+      'changes as it is retold',
 };
 
 /** Where a part comes from, in words. */
@@ -1898,6 +1935,15 @@ async function showPerson(name) {
         `${person.name}'s ways more readily.` : '');
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
+  const heard = person.heard || [];
+  document.getElementById('person-heard-box').hidden = !heard.length;
+  document.getElementById('person-heard').replaceChildren(...heard.map((h) => {
+    const item = document.createElement('li');
+    item.textContent = `"${h.text}" · ` + (h.teller ?
+      `from ${h.teller}, in the year ${h.heard}` :
+      `saw it themselves, in the year ${h.heard}`);
+    return item;
+  }));
   const ties = person.close_to || [];
   document.getElementById('person-ties-box').hidden = !ties.length;
   document.getElementById('person-ties').replaceChildren(...ties.map((tie) => {
@@ -2675,6 +2721,15 @@ async function refreshOnce() {
     for (const id of ['queued', 'fate-queued']) {
       document.getElementById(id).textContent = queuedNote(world.pace.queued);
     }
+    document.getElementById('word-box').hidden = !world.rumours;
+    const rumours = world.rumours || [];
+    document.getElementById('rumours').replaceChildren(...rumours.map(
+        (rumour) => {
+          const item = document.createElement('li');
+          item.textContent = rumourText(rumour, world.year);
+          return item;
+        }));
+    document.getElementById('rumours-none').hidden = rumours.length > 0;
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
@@ -3587,6 +3642,23 @@ async function start() {
     });
     refresh();
   });
+  document.getElementById('word').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const said = document.getElementById('word-error');
+    const text = document.getElementById('word-text').value.trim();
+    if (!page.at || !page.atChosen) {
+      said.textContent = 'Tap the map first, to choose the place.';
+      return;
+    }
+    if (!text) {
+      said.textContent = 'Write what people are to say.';
+      return;
+    }
+    said.textContent = '';
+    await api('api/move', {move: wordMove(text, page.at)});
+    document.getElementById('word-text').value = '';
+    refresh();
+  });
   document.getElementById('note').addEventListener('submit', async (event) => {
     event.preventDefault();
     const said = document.getElementById('note-error');
@@ -3643,6 +3715,6 @@ if (typeof document !== 'undefined') {
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
-    tieText,
+    tieText, wordMove, rumourText,
   };
 }

@@ -24,7 +24,7 @@ which people's threads happened to act.
 """
 
 import collections
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 import copy
 import dataclasses
 import math
@@ -32,6 +32,7 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
@@ -183,6 +184,22 @@ _INSTITUTION = re.compile(
     r' (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
 )
 MIGRANTS_FORM = 'bring migrants at <row>,<col>'
+# The Experimenter's: start a rumour among those near a place (the
+# `rumours` setting). It travels along people's ties, changing as it goes.
+WORD = 'spread word'
+WORD_FORM = 'spread word at <row>,<col>: <what it says>'
+_WORD = re.compile(
+    r'^spread word at (?P<row>\d+)\s*,\s*(?P<col>\d+)\s*:\s*(?P<text>.+)$',
+    re.IGNORECASE,
+)
+WORD_LENGTH = 160  # The most of the Experimenter's words a rumour keeps.
+# Rumours pass along ties at least this close (with no ties kept, between
+# those within sight). Kinds of news: a disaster seen, an elder's death, the
+# Experimenter's word.
+RUMOR_TIE = 0.1
+DISASTER_NEWS = 'disaster'
+DEATH_NEWS = 'death'
+WORD_NEWS = 'word'
 _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 
 # The deeds others see a person do by its customs, and so may copy. Teaching,
@@ -413,24 +430,42 @@ class YearOutcome:
   stopped: bool = False
 
 
+@dataclasses.dataclass(frozen=True)
+class Mechanics:
+  """The World GM's contrib mechanics that the world calls (None: not kept).
+
+  Each is a GM component under its own key, which the GM saves and
+  restores; the world holds the same objects to call as a year closes.
+
+  Attributes:
+    ties: Who is close to whom (`SocialTies`, the `ties` setting).
+    rumors: The word going round (`Rumors`, the `rumours` setting).
+  """
+
+  ties: social_ties.SocialTies | None = None
+  rumors: rumors_lib.Rumors | None = None
+
+
 class World:
   """The land, the people's lives and the record of customs."""
 
   def __init__(
       self,
       settings: Mapping[str, Any],
-      ties: social_ties.SocialTies | None = None,
+      mechanics: Mechanics | None = None,
   ):
     """Makes the world, empty until founded.
 
     Args:
       settings: The world's settings (`scenarios.settings`).
-      ties: The World GM's social ties (`SocialTies`), if the world keeps
-        them (the `ties` setting). The GM saves them; the world records who
-        met whom each year and lets the ties fade.
+      mechanics: The World GM's contrib mechanics, if it keeps any. The GM
+        saves them; the world calls them as a year closes.
     """
     self.settings = dict(settings)
-    self.ties = ties
+    mechanics = mechanics or Mechanics()
+    self.ties = mechanics.ties
+    self.rumors = mechanics.rumors
+    self._heard = 0  # Rumours heard this year.
     # Encounters this year: (a, b, kind) with a < b, made ties at its close.
     self._met: set[tuple[str, str, str]] = set()
     self.seed = int(settings.get('seed', 0))
@@ -900,6 +935,13 @@ class World:
       self._tell(name, f'{what} {name}{fate}.')
     for name in dead:
       self._die(name)
+    self._start_rumor(
+        f'In the year {self.year}, a {kind} struck near {where(tile)}'
+        + (f' and {len(dead)} died' if dead else '')
+        + '.',
+        [name for name in near if name in self.people],
+        kind=DISASTER_NEWS,
+    )
     record = {
         'kind': kind,
         'tile': list(tile),
@@ -1082,6 +1124,7 @@ class World:
           DISASTER_FORM,
           MIGRANTS_FORM,
           *INSTITUTION_FORMS,
+          *([WORD_FORM] if self.rumors is not None else []),
           STOP,
       ]
     person = self.people[name]
@@ -1713,6 +1756,7 @@ class World:
     self._survey(self.actions.get(EXPERIMENTER, ''))
     brought = self._bring(self.actions.get(EXPERIMENTER, ''))
     self._institution(self.actions.get(EXPERIMENTER, ''))
+    self._word(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
     self._trade(did)
@@ -1730,6 +1774,7 @@ class World:
     deaths += self._disaster()
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
+    self._spread_word()
     self.norm_acts = {
         name: [
             name in seen,
@@ -2655,6 +2700,60 @@ class World:
           f'{person.name} visits',
       )
 
+  def _start_rumor(
+      self, text: str, knowers: Collection[str], about: str = '', kind: str = ''
+  ) -> None:
+    """Starts a rumour among the living who know it (if rumours are kept)."""
+    knowing = sorted(name for name in knowers if name in self.people)
+    if self.rumors is not None and knowing:
+      self.rumors.start(text, knowing, self.year, about=about, kind=kind)
+
+  def _word(self, answer: str) -> None:
+    """The Experimenter spreads word near a place (`WORD_FORM`)."""
+    answer = answer.strip()
+    if self.rumors is None or not answer.lower().startswith(WORD):
+      return
+    match = _WORD.match(answer)
+    if match is None:
+      self._report('The word is not understood: ' + answer)
+      return
+    tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
+    text = match.group('text').strip()[:WORD_LENGTH]
+    near = [
+        name
+        for name in self.living()
+        if self.places.distance(self.people[name].tile, tile) <= self.sight
+    ]
+    if not near:
+      self._report(
+          f'Nobody lives within {self.sight} steps of {where(tile)} to hear'
+          ' the word.'
+      )
+      return
+    self._start_rumor(text, near, kind=WORD_NEWS)
+    for name in near:
+      self._tell(name, f'{name} hears it said: {text}')
+    self._report(f'Word is spread at {where(tile)}: {len(near)} heard it.')
+
+  def _spread_word(self) -> None:
+    """Rumours pass along ties (or between those within sight)."""
+    self._heard = 0
+    if self.rumors is None:
+      return
+    if self.ties is not None:
+      contacts = self.ties.contacts(self.living(), min_strength=RUMOR_TIE)
+    else:
+      contacts = {
+          name: self._in_sight(self.people[name]) for name in self.living()
+      }
+    for heard in self.rumors.spread(contacts, self.year):
+      if heard.hearer in self.people:
+        self._tell(
+            heard.hearer,
+            f'Word reaches {heard.hearer} from {heard.teller}: {heard.text}',
+        )
+        self._heard += 1
+
   def _tie_up(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """The year's encounters make ties; then every tie fades a little.
 
@@ -3023,6 +3122,20 @@ class World:
     del self.dead[:-DEAD_KEPT]
     if self.ties is not None:
       self.ties.remove(name)
+    if self.rumors is not None:
+      self.rumors.forget(name)
+      age = person.age(self.year)
+      if age >= ELDER_AGE:
+        self._start_rumor(
+            f'{name} died in the year {self.year}, aged {age}.',
+            {
+                *(k for k in (*person.parents, *person.children) if k),
+                *([person.partner] if person.partner else []),
+                *self._in_sight(person),
+            },
+            about=name,
+            kind=DEATH_NEWS,
+        )
     self._bequeath(person)
     self.judgments.pop(name, None)  # Standing is the living's.
     if person.partner in self.people:
@@ -3130,6 +3243,9 @@ class World:
         'gini': gini([p.food for p in self.people.values()]),
         'shares': self._shares,
         'fed': len(self._fed),
+        # Rumours (none if the world keeps none): going round, heard.
+        'rumours': len(self.rumors.rumors()) if self.rumors is not None else 0,
+        'heard': self._heard,
         # Social ties (none if the world keeps none): how many, how close.
         'ties': self.ties.size() if self.ties is not None else 0,
         'closeness': (

@@ -1349,6 +1349,25 @@ class ServerTest(absltest.TestCase):
         )
     )
 
+  def test_word_spread_from_the_page_goes_round(self):
+    row, col = self._get('/api/state')['people'][0]['tile']
+
+    self._post(
+        '/api/move',
+        {'move': f'spread word at {row},{col}: The hills hide gold.'},
+    )
+
+    def going_round():
+      return [
+          r
+          for r in self._get('/api/state')['rumours'] or ()
+          if r['kind'] == world_lib.WORD_NEWS
+      ]
+
+    self.assertTrue(_wait(lambda: bool(going_round())))
+    self.assertEqual(going_round()[0]['text'], 'The hills hide gold.')
+    self.assertGreaterEqual(going_round()[0]['reach'], 1)
+
   def test_the_page_shows_how_concordia_builds_a_person_and_the_world(self):
     name = self._get('/api/state')['people'][0]['name']
 

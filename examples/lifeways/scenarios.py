@@ -133,6 +133,20 @@ SANDBOX: Mapping[str, Any] = {
     # `decay`, one fainter than `floor` is forgotten, and each person keeps
     # its `max` closest. None: the world keeps no ties.
     'ties': {'decay': 0.1, 'floor': 0.05, 'max': 12},
+    # Rumours (contrib `Rumors`): news of a disaster seen, an elder's death,
+    # or the Experimenter's word passes along ties at least `RUMOR_TIE`
+    # close: each year one who heard it in the last `tell_for` years tells
+    # each such tie with `chance`; a retelling keeps `keep` of its truth and
+    # with `garble` drops a word. One untold for `forget_after` years is
+    # forgotten; at most `max` go round. None: no word goes round.
+    'rumours': {
+        'chance': 0.5,
+        'tell_for': 3,
+        'keep': 0.9,
+        'garble': 0.2,
+        'forget_after': 20,
+        'max': 30,
+    },
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.

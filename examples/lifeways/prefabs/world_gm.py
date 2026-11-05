@@ -23,6 +23,7 @@
 | `__terminate__` | stock `Terminate`, told by `TurnGate` at `max_years` |
 | `lifeways_world` | `WorldComponent`: the world, its state the GM's |
 | `__social_ties__` | contrib `SocialTies`: who is close to whom (the `ties` setting) |
+| `__rumors__` | contrib `Rumors`: the word going round (the `rumours` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -45,6 +46,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
 from examples.lifeways.components import game_master as gm_components
@@ -52,10 +54,43 @@ from examples.lifeways.prefabs import measures
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
 WORLD_GM_PREFAB = 'lifeways_world__GameMaster'
 WORLD_GM_NAME = 'Lifeways'
+
+
+def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
+  """The contrib mechanics a world's settings ask for, each built anew.
+
+  Args:
+    settings: The world's settings (`scenarios.settings`).
+
+  Returns:
+    The mechanics (one left out where its setting is missing or None).
+  """
+  ties = None
+  if settings.get('ties'):
+    tie_settings = dict(settings['ties'])
+    ties = social_ties.SocialTies(
+        decay=float(tie_settings.get('decay', social_ties.DECAY)),
+        floor=float(tie_settings.get('floor', social_ties.FLOOR)),
+        max_ties=int(tie_settings.get('max', social_ties.MAX_TIES)),
+    )
+  rumors = None
+  if settings.get('rumours'):
+    word = dict(settings['rumours'])
+    rumors = rumors_lib.Rumors(
+        seed=int(settings.get('seed', 0)),
+        chance=float(word.get('chance', rumors_lib.CHANCE)),
+        tell_for=int(word.get('tell_for', rumors_lib.TELL_FOR)),
+        keep=float(word.get('keep', rumors_lib.KEEP)),
+        garble=float(word.get('garble', rumors_lib.GARBLE)),
+        forget_after=int(word.get('forget_after', rumors_lib.FORGET_AFTER)),
+        max_rumors=int(word.get('max', rumors_lib.MAX_RUMORS)),
+    )
+  return world_lib.Mechanics(ties=ties, rumors=rumors)
 
 
 @dataclasses.dataclass
@@ -109,20 +144,8 @@ class WorldGameMaster(prefab_lib.Prefab):
     del memory_bank
     self.check_extra_components()
     settings = dict(self.params.get('settings', {}))
-    mechanics: dict[str, Any] = {}
-    if settings.get('ties'):
-      tie_settings = dict(settings['ties'])
-      mechanics[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = (
-          social_ties.SocialTies(
-              decay=float(tie_settings.get('decay', social_ties.DECAY)),
-              floor=float(tie_settings.get('floor', social_ties.FLOOR)),
-              max_ties=int(tie_settings.get('max', social_ties.MAX_TIES)),
-          )
-      )
-    world = world_lib.World(
-        settings,
-        ties=mechanics.get(social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY),
-    )
+    mechanics = make_mechanics(settings)
+    world = world_lib.World(settings, mechanics)
     world.found(self.params.get('founders', ()))
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
     players = self.entities if self.entities is not None else []
@@ -153,7 +176,7 @@ class WorldGameMaster(prefab_lib.Prefab):
     # names. They need no others: next acting is the `TurnGate`'s, which asks
     # the World, and the World addresses observations by name, never to all.
     names = [entity.name for entity in self.entities or ()]
-    components = {
+    components: dict[str, entity_component.ContextComponent] = {
         gm_components.DEFAULT_WORLD_KEY: gm_components.WorldComponent(world),
         player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY: roster,
         next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: gate,
@@ -174,7 +197,10 @@ class WorldGameMaster(prefab_lib.Prefab):
         ),
         terminate.DEFAULT_TERMINATE_COMPONENT_KEY: terminate.Terminate(),
     }
-    components.update(mechanics)
+    if mechanics.ties is not None:
+      components[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = mechanics.ties
+    if mechanics.rumors is not None:
+      components[rumors_lib.DEFAULT_RUMORS_COMPONENT_KEY] = mechanics.rumors
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),
