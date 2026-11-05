@@ -28,7 +28,7 @@ const {
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
-  sickNote, sicknessText, gatheringText, lawLines,
+  sickNote, sicknessText, gatheringText, lawLines, chiefText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -1012,4 +1012,12 @@ test('laws and the motion open read as lines', () => {
   ]);
   assert.deepEqual(lawLines({laws: [], open: []}),
       ['No law yet, and nothing proposed.']);
+});
+
+test('the chief reads with its term', () => {
+  assert.equal(chiefText({holder: 'Ada', began: 40, ends: 60, how:
+    'acclaimed'}), 'The valley\'s chief is Ada, acclaimed in the year 40 ' +
+      'for the best name; the term ends in the year 60. A chief may ' +
+      'propose a law and call gatherings.');
+  assert.equal(chiefText(null), '');
 });

@@ -169,6 +169,11 @@ SANDBOX: Mapping[str, Any] = {
     # `LAWS`; the grown vote the next year; it passes by `rule` if at least
     # `quorum` of the grown voted, and stands `term` years. Those seen
     # breaking a law in force are thought less lawful. None: no assembly.
+    # Offices (contrib `Offices`): the valley's chief, acclaimed for `term`
+    # years: the grown person of the best name (generous, reliable, lawful).
+    # The chief may propose a law any year, and call a gathering where it
+    # lives. None: no chief.
+    'offices': {'term': 20},
     'assembly': {
         'rule': 'majority',
         'quorum': 0.3,

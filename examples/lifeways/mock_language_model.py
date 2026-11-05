@@ -283,6 +283,9 @@ def _choose(
   if proposals and food >= 4.0 and draw < 0.1:
     fitting = [m for m in proposals if _in_keeping(m, customs)]
     return (fitting or proposals)[0]
+  # A chief now and then calls a gathering where it lives.
+  if world_lib.CALL_HERE in moves and food >= 3.0 and draw < 0.2:
+    return world_lib.CALL_HERE
   # With sickness within sight, some keep apart (the draw decides who).
   if world_lib.KEEP_APART in moves and food >= 3.0 and draw < 0.4:
     return world_lib.KEEP_APART

@@ -21,6 +21,7 @@ from absl.testing import absltest
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import gatherings
+from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2558,6 +2559,67 @@ class AssemblyTest(absltest.TestCase):
     self.assertLess(self.reputation.view('Eld', 'Ada', world_lib.LAWFUL), 0.0)
     self.assertIn(f'Ada broke the law: {self.spare}', self.world.queued['Eld'])
     self.assertEqual(self.world.history[-1]['law_breaches'], 1)
+
+
+class ChiefTest(absltest.TestCase):
+  """The valley's chief, the GM's `Offices`."""
+
+  def setUp(self):
+    super().setUp()
+    self.offices = offices_lib.Offices()
+    self.reputation = reputation_lib.Reputation(decay=0.0)
+    self.calendar = gatherings.Gatherings()
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'offices': {'term': 3}},
+        world_lib.Mechanics(
+            reputation=self.reputation,
+            offices=self.offices,
+            gatherings=self.calendar,
+        ),
+    )
+    for name, age, tile in (
+        ('Eld', 70, (9, 9)),
+        ('Ada', 30, (5, 5)),
+        ('Kid', 8, (2, 2)),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - age, sex='f', tile=tile, food=8.0
+      )
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_the_best_name_is_acclaimed_chief_else_the_eldest(self):
+    self._year()
+
+    self.assertEqual(self.offices.holder(world_lib.CHIEF), 'Eld')  # Eldest.
+    self.assertIn(
+        "Eld is acclaimed the valley's chief.", self.world.queued['Ada']
+    )
+    self.assertIn("The valley's chief is Eld.", self.world.status('Ada'))
+    self.reputation.witness('Ada', world_lib.GENEROUS, 1.0, ['Kid'])
+    for _ in range(3):
+      self._year()  # The term of 3 ends; Ada has the better name now.
+    self.assertEqual(self.offices.holder(world_lib.CHIEF), 'Ada')
+    self.assertEqual(self.world.history[-1]['chief'], 'Ada')
+
+  def test_a_chief_who_dies_is_succeeded_and_may_call_a_gathering(self):
+    self._year()
+    self.assertIn(world_lib.CALL_HERE, self.world.moves('Eld'))
+    self.assertNotIn(world_lib.CALL_HERE, self.world.moves('Ada'))
+
+    self._year(Eld=world_lib.CALL_HERE)
+    self.assertIn(
+        world_lib.where((9, 9)),
+        [g['place'] for g in self.calendar.gatherings()],
+    )
+    self.world._die('Eld')
+    self._year()
+    self.assertEqual(self.offices.holder(world_lib.CHIEF), 'Ada')
 
 
 class SeasonsTest(absltest.TestCase):

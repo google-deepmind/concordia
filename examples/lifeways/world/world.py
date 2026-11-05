@@ -35,6 +35,7 @@ import zlib
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion as contagion_lib
 from concordia.contrib.components.game_master import gatherings as gatherings_lib
+from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -85,6 +86,8 @@ GO_GATHER = 'go to the gathering'
 PROPOSE = 'propose the law'
 VOTE_FOR = 'vote for the law'
 VOTE_AGAINST = 'vote against the law'
+# The chief's (the `offices` setting): a gathering where the chief lives.
+CALL_HERE = 'call a gathering where you live'
 _GO_GATHER = re.compile(r'^go to the gathering at (?P<row>\d+),(?P<col>\d+)$')
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
@@ -274,6 +277,15 @@ LAWS: Mapping[str, str] = {
     APART_LAW: 'When sickness comes near, the well keep apart.',
 }
 LAWFUL = 'lawful'
+# Offices (the `offices` setting): the valley's chief, acclaimed for a
+# `term` of years. When the office falls vacant or a term ends, the grown
+# person of the best name (the sum of its public standing as generous,
+# reliable and lawful; the eldest first, among equals) is acclaimed; with no
+# reputation kept, the eldest grown. The chief may propose a law in any
+# year, and call a gathering where it lives.
+CHIEF = 'chief'
+ACCLAIM = 'acclaim'
+NAME_QUALITIES = (GENEROUS, RELIABLE, LAWFUL)
 FRAIL = 2.5
 FRAIL_YOUNG = 5
 FRAIL_OLD = 60
@@ -536,6 +548,7 @@ class Mechanics:
       `gatherings` setting).
     assembly: The valley's assembly and its laws (`Assembly`, the
       `assembly` setting).
+    offices: The valley's chief (`Offices`, the `offices` setting).
   """
 
   ties: social_ties.SocialTies | None = None
@@ -545,6 +558,7 @@ class Mechanics:
   sickness: contagion_lib.Contagion | None = None
   gatherings: gatherings_lib.Gatherings | None = None
   assembly: assembly_lib.Assembly | None = None
+  offices: offices_lib.Offices | None = None
 
 
 class World:
@@ -571,6 +585,7 @@ class World:
     self.sickness = mechanics.sickness
     self.gatherings = mechanics.gatherings
     self.assembly = mechanics.assembly
+    self.offices = mechanics.offices
     self._votes = 0  # Votes cast this year.
     self._law_breaches = 0  # Laws seen broken this year.
     # This year's gatherings: who came, and whom each met there.
@@ -1271,6 +1286,7 @@ class World:
         *self._market_moves(person),
         *self._gathering_moves(person),
         *self._assembly_moves(person),
+        *self._chief_moves(person),
     ]
     if (
         self.farming
@@ -1798,6 +1814,7 @@ class World:
             for m in self._gathering_moves(person)
         )
         + ''.join(f' The valley\'s law: {law["text"]}' for law in self._laws())
+        + self._chief_line(name)
         + ''.join(
             f' Within sight is {self._describe(place)}.'
             for place in self._nearest_places(person)
@@ -1923,6 +1940,7 @@ class World:
     # Laws judge the year's moves before this year's motions are decided.
     self._see_lawbreaking(did, allowed)
     self._decide()
+    self._fill_offices()
     if self.reputation is not None:
       self.reputation.step()
     self.norm_acts = {
@@ -2080,6 +2098,11 @@ class World:
       self._repay(person, move.removeprefix(f'{REPAY} '))
     elif move.startswith((PROPOSE, VOTE_FOR, VOTE_AGAINST)):
       self._take_part(person, move)
+    elif move == CALL_HERE and CALL_HERE in self._chief_moves(person):
+      self._add_gathering(person.tile, name)
+      self._report(
+          f'The chief {name} calls a gathering at {where(person.tile)}.'
+      )
     elif move.startswith(GO_GATHER) and self.gatherings is not None:
       match = _GO_GATHER.match(move)
       if match is not None:
@@ -2950,6 +2973,68 @@ class World:
           kind=DEFAULT_NEWS,
       )
 
+  def _is_chief(self, name: str) -> bool:
+    return self.offices is not None and self.offices.holder(CHIEF) == name
+
+  def _chief_line(self, name: str) -> str:
+    """Who is chief, for a person's status ('' if none)."""
+    chief = self.offices.holder(CHIEF) if self.offices is not None else ''
+    if not chief:
+      return ''
+    if chief == name:
+      return (
+          f" {name} is the valley's chief: {name} may propose a law, and"
+          ' call a gathering where it lives.'
+      )
+    return f" The valley's chief is {chief}."
+
+  def _chief_moves(self, person: Person) -> list[str]:
+    """What the chief alone may do this year, as moves."""
+    if (
+        not self._is_chief(person.name)
+        or self.gatherings is None
+        or any(
+            g['id'] == _gathering_id(person.tile)
+            for g in self.gatherings.gatherings()
+        )
+    ):
+      return []
+    return [CALL_HERE]
+
+  def _good_name(self, name: str) -> float:
+    """A person's public standing, summed over the qualities of a name."""
+    if self.reputation is None:
+      return 0.0
+    return round(
+        sum(self.reputation.standing(name, q) for q in NAME_QUALITIES), 6
+    )
+
+  def _fill_offices(self) -> None:
+    """Terms end, and the vacant chiefdom goes to the best name."""
+    if self.offices is None:
+      return
+    term = int((self.settings.get('offices') or {}).get('term', 20))
+    if not self.offices.offices():
+      self.offices.create(CHIEF, succession=ACCLAIM, term=term)
+    self.offices.expire(self.year)
+    grown = [
+        name
+        for name in self.living()
+        if self.people[name].age(self.year) >= ADULT_AGE
+    ]
+    for office, _ in self.offices.vacant():
+      if not grown:
+        continue
+      chosen = min(
+          grown,
+          key=lambda n: (-self._good_name(n), self.people[n].born, n),
+      )
+      self.offices.install(office, chosen, self.year, how='acclaimed')
+      told = f"{chosen} is acclaimed the valley's {office}."
+      for name in grown:
+        self._tell(name, told)
+      self._report(told)
+
   def _laws(self) -> list[dict[str, Any]]:
     """The laws in force (none without an assembly)."""
     return self.assembly.in_force() if self.assembly is not None else []
@@ -2965,7 +3050,7 @@ class World:
           for motion in open_now
           for verb in (VOTE_FOR, VOTE_AGAINST)
       ]
-    if person.age(self.year) < ELDER_AGE:
+    if person.age(self.year) < ELDER_AGE and not self._is_chief(person.name):
       return []
     standing = {law['kind'] for law in self._laws()}
     return [
@@ -3683,6 +3768,8 @@ class World:
       self.debts.settle_estate(name, heir=self._heir_of(person) or None)
     if self.sickness is not None:
       self.sickness.forget(name)
+    if self.offices is not None:
+      self.offices.forget(name, self.year)
     if self.rumors is not None:
       self.rumors.forget(name)
       age = person.age(self.year)
@@ -3830,6 +3917,8 @@ class World:
         'laws': len(self._laws()),
         'votes': self._votes,
         'law_breaches': self._law_breaches,
+        # The valley's chief ('' if none).
+        'chief': self.offices.holder(CHIEF) if self.offices else '',
         'gatherings': (
             len(self.gatherings.gatherings()) if self.gatherings else 0
         ),

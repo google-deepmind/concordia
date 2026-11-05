@@ -67,6 +67,7 @@ from concordia.components.agent import human_act_component
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import gatherings
+from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2107,7 +2108,23 @@ class Session:
         'gatherings': self._gatherings(world['year']),
         # The assembly's laws and open motion (None without an assembly).
         'assembly': self._assembly(world['year']),
+        # The valley's chief (None if there is none).
+        'chief': self._chief(),
     }
+
+  def _chief(self) -> dict[str, Any] | None:
+    """The valley's chief and its term, from the GM's offices."""
+    offices = self.run.gm_component(
+        offices_lib.DEFAULT_OFFICES_COMPONENT_KEY, offices_lib.Offices
+    )
+    if offices is None:
+      return None
+    found = next(
+        (o for o in offices.offices() if o['name'] == world_lib.CHIEF), None
+    )
+    if found is None or not found['holder']:
+      return None
+    return {k: found[k] for k in ('holder', 'began', 'ends', 'how')}
 
   def _assembly(self, year: int) -> dict[str, Any] | None:
     """The laws in force and the motions open, from the GM's assembly."""

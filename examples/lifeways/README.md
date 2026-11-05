@@ -433,6 +433,7 @@ the customs offered in observations, by the person's own learning biases:
 | `__contagion__` | contrib `Contagion` (the `sickness` setting) |
 | `__gatherings__` | contrib `Gatherings` (the `gatherings` setting) |
 | `__assembly__` | contrib `Assembly` (the `assembly` setting) |
+| `__offices__` | contrib `Offices` (the `offices` setting) |
 
 The world is built from the GM's own params; no object is shared with any
 entity.
@@ -454,6 +455,7 @@ prefab's `make_mechanics` builds them, and `world.Mechanics` hands them over.
 | Sickness | `game_master/contagion.py` `Contagion` | A sickness comes from outside to someone now and then, or with a plague sent; each year it passes from the sick to those within sight and to close kin and friends (ties at least `SICK_TIE`). The sick gather half as much and are told so in their status. An illness ends in recovery, and years safe from it, or in death (2.5 times as likely for small children and elders). The grown may `keep apart from the sick` when someone within sight is sick: they cannot catch it that year, and do no other work. The map notes who is sick; a person's panel says whether they are sick or safe from it. Census: `sick`, `immune`, `died_sick`. |
 | Gatherings | `game_master/gatherings.py` `Gatherings` | Every five years a gathering is held at the valley's most crowded place (from its first year, and in a restored world from its next); the Experimenter may `call a gathering at <row>,<col>`. The grown and youths within six steps may `go to the gathering at <row>,<col>` (their status says it is held). Those who come grow closer, each sees the customs three others drawn among them enacted that year, and word passes among them. "Shape the valley" lists the gatherings, when next and how many came last. Census: `gathered`, `gatherings`. |
 | The assembly | `game_master/assembly.py` `Assembly` | An elder may `propose the law: <text>`, one of three the World can judge (spare the fields others tend; share with the hungry in lean years; keep apart when sickness comes near). The next year the grown may `vote for` or `vote against` it instead of working; it passes with more for than against if at least three in ten of the grown voted, and stands forty years. Laws in force are in everyone's status; one seen breaking a law is thought less lawful by those who saw (the contrib `Reputation`, quality `lawful`). "Shape the valley" lists the laws and the motion open. Census: `laws`, `votes`, `law_breaches`. |
+| The chief | `game_master/offices.py` `Offices` | The valley's chief is acclaimed for twenty years: the grown person of the best name (the sum of its public standing as generous, reliable and lawful, the eldest among equals; with no reputation kept, the eldest grown), whenever the office falls vacant (a death) or a term ends. The chief may propose a law in any year and `call a gathering where you live`. Everyone's status names the chief. "Shape the valley" and the chief's panel say who it is and until when. Census: `chief`. |
 
 **Closing a year.** Answers are resolved together, in a fixed order, when the
 last one is in. A year's outcome therefore never depends on thread timing:

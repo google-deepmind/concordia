@@ -1653,6 +1653,20 @@ function wordMove(text, at) {
 }
 
 /**
+ * The valley's chief, in words ('' if none).
+ * @param {?Object} chief {holder, began, ends, how}.
+ * @return {string} E.g. 'The valley's chief is Ada, acclaimed in the year
+ *     40 for the best name; the term ends in the year 60.'
+ */
+function chiefText(chief) {
+  if (!chief) return '';
+  return `The valley's chief is ${chief.holder}, acclaimed in the year ` +
+      `${chief.began} for the best name` + (chief.ends === null ||
+        chief.ends === undefined ? '.' : `; the term ends in the year ` +
+        `${chief.ends}.`) + ' A chief may propose a law and call gatherings.';
+}
+
+/**
  * The valley's laws and the motion open, a line each, in words.
  * @param {!Object} assembly {laws: [{text, proposer, passed, expires}],
  *     open: [{text, proposer, for, against}]}.
@@ -1901,6 +1915,7 @@ const PART_WORDS = {
       'closer, see each other\'s ways and pass word',
   Assembly: 'the valley\'s laws: proposed by elders, voted on by the ' +
       'grown, standing for a term',
+  Offices: 'the valley\'s chief, acclaimed for the best name, for a term',
 };
 
 /** Where a part comes from, in words. */
@@ -1981,6 +1996,9 @@ async function showPerson(name) {
       `stored ${person.food} (a year's eating is 1).` +
       knownForText(person.known_for || []) +
       sicknessText(person.sickness) +
+      (page.world.chief && page.world.chief.holder === person.name ?
+        ' The valley\'s chief: may propose a law, and call a gathering ' +
+        'where they live.' : '') +
       (person.judged ? ` Has judged at a court ${person.judged === 1 ?
         'once' : `${person.judged} times`}: those who heed judges take up ` +
         `${person.name}'s ways more readily.` : '');
@@ -2854,6 +2872,8 @@ async function refreshOnce() {
           return item;
         }));
     document.getElementById('rumours-none').hidden = rumours.length > 0;
+    document.getElementById('chief').hidden = !world.chief;
+    document.getElementById('chief').textContent = chiefText(world.chief);
     document.getElementById('laws').replaceChildren(
         ...lawLines(world.assembly || {laws: [], open: []}).map((line) => {
           const item = document.createElement('li');
@@ -3852,6 +3872,6 @@ if (typeof document !== 'undefined') {
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
     tieText, wordMove, rumourText, knownForText, debtLines, sickNote,
-    sicknessText, gatheringText, lawLines,
+    sicknessText, gatheringText, lawLines, chiefText,
   };
 }
