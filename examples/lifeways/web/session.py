@@ -64,6 +64,7 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
@@ -2394,6 +2395,25 @@ class Session:
         'close_to': self._close_to(name),
         'heard': self._heard_by(name),
         'known_for': self._known_for(name),
+        'debts': self._debts_of(name),
+    }
+
+  def _debts_of(self, name: str) -> dict[str, list[dict[str, Any]]]:
+    """What a person owes and is owed, from the GM's ledger."""
+    debts = self.run.gm_component(
+        reciprocity.DEFAULT_RECIPROCITY_COMPONENT_KEY, reciprocity.Reciprocity
+    )
+    if debts is None:
+      return {'owes': [], 'owed': []}
+    return {
+        'owes': [
+            {'to': d.creditor, 'amount': round(d.amount, 2), 'due': d.due}
+            for d in debts.owed_by(name)
+        ],
+        'owed': [
+            {'by': d.debtor, 'amount': round(d.amount, 2), 'due': d.due}
+            for d in debts.owed_to(name)
+        ],
     }
 
   def _known_for(self, name: str) -> list[dict[str, Any]]:

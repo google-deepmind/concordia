@@ -25,6 +25,7 @@
 | `__social_ties__` | contrib `SocialTies`: who is close to whom (the `ties` setting) |
 | `__rumors__` | contrib `Rumors`: the word going round (the `rumours` setting) |
 | `__reputation__` | contrib `Reputation`: what people think of one another (the `reputation` setting) |
+| `__reciprocity__` | contrib `Reciprocity`: who owes whom food they were given (the `debts` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -47,6 +48,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
@@ -100,7 +102,17 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
         floor=float(report.get('floor', reputation_lib.FLOOR)),
         max_known=int(report.get('max_known', reputation_lib.MAX_KNOWN)),
     )
-  return world_lib.Mechanics(ties=ties, rumors=rumors, reputation=reputation)
+  debts = None
+  if settings.get('debts'):
+    owed = dict(settings['debts'])
+    debts = reciprocity.Reciprocity(
+        term=int(owed.get('term', reciprocity.TERM)),
+        return_share=float(owed.get('return_share', reciprocity.RETURN_SHARE)),
+        max_open=int(owed.get('max_open', reciprocity.MAX_OPEN)),
+    )
+  return world_lib.Mechanics(
+      ties=ties, rumors=rumors, reputation=reputation, debts=debts
+  )
 
 
 @dataclasses.dataclass
@@ -214,6 +226,10 @@ class WorldGameMaster(prefab_lib.Prefab):
     if mechanics.reputation is not None:
       components[reputation_lib.DEFAULT_REPUTATION_COMPONENT_KEY] = (
           mechanics.reputation
+      )
+    if mechanics.debts is not None:
+      components[reciprocity.DEFAULT_RECIPROCITY_COMPONENT_KEY] = (
+          mechanics.debts
       )
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(

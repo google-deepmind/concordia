@@ -454,7 +454,7 @@ class TwinTest(absltest.TestCase):
         _wait(
             lambda: min(self.session.state()['year'], twin.state()['year'])
             > year + 20,
-            120,
+            240,  # Two worlds at once, beside other tests' worlds.
         )
     )
     # Richer land holds more food (whether more live on it within a few
@@ -1340,6 +1340,7 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(kin['person']['name'], name)
     self.assertIn('from', person['customs'][0])
     self.assertIsInstance(person['known_for'], list)
+    self.assertEqual(sorted(person['debts']), ['owed', 'owes'])
     self.assertIsInstance(person['heard'], list)
     self.assertNotEmpty(lineage['variants'])
     # The founders' family and work have made ties by now (the Sandbox keeps

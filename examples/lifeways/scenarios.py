@@ -146,6 +146,12 @@ SANDBOX: Mapping[str, Any] = {
     # forgotten, and each keeps views of `max_known` at most. Courting
     # prefers the one thought best of. None: nobody keeps a good name.
     'reputation': {'decay': 0.05, 'floor': 0.05, 'max_known': 20},
+    # Gifts and debts (contrib `Reciprocity`): food shared with one who had
+    # none is owed back (`return_share` of it) within `term` years; a
+    # return is good report for being reliable, a debt left past due bad
+    # report and word that goes round. Each owes at most `max_open` debts.
+    # None: gifts are not owed back.
+    'debts': {'term': 6, 'return_share': 1.0, 'max_open': 6},
     'rumours': {
         'chance': 0.5,
         'tell_for': 3,

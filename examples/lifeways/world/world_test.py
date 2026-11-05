@@ -18,6 +18,7 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
@@ -2252,6 +2253,82 @@ class ReputationTest(absltest.TestCase):
     self.world._die('Ada')
 
     self.assertEqual(self.reputation.known_for('Ada'), [])
+
+
+class DebtsTest(absltest.TestCase):
+  """Gifts owed back, kept by the GM's `Reciprocity`."""
+
+  def setUp(self):
+    super().setUp()
+    self.debts = reciprocity.Reciprocity(term=2)
+    self.reputation = reputation_lib.Reputation(decay=0.0)
+    self.rumors = rumors_lib.Rumors(chance=1.0)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL, 'share': 1.5},
+        world_lib.Mechanics(
+            rumors=self.rumors, reputation=self.reputation, debts=self.debts
+        ),
+    )
+    for name, tile, food in (('Ada', (2, 2), 8.0), ('Bo', (2, 3), 0.0)):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - 30, sex='f', tile=tile, food=food
+      )
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_food_given_to_one_who_had_none_is_owed_back_and_returned(self):
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+
+    self.assertEqual(self.debts.owes('Bo', 'Ada'), 1.5)
+    self.assertIn(
+        'Bo owes Ada 1.5 food, to return by the year 2.',
+        self.world.queued['Bo'],
+    )
+    self.assertNotIn(f'{world_lib.REPAY} Ada', self.world.moves('Bo'))
+    self.world.people['Bo'].food = 5.0
+    self.assertIn(f'{world_lib.REPAY} Ada', self.world.moves('Bo'))
+    food = self.world.people['Ada'].food
+
+    self._year(Bo=f'{world_lib.REPAY} Ada')
+
+    self.assertEqual(self.debts.size(), 0)
+    self.assertEqual(self.world.people['Ada'].food, food + 1.5 - 1.0)  # Ate.
+    self.assertIn(
+        'Bo returns the 1.5 food Bo owed Ada.', self.world.queued['Ada']
+    )
+    self.assertEqual(self.reputation.view('Ada', 'Bo', world_lib.RELIABLE), 0.5)
+    self.assertEqual(self.world.history[-1]['repaid'], 1)
+
+  def test_a_debt_left_past_due_is_bad_report_and_word_of_it(self):
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+    self.world.people['Bo'].food = 10.0  # Bo lives on, and rests.
+    for _ in range(3):
+      self._year()
+
+    self.assertEqual(
+        self.reputation.view('Ada', 'Bo', world_lib.RELIABLE), -1.0
+    )
+    self.assertEqual(sum(r['defaults'] for r in self.world.history), 1)
+    self.assertEqual(
+        [r['kind'] for r in self.rumors.rumors()].count(world_lib.DEFAULT_NEWS),
+        1,
+    )
+
+  def test_what_the_dead_were_owed_passes_to_the_heir(self):
+    self.world.people['Cy'] = world_lib.Person(
+        name='Cy', born=self.world.year - 5, sex='f', tile=(2, 2), food=1.0
+    )
+    self.world.people['Ada'].children = ['Cy']
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+
+    self.world._die('Ada')
+
+    self.assertEqual(self.debts.owes('Bo', 'Cy'), 1.5)
 
 
 class SeasonsTest(absltest.TestCase):

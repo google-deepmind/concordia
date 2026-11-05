@@ -32,6 +32,7 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
 from concordia.contrib.components.game_master import social_ties
@@ -67,6 +68,8 @@ APPRENTICE = 'learn a craft'
 SHARE = 'share food with'  # ... a name.
 # ... a name: one the person is close to (a social tie), to keep the tie.
 VISIT = 'visit'
+# ... a name: one the person owes food it was given (the `debts` setting).
+REPAY = 'repay'
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
 WRITE = 'write at the library'
@@ -210,6 +213,20 @@ GENEROUS = 'generous'
 PRAISE = 'praise'
 BLAME = 'blame'
 DEED_WEIGHT = 1.0
+# Gifts and debts (the `debts` setting): food shared with one who had none is
+# owed back within a term. A return is good report for being `reliable` in
+# the giver's eyes (half a deed's weight); a debt left past due, bad report
+# (a deed's), seen by the giver, and word of it goes round (`DEFAULT_NEWS`).
+# At death, what one is owed passes to its heir (its eldest living child,
+# else its partner); what it owes is let go.
+RELIABLE = 'reliable'
+DEFAULT_NEWS = 'default'
+# What each rumour of a deed says of the one it is about.
+NEWS_REPORT: Mapping[str, tuple[str, float]] = {
+    PRAISE: (GENEROUS, DEED_WEIGHT),
+    BLAME: (GENEROUS, -DEED_WEIGHT),
+    DEFAULT_NEWS: (RELIABLE, -DEED_WEIGHT),
+}
 # The standing past which one is renowned (or shunned), for the census.
 RENOWN = 0.5
 _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
@@ -454,11 +471,14 @@ class Mechanics:
     rumors: The word going round (`Rumors`, the `rumours` setting).
     reputation: What people think of one another (`Reputation`, the
       `reputation` setting).
+    debts: Who owes whom food they were given (`Reciprocity`, the `debts`
+      setting).
   """
 
   ties: social_ties.SocialTies | None = None
   rumors: rumors_lib.Rumors | None = None
   reputation: reputation_lib.Reputation | None = None
+  debts: reciprocity.Reciprocity | None = None
 
 
 class World:
@@ -481,6 +501,9 @@ class World:
     self.ties = mechanics.ties
     self.rumors = mechanics.rumors
     self.reputation = mechanics.reputation
+    self.debts = mechanics.debts
+    self._repaid = 0  # Returns made this year.
+    self._defaults = 0  # Debts gone past due this year.
     self._heard = 0  # Rumours heard this year.
     # Encounters this year: (a, b, kind) with a < b, made ties at its close.
     self._met: set[tuple[str, str, str]] = set()
@@ -1195,6 +1218,7 @@ class World:
       )
       found.extend(f'{SHARE} {other}' for _, other in needy[:2])
     found.extend(f'{VISIT} {other}' for other in self._closest(person))
+    found.extend(f'{REPAY} {other}' for other in self._creditors(person))
     if culture_lib.SANCTION in self.channels:
       found.extend(
           f'{SHAME} {other}'
@@ -1750,6 +1774,7 @@ class World:
     self._unreadable = 0
     self._crossed = 0
     self._shares = 0
+    self._repaid = 0
     self._fed = set()
     self._releases = []
     self._disasters = []
@@ -1795,6 +1820,7 @@ class World:
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
     self._spread_word()
+    self._see_defaults()
     if self.reputation is not None:
       self.reputation.step()
     self.norm_acts = {
@@ -1935,6 +1961,18 @@ class World:
             [other.name, *self._in_sight(person)],
             f'{name} shared food with {other.name}, who had none.',
         )
+        if self.debts is not None:
+          debt = self.debts.give(
+              name, other.name, self.share, self.year, good='food'
+          )
+          if debt is not None:
+            self._tell(
+                other.name,
+                f'{other.name} owes {name} {_amount(debt.amount)} food, to'
+                f' return by the year {debt.due}.',
+            )
+    elif move.startswith(f'{REPAY} '):
+      self._repay(person, move.removeprefix(f'{REPAY} '))
     elif move.startswith(f'{VISIT} '):
       self._visit(person, move.removeprefix(f'{VISIT} '), enacted)
     elif move.startswith(f'{SHAME} '):
@@ -2740,6 +2778,63 @@ class World:
         told, seen, about=actor, kind=PRAISE if weight > 0 else BLAME
     )
 
+  def _creditors(self, person: Person) -> list[str]:
+    """Those a person owes food and can repay (keeping a year's eating)."""
+    if self.debts is None:
+      return []
+    return sorted({
+        debt.creditor
+        for debt in self.debts.owed_by(person.name)
+        if debt.creditor in self.people
+        and person.food >= self.debts.owes(person.name, debt.creditor) + 1.0
+    })
+
+  def _repay(self, person: Person, creditor: str) -> None:
+    """A return of food owed: the giver is told, and thinks well of it."""
+    if self.debts is None or creditor not in self._creditors(person):
+      return
+    owed = self.debts.owes(person.name, creditor)
+    paid = self.debts.repay(person.name, creditor, owed, self.year)
+    person.food -= paid
+    self.people[creditor].food += paid
+    self._repaid += 1
+    self._meet(person.name, creditor, SHARE)
+    self._tell(
+        creditor,
+        f'{person.name} returns the {_amount(paid)} food {person.name} owed'
+        f' {creditor}.',
+    )
+    if self.reputation is not None:
+      self.reputation.witness(
+          person.name, RELIABLE, DEED_WEIGHT / 2, [creditor]
+      )
+
+  def _see_defaults(self) -> None:
+    """Debts gone past due: the giver sees it, and word goes round."""
+    self._defaults = 0
+    if self.debts is None:
+      return
+    for debt in self.debts.overdue(self.year):
+      if debt.debtor not in self.people or debt.creditor not in self.people:
+        continue
+      self._defaults += 1
+      self._tell(
+          debt.creditor,
+          f'{debt.debtor} never returned the {_amount(debt.amount)} food'
+          f' {debt.creditor} gave in the year {debt.given}.',
+      )
+      if self.reputation is not None:
+        self.reputation.witness(
+            debt.debtor, RELIABLE, -DEED_WEIGHT, [debt.creditor]
+        )
+      self._start_rumor(
+          f'{debt.debtor} never returned the food {debt.creditor} gave in'
+          f' the year {debt.given}.',
+          [debt.creditor],
+          about=debt.debtor,
+          kind=DEFAULT_NEWS,
+      )
+
   def _regard(self, observer: str, actor: str) -> float:
     """What one thinks of another's generosity (0 if nothing known)."""
     if self.reputation is None:
@@ -2809,13 +2904,13 @@ class World:
             f'Word reaches {heard.hearer} from {heard.teller}: {heard.text}',
         )
         self._heard += 1
-        if self.reputation is not None and heard.kind in (PRAISE, BLAME):
-          sign = 1.0 if heard.kind == PRAISE else -1.0
+        if self.reputation is not None and heard.kind in NEWS_REPORT:
+          quality, weight = NEWS_REPORT[heard.kind]
           self.reputation.hear(
               heard.hearer,
               heard.about,
-              GENEROUS,
-              reputation_lib.hearsay_weight(sign * DEED_WEIGHT, heard.fidelity),
+              quality,
+              reputation_lib.hearsay_weight(weight, heard.fidelity),
           )
 
   def _tie_up(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
@@ -3197,6 +3292,8 @@ class World:
       self.ties.remove(name)
     if self.reputation is not None:
       self.reputation.forget(name)
+    if self.debts is not None:
+      self.debts.settle_estate(name, heir=self._heir_of(person) or None)
     if self.rumors is not None:
       self.rumors.forget(name)
       age = person.age(self.year)
@@ -3232,6 +3329,15 @@ class World:
     ):
       self._report(f'{name} died before answering.')
 
+  def _heir_of(self, person: Person) -> str:
+    """One's heir: its eldest living child, else its living partner, or ''."""
+    children = sorted(
+        (self.people[c].born, c) for c in person.children if c in self.people
+    )
+    if children:
+      return children[0][1]
+    return person.partner if person.partner in self.people else ''
+
   def _bequeath(self, person: Person) -> None:
     """Passes a dead tender's fields on, as the `farming` setting says.
 
@@ -3243,12 +3349,7 @@ class World:
     """
     if (self.farming or {}).get('inherit') != ELDEST:
       return
-    children = sorted(
-        (self.people[c].born, c) for c in person.children if c in self.people
-    )
-    heir = children[0][1] if children else ''
-    if not heir and person.partner in self.people:
-      heir = person.partner
+    heir = self._heir_of(person)
     if not heir:
       return
     passed = self.land.pass_on(person.name, heir)
@@ -3324,6 +3425,10 @@ class World:
         # Reputation: the living of good report for generosity, and of bad.
         'renowned': self._renowned(1),
         'shunned': self._renowned(-1),
+        # Gifts and debts: open, returned this year, gone past due this year.
+        'debts': self.debts.size() if self.debts is not None else 0,
+        'repaid': self._repaid,
+        'defaults': self._defaults,
         # Social ties (none if the world keeps none): how many, how close.
         'ties': self.ties.size() if self.ties is not None else 0,
         'closeness': (
@@ -3514,10 +3619,15 @@ def person_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
 
 def _move_kind(move: str) -> str:
   """A move without the one it is made towards (for counting)."""
-  for kind in (SHARE, SHAME, COURT_ONE, VISIT):
+  for kind in (SHARE, SHAME, COURT_ONE, VISIT, REPAY):
     if move.startswith(f'{kind} '):
       return kind
   return move
+
+
+def _amount(food: float) -> str:
+  """An amount of food in words: '1.5', '2'."""
+  return f'{food:g}' if food == round(food, 1) else f'{food:.1f}'
 
 
 def _is_move(answer: str, move: str) -> bool:

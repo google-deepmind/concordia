@@ -429,6 +429,7 @@ the customs offered in observations, by the person's own learning biases:
 | `__social_ties__` | contrib `SocialTies` (the `ties` setting) |
 | `__rumors__` | contrib `Rumors` (the `rumours` setting) |
 | `__reputation__` | contrib `Reputation` (the `reputation` setting) |
+| `__reciprocity__` | contrib `Reciprocity` (the `debts` setting) |
 
 The world is built from the GM's own params; no object is shared with any
 entity.
@@ -446,6 +447,7 @@ prefab's `make_mechanics` builds them, and `world.Mechanics` hands them over.
 | Social ties | `game_master/social_ties.py` `SocialTies` | Family, work on one tile, customs passed on (by their channel), food shared and visits bring two closer; each year every tie fades, and the faintest are forgotten. The grown may `visit` their two closest. A person's panel lists whom they are close to; the census counts ties (`ties`, `closeness`). |
 | Rumours | `game_master/rumors.py` `Rumors` | News of a disaster (among those near who lived), of an elder's death (among kin and those near), or the Experimenter's `spread word at <row>,<col>: <words>` (among those within sight) passes along ties at least `RUMOR_TIE` close, a link a year. A retelling may drop a word and is less sure. Hearers are told "Word reaches Bo from Ada: ...". "Shape the valley" spreads word and lists the word going round, as first told and as it reached the furthest; a person's panel shows what they heard. Census: `rumours`, `heard`. |
 | Reputation | `game_master/reputation.py` `Reputation` | Food shared with the hungry is good report for generosity, and full stores kept while a neighbour had none bad, among those who saw it; each deed also starts a rumour of praise or blame, and hearing it moves the hearer's view at a hearsay weight (times how sure the word is). Views fade yearly. Courting prefers the one thought best of before the nearest, both in the suitors offered and in who pairs. A person's panel says what they are known as and by how many. Census: `renowned`, `shunned`. |
+| Gifts and debts | `game_master/reciprocity.py` `Reciprocity` | Food shared with one who had none is owed back within a term (six years in the Sandbox). The debtor may `repay <name>` once its stores allow; the giver thinks it reliable. A debt left past due is a default: the giver thinks the debtor does not repay, and word of it goes round (hearers think so too, at the hearsay weight). At death, claims pass to the heir (the eldest living child, else the partner); debts are let go. A person's panel lists their debts both ways. Census: `debts`, `repaid`, `defaults`. |
 
 **Closing a year.** Answers are resolved together, in a fixed order, when the
 last one is in. A year's outcome therefore never depends on thread timing:

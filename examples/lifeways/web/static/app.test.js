@@ -27,7 +27,7 @@ const {
   crossedText, labLines, labStatus, prevalenceSeries, previewText,
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
-  letGoText, mapText, tieText, wordMove, rumourText, knownForText,
+  letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -965,4 +965,15 @@ test('a good name or a bad one reads as a sentence', () => {
   assert.equal(knownForText([{quality: 'generous', standing: -1, by: 1}]),
       ' Known as stingy by 1 who saw or heard of it.');
   assert.equal(knownForText([]), '');
+});
+
+test('debts read both ways, and a name for repaying', () => {
+  assert.deepEqual(debtLines({owes: [{to: 'Ada', amount: 1.5, due: 40}],
+    owed: [{by: 'Bo', amount: 2, due: 30}]}, 35), [
+    'Owes Ada 1.5 food, due by the year 40',
+    'Is owed 2 food by Bo, past due since the year 30',
+  ]);
+  assert.deepEqual(debtLines({}, 1), []);
+  assert.equal(knownForText([{quality: 'reliable', standing: -1, by: 2}]),
+      ' Known as one who does not repay by 2 who saw or heard of it.');
 });

@@ -1854,6 +1854,8 @@ const PART_WORDS = {
       'changes as it is retold',
   Reputation: 'what people think of one another\'s generosity, from what ' +
       'they saw and the word they heard; courting prefers a good name',
+  Reciprocity: 'who owes whom food they were given, by when; returns ' +
+      'and debts left unpaid make a name',
 };
 
 /** Where a part comes from, in words. */
@@ -1938,6 +1940,14 @@ async function showPerson(name) {
         `${person.name}'s ways more readily.` : '');
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
+  const debts = debtLines(person.debts || {}, page.world.year);
+  document.getElementById('person-debts-box').hidden = !debts.length;
+  document.getElementById('person-debts').replaceChildren(...debts.map(
+      (line) => {
+        const item = document.createElement('li');
+        item.textContent = line;
+        return item;
+      }));
   const heard = person.heard || [];
   document.getElementById('person-heard-box').hidden = !heard.length;
   document.getElementById('person-heard').replaceChildren(...heard.map((h) => {
@@ -2109,10 +2119,29 @@ const EXAMPLE_SAYS = {
  * @return {string} E.g. ' Known as generous by 4 who saw or heard of it.'
  */
 function knownForText(known) {
-  const generous = known.find((k) => k.quality === 'generous');
-  if (!generous || Math.abs(generous.standing) < 0.05) return '';
-  const word = generous.standing > 0 ? 'generous' : 'stingy';
-  return ` Known as ${word} by ${generous.by} who saw or heard of it.`;
+  const words = {generous: ['generous', 'stingy'],
+    reliable: ['reliable', 'one who does not repay']};
+  return known.filter((k) => words[k.quality] && Math.abs(k.standing) >= 0.05)
+      .map((k) => ` Known as ${words[k.quality][k.standing > 0 ? 0 : 1]} ` +
+        `by ${k.by} who saw or heard of it.`).join('');
+}
+
+/**
+ * A person's debts, a line each, in words.
+ * @param {!Object} debts {owes: [{to, amount, due}], owed: [{by, amount,
+ *     due}]}.
+ * @param {number} year The year now.
+ * @return {!Array<string>} E.g. 'Owes Ada 1.5 food, due by the year 40'.
+ */
+function debtLines(debts, year) {
+  const due = (d) => d.due < year ? `past due since the year ${d.due}` :
+      `due by the year ${d.due}`;
+  return [
+    ...(debts.owes || []).map((d) => `Owes ${d.to} ${d.amount} food, ` +
+      due(d)),
+    ...(debts.owed || []).map((d) => `Is owed ${d.amount} food by ${d.by}, ` +
+      due(d)),
+  ];
 }
 
 /** What brought two people together, by the kind of their tie. */
@@ -3730,6 +3759,6 @@ if (typeof document !== 'undefined') {
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
-    tieText, wordMove, rumourText, knownForText,
+    tieText, wordMove, rumourText, knownForText, debtLines,
   };
 }
