@@ -14,6 +14,8 @@
 
 """Tests for contagion."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -40,6 +42,17 @@ class ContagionTest(absltest.TestCase):
         sickness.counts(),
         {contagion.EXPOSED: 0, contagion.INFECTIOUS: 1, contagion.IMMUNE: 2},
     )
+
+  def test_a_case_caught_in_a_step_begins_with_the_next(self):
+    sickness = contagion.Contagion(transmission=1.0, mortality=0.0)
+    sickness.infect(['Ada'], step=5)
+
+    same = sickness.step(_CHAIN, step=5)
+    after = sickness.step(_CHAIN, step=6)
+
+    self.assertEqual((dict(same.exposed), list(same.recovered)), ({}, []))
+    self.assertEqual(dict(after.exposed), {'Bo': 'Ada'})
+    self.assertEqual(list(after.recovered), ['Ada'])
 
   def test_incubation_delays_passing_it_on(self):
     sickness = contagion.Contagion(transmission=1.0, incubation=1)
@@ -130,7 +143,8 @@ class RoundTripTest(absltest.TestCase):
     sickness_of(gm).infect(['Ada', 'Bo'], step=0)
     sickness_of(gm).step(_CHAIN, step=1)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(
         sickness_of(again).get_state(), sickness_of(gm).get_state()

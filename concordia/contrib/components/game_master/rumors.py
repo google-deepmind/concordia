@@ -374,11 +374,10 @@ class Rumors(
     saved = state.get('rumors')
     rumors: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
     saved_next = state.get('next')
-    with self._lock:
-      self._next = int(saved_next) if isinstance(saved_next, int) else 1
-      self._rumors = {}
-      for record in rumors:
-        knowers = record.get('knowers', {})
+    restored: dict[str, _Rumor] = {}
+    for record in rumors:
+      try:
+        knowers = record.get('knowers') or {}
         rumor = _Rumor(
             id=str(record['id']),
             text=str(record.get('text', '')),
@@ -393,7 +392,16 @@ class Rumors(
                 for name, (text, fidelity, heard, teller) in knowers.items()
             },
         )
-        self._rumors[rumor.id] = rumor
+      except (AttributeError, KeyError, TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      restored[rumor.id] = rumor
+    # Never below the ids restored, so a new rumour overwrites none.
+    next_id = max(
+        int(saved_next) if isinstance(saved_next, int) else 1,
+        max((_order(r) + 1 for r in restored), default=1),
+    )
+    with self._lock:
+      self._rumors, self._next = restored, next_id
 
 
 def _order(rumor_id: str) -> int:

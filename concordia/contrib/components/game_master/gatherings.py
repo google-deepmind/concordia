@@ -232,8 +232,12 @@ class Gatherings(
         coming.discard(name)
 
   def gatherings(self) -> list[dict[str, Any]]:
-    """Every gathering kept: {id, place, every, phase, chance, host, added,
-    held (times), last (step), last_count, most}, in id order."""
+    """Every gathering kept, in id order.
+
+    Returns:
+      Each as {id, place, every, phase, chance, host, added, held (how many
+      times), last (the step it was last held), last_count, most}.
+    """
     with self._lock:
       return [dataclasses.asdict(g) for g in self._ordered()]
 
@@ -280,9 +284,10 @@ class Gatherings(
     records: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
     saved_coming = state.get('coming')
     coming: Any = saved_coming if isinstance(saved_coming, dict) else {}
-    with self._lock:
-      self._gatherings = {}
-      for record in records:
+    restored: dict[str, _Gathering] = {}
+    for record in records:
+      try:
+        last = record.get('last')
         gathering = _Gathering(
             id=str(record['id']),
             place=str(record.get('place', '')),
@@ -292,13 +297,17 @@ class Gatherings(
             host=str(record.get('host', '')),
             added=int(record.get('added', 0)),
             held=int(record.get('held', 0)),
-            last=record.get('last'),
+            last=None if last is None else int(last),
             last_count=int(record.get('last_count', 0)),
             most=int(record.get('most', 0)),
         )
-        self._gatherings[gathering.id] = gathering
-      self._coming = {
-          str(k): {str(n) for n in v}
-          for k, v in coming.items()
-          if str(k) in self._gatherings
-      }
+      except (AttributeError, KeyError, TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      restored[gathering.id] = gathering
+    attending = {
+        str(k): {str(n) for n in v}
+        for k, v in coming.items()
+        if str(k) in restored and isinstance(v, (list, tuple))
+    }
+    with self._lock:
+      self._gatherings, self._coming = restored, attending

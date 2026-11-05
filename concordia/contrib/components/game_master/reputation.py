@@ -236,7 +236,9 @@ class Reputation(
         if quality in known.get(actor, {})
     ]
 
-  def _move(self, observer: str, actor: str, quality: str, weight: float):
+  def _move(
+      self, observer: str, actor: str, quality: str, weight: float
+  ) -> None:
     """Moves one view (holds lock); keeps the observer's strongest views."""
     if observer == actor or not weight:
       return
@@ -273,12 +275,18 @@ class Reputation(
   def set_state(self, state: entity_component.ComponentState) -> None:
     saved = state.get('views')
     views: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
+    restored: dict[str, dict[str, dict[str, float]]] = {}
+    for record in views:
+      try:
+        observer, actor, quality, score = record
+        held = float(score)
+      except (TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      restored.setdefault(str(observer), {}).setdefault(str(actor), {})[
+          str(quality)
+      ] = held
     with self._lock:
-      self._views = {}
-      for observer, actor, quality, score in views:
-        self._views.setdefault(str(observer), {}).setdefault(str(actor), {})[
-            str(quality)
-        ] = float(score)
+      self._views = restored
 
 
 def hearsay_weight(

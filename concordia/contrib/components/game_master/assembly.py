@@ -215,8 +215,14 @@ class Assembly(
       return True
 
   def open_motions(self, step: int) -> list[dict[str, Any]]:
-    """The motions open for votes at a step: {id, text, kind, proposer,
-    proposed, data, for, against}, oldest first."""
+    """The motions open for votes at a step, oldest first.
+
+    Args:
+      step: The step.
+
+    Returns:
+      Each as {id, text, kind, proposer, proposed, data, for, against}.
+    """
     with self._lock:
       return [
           {
@@ -291,8 +297,11 @@ class Assembly(
       return decided
 
   def in_force(self) -> list[dict[str, Any]]:
-    """The laws in force: {id, text, kind, data, proposer, passed,
-    expires}, oldest first."""
+    """The laws in force, oldest first.
+
+    Returns:
+      Each as {id, text, kind, data, proposer, passed, expires}.
+    """
     with self._lock:
       return [
           dict(self._laws[k], data=dict(self._laws[k]['data']))
@@ -370,10 +379,9 @@ class Assembly(
         saved_laws if isinstance(saved_laws, (list, tuple)) else ()
     )
     saved_next = state.get('next')
-    with self._lock:
-      self._next = int(saved_next) if isinstance(saved_next, int) else 1
-      self._motions = {}
-      for record in motions:
+    restored_motions: dict[str, _Motion] = {}
+    for record in motions:
+      try:
         motion = _Motion(
             id=str(record['id']),
             text=str(record.get('text', '')),
@@ -385,11 +393,14 @@ class Assembly(
                 str(k): bool(v) for k, v in (record.get('votes') or {}).items()
             },
         )
-        self._motions[motion.id] = motion
-      self._laws = {}
-      for law in laws:
+      except (AttributeError, KeyError, TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      restored_motions[motion.id] = motion
+    restored_laws: dict[str, dict[str, Any]] = {}
+    for law in laws:
+      try:
         expires = law.get('expires')
-        self._laws[str(law['id'])] = {
+        restored_laws[str(law['id'])] = {
             'id': str(law['id']),
             'text': str(law.get('text', '')),
             'kind': str(law.get('kind', '')),
@@ -398,6 +409,19 @@ class Assembly(
             'passed': int(law.get('passed', 0)),
             'expires': None if expires is None else int(expires),
         }
+      except (AttributeError, KeyError, TypeError, ValueError):
+        continue
+    # Never below the ids restored (a law keeps its motion's number).
+    next_id = max(
+        int(saved_next) if isinstance(saved_next, int) else 1,
+        max(
+            (_order(k) + 1 for k in (*restored_motions, *restored_laws)),
+            default=1,
+        ),
+    )
+    with self._lock:
+      self._motions, self._laws = restored_motions, restored_laws
+      self._next = next_id
 
 
 def _order(record_id: str) -> int:

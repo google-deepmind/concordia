@@ -14,6 +14,8 @@
 
 """Tests for feuds."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -119,7 +121,8 @@ class RoundTripTest(absltest.TestCase):
     feuds_of(gm).raid(_HILL, _RIVER, 2.0, 1.0, step=1)
     feuds_of(gm).make_peace('Lake people', _HILL, step=1)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(feuds_of(again).get_state(), feuds_of(gm).get_state())
     self.assertEqual(

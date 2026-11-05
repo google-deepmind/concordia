@@ -14,6 +14,8 @@
 
 """Tests for rumours."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -132,7 +134,8 @@ class RoundTripTest(absltest.TestCase):
     rumors_of(gm).start(_TEXT, ['Ada', 'Bo'], step=0, kind='flood')
     rumors_of(gm).spread(_CHAIN, step=1)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(rumors_of(again).get_state(), rumors_of(gm).get_state())
     # Both play on alike.
@@ -141,6 +144,12 @@ class RoundTripTest(absltest.TestCase):
         rumors_of(gm).spread(_CHAIN, step=2),
     )
     self.assertEqual(rumors_of(again).start('More.', ['Ada'], step=2), 'r2')
+    saved = rumors_of(gm).get_state()
+    rumors_of(again).set_state(
+        {'rumors': [*saved['rumors'], {'text': 'no id'}]}  # No 'next'.
+    )
+    self.assertLen(rumors_of(again).rumors(), 1)  # The bad record skipped.
+    self.assertEqual(rumors_of(again).start('Later.', ['Ada'], step=3), 'r2')
     rumors_of(again).set_state({})  # A state from before it had rumours.
     self.assertEqual(rumors_of(again).rumors(), [])
 

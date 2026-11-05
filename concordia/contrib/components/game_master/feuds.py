@@ -207,15 +207,24 @@ class Feuds(
       return Raid(attackers, defenders, won, chance, step)
 
   def make_peace(self, a: str, b: str, step: int) -> None:
-    """Peace: grievances both ways are cleared, and a truce holds."""
+    """Peace: grievances both ways are cleared, and a truce holds.
+
+    Args:
+      a: One group.
+      b: The other.
+      step: When; the truce holds until `step + truce`.
+    """
     with self._lock:
       self._grievances.pop((a, b), None)
       self._grievances.pop((b, a), None)
       self._truces[_pair(a, b)] = int(step) + self._truce
 
   def step(self, step: int) -> None:
-    """A step passes: grievances fade, the faintest are forgotten, and
-    truces that ran out end."""
+    """A step passes: grievances fade and truces that ran out end.
+
+    Args:
+      step: The step now.
+    """
     with self._lock:
       for key in sorted(self._grievances):
         held = self._grievances[key] * (1.0 - self._decay)
@@ -232,17 +241,37 @@ class Feuds(
       return self._grievances.get((by, against), 0.0)
 
   def hostile(self, by: str, against: str) -> bool:
-    """Whether a group feuds with another (its grievance at the threshold)."""
+    """Whether a group feuds with another.
+
+    Args:
+      by: The group that may hold a grievance.
+      against: The group it would be against.
+
+    Returns:
+      Whether `by`'s grievance against `against` is at the threshold.
+    """
     return self.grievance(by, against) >= self._threshold
 
   def at_peace(self, a: str, b: str, step: int) -> bool:
-    """Whether two groups are under a truce at a step."""
+    """Whether two groups are under a truce.
+
+    Args:
+      a: One group.
+      b: The other.
+      step: The step.
+
+    Returns:
+      Whether a truce between them holds at `step`.
+    """
     with self._lock:
       return self._at_peace(a, b, step)
 
   def feuds(self) -> list[dict[str, Any]]:
-    """The grievances held: {by, against, grievance, hostile}, the deepest
-    first."""
+    """The grievances held, the deepest first.
+
+    Returns:
+      Each as {by, against, grievance, hostile}.
+    """
     with self._lock:
       return [
           {
@@ -305,12 +334,22 @@ class Feuds(
         saved_truces if isinstance(saved_truces, (list, tuple)) else ()
     )
     saved_raids = state.get('raids')
+    restored: dict[tuple[str, str], float] = {}
+    for record in grievances:
+      try:
+        by, against, held = record
+        restored[(str(by), str(against))] = float(held)
+      except (TypeError, ValueError):
+        continue  # A malformed record is skipped.
+    holding: dict[tuple[str, str], int] = {}
+    for record in truces:
+      try:
+        a, b, ends = record
+        holding[_pair(str(a), str(b))] = int(ends)
+      except (TypeError, ValueError):
+        continue
     with self._lock:
-      self._grievances = {
-          (str(by), str(against)): float(held)
-          for by, against, held in grievances
-      }
-      self._truces = {_pair(str(a), str(b)): int(ends) for a, b, ends in truces}
+      self._grievances, self._truces = restored, holding
       self._raids = int(saved_raids) if isinstance(saved_raids, int) else 0
 
 

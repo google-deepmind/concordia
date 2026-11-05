@@ -84,6 +84,13 @@ class Outbreak:
   died: Sequence[str]
 
 
+@dataclasses.dataclass
+class _Case:
+  state: str
+  left: int
+  since: int  # The step this state began.
+
+
 def _stable(name: str) -> int:
   return zlib.crc32(name.encode('utf-8'))
 
@@ -139,24 +146,25 @@ class Contagion(
     self._immunity_for = int(immunity_for)
     self._mortality = float(mortality)
     self._lock = threading.RLock()
-    # name -> [state, steps left in it].
-    self._cases: dict[str, list[Any]] = {}
+    self._cases: dict[str, _Case] = {}
 
   def infect(self, names: Iterable[str], step: int) -> list[str]:
     """Some catch the sickness from outside (only the susceptible).
 
+    A case caught at a step neither passes the sickness on nor moves on in
+    that step's `step`: it begins with the next.
+
     Args:
       names: Who.
-      step: When (for the record; they pass it on from the next step).
+      step: When.
 
     Returns:
       Those who caught it.
     """
-    del step
     with self._lock:
       caught = [n for n in sorted(set(names)) if n not in self._cases]
       for name in caught:
-        self._catch(name)
+        self._catch(name, step)
       return caught
 
   def step(
@@ -188,7 +196,9 @@ class Contagion(
     with self._lock:
       exposed: dict[str, str] = {}
       spreaders = sorted(
-          n for n, (state, _) in self._cases.items() if state == INFECTIOUS
+          n
+          for n, case in self._cases.items()
+          if case.state == INFECTIOUS and case.since < step
       )
       for source in spreaders:
         for other in sorted(set(contacts.get(source, ()))):
@@ -203,14 +213,16 @@ class Contagion(
       recovered: list[str] = []
       died: list[str] = []
       for name in sorted(self._cases):
-        state, left = self._cases[name]
-        left -= 1
-        if left > 0:
-          self._cases[name] = [state, left]
-        elif state == EXPOSED:
-          self._cases[name] = [INFECTIOUS, self._infectious_for]
+        case = self._cases[name]
+        if case.since >= step:
+          continue  # Begun this step: it moves on from the next.
+        case.left -= 1
+        if case.left > 0:
+          continue
+        if case.state == EXPOSED:
+          self._cases[name] = _Case(INFECTIOUS, self._infectious_for, step)
           sick.append(name)
-        elif state == INFECTIOUS:
+        elif case.state == INFECTIOUS:
           chance = self._mortality * float(vulnerability.get(name, 1.0))
           rng = np.random.default_rng([self._seed, step, _stable(name), 1])
           if rng.random() < chance:
@@ -219,13 +231,13 @@ class Contagion(
           else:
             recovered.append(name)
             if self._immunity_for:
-              self._cases[name] = [IMMUNE, self._immunity_for]
+              self._cases[name] = _Case(IMMUNE, self._immunity_for, step)
             else:
               del self._cases[name]
         else:  # Immunity wanes.
           del self._cases[name]
       for name in sorted(exposed):
-        if self._catch(name):
+        if self._catch(name, step):
           sick.append(name)
       self._logging_channel({
           'Key': 'Contagion',
@@ -242,22 +254,22 @@ class Contagion(
   def status(self, name: str) -> tuple[str, int]:
     """A participant's state, and the steps left in it (0 if susceptible)."""
     with self._lock:
-      state, left = self._cases.get(name, [SUSCEPTIBLE, 0])
-      return str(state), int(left)
+      case = self._cases.get(name)
+      return (case.state, case.left) if case else (SUSCEPTIBLE, 0)
 
   def counts(self) -> dict[str, int]:
     """How many are exposed, infectious and immune."""
     with self._lock:
       found = {EXPOSED: 0, INFECTIOUS: 0, IMMUNE: 0}
-      for state, _ in self._cases.values():
-        found[state] += 1
+      for case in self._cases.values():
+        found[case.state] += 1
       return found
 
   def infectious(self) -> list[str]:
     """Who can pass it on now, by name."""
     with self._lock:
       return sorted(
-          n for n, (state, _) in self._cases.items() if state == INFECTIOUS
+          n for n, case in self._cases.items() if case.state == INFECTIOUS
       )
 
   def forget(self, name: str) -> None:
@@ -265,12 +277,12 @@ class Contagion(
     with self._lock:
       self._cases.pop(name, None)
 
-  def _catch(self, name: str) -> bool:
+  def _catch(self, name: str, step: int) -> bool:
     """Starts an illness (holds lock); True if it is infectious at once."""
     if self._incubation:
-      self._cases[name] = [EXPOSED, self._incubation]
+      self._cases[name] = _Case(EXPOSED, self._incubation, step)
       return False
-    self._cases[name] = [INFECTIOUS, self._infectious_for]
+    self._cases[name] = _Case(INFECTIOUS, self._infectious_for, step)
     return True
 
   @override
@@ -283,8 +295,8 @@ class Contagion(
     with self._lock:
       return {
           'cases': [
-              [name, state, left]
-              for name, (state, left) in sorted(self._cases.items())
+              [name, case.state, case.left, case.since]
+              for name, case in sorted(self._cases.items())
           ]
       }
 
@@ -292,9 +304,15 @@ class Contagion(
   def set_state(self, state: entity_component.ComponentState) -> None:
     saved = state.get('cases')
     cases: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
+    restored: dict[str, _Case] = {}
+    for record in cases:
+      try:
+        name, case_state, left, *since = record
+        if case_state in (EXPOSED, INFECTIOUS, IMMUNE):
+          # A state from before `since` was kept: begun long ago.
+          began = int(since[0]) if since else -(2**31)
+          restored[str(name)] = _Case(str(case_state), int(left), began)
+      except (TypeError, ValueError):
+        continue  # A malformed record is skipped.
     with self._lock:
-      self._cases = {
-          str(name): [str(case_state), int(left)]
-          for name, case_state, left in cases
-          if case_state in (EXPOSED, INFECTIOUS, IMMUNE)
-      }
+      self._cases = restored

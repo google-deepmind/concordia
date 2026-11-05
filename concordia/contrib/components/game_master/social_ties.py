@@ -263,14 +263,19 @@ class SocialTies(
   def set_state(self, state: entity_component.ComponentState) -> None:
     saved = state.get('ties')
     ties: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
-    with self._lock:
-      self._ties = {}
-      self._of = {}
-      for a, b, strength, kinds in ties:
+    restored: dict[tuple[str, str], tuple[float, frozenset[str]]] = {}
+    of: dict[str, set[str]] = {}
+    for record in ties:
+      try:
+        a, b, strength, kinds = record
         key = _pair(str(a), str(b))
-        self._ties[key] = (float(strength), frozenset(map(str, kinds)))
-        self._of.setdefault(key[0], set()).add(key[1])
-        self._of.setdefault(key[1], set()).add(key[0])
+        restored[key] = (float(strength), frozenset(map(str, kinds)))
+      except (TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      of.setdefault(key[0], set()).add(key[1])
+      of.setdefault(key[1], set()).add(key[0])
+    with self._lock:
+      self._ties, self._of = restored, of
 
 
 def strengthen_all(

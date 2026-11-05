@@ -14,6 +14,8 @@
 
 """Tests for pacts."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -145,12 +147,23 @@ class RoundTripTest(absltest.TestCase):
     pacts_of(gm).breach(made, by='Bo', step=2, why='hoarded')
     _offer(pacts_of(gm), 'Cy', 'Di', 'peace', 'No raids.', step=2)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(pacts_of(again).get_state(), pacts_of(gm).get_state())
     self.assertEqual(
         pacts_of(again).offers_to('Di', 3), pacts_of(gm).offers_to('Di', 3)
     )
+    saved = pacts_of(gm).get_state()
+    pacts_of(again).set_state(
+        {'offers': [*saved['offers'], {'id': 'p9'}]}  # No 'next'.
+    )
+    waiting = pacts_of(again).offers_to('Di', 3)
+    self.assertLen(waiting, 1)  # The bad offer skipped.
+    later = pacts_of(again).offer('Ada', 'Cy', 'aid', _AID, step=3)
+    self.assertNotIn(later, {made, waiting[0].id})  # No id reused.
+    with self.assertRaises(TypeError):  # Data handed out is read-only.
+      waiting[0].data['n'] = 2
     pacts_of(again).set_state({})  # A state from before it kept any.
     self.assertEqual(pacts_of(again).size(), 0)
 

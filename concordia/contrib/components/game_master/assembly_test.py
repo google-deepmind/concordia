@@ -14,6 +14,8 @@
 
 """Tests for an assembly."""
 
+import json
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent_with_logging
@@ -162,7 +164,8 @@ class RoundTripTest(absltest.TestCase):
     pending = _propose(council_of(gm), 'Bo', 'Another.', step=1)
     council_of(gm).vote('Cy', pending, False, step=2)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(council_of(again).get_state(), council_of(gm).get_state())
     self.assertEqual(

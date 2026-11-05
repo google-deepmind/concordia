@@ -14,6 +14,8 @@
 
 """Tests for gifts and debts."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -134,7 +136,8 @@ class RoundTripTest(absltest.TestCase):
     ledger_of(gm).give('Cy', 'Bo', 2.0, step=1, good='food')
     ledger_of(gm).overdue(step=3)  # Ada's is reported.
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     restored = ledger_of(again)
     self.assertEqual(restored.get_state(), ledger_of(gm).get_state())

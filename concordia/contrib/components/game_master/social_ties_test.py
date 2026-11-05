@@ -14,6 +14,8 @@
 
 """Tests for social ties."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -139,7 +141,8 @@ class RoundTripTest(absltest.TestCase):
     ties_of(gm).strengthen('Bo', 'Cy', 0.3, kind='work')
 
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     restored = ties_of(again)
     self.assertEqual(restored.get_state(), ties_of(gm).get_state())

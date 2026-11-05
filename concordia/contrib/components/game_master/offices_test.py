@@ -14,6 +14,8 @@
 
 """Tests for offices."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -105,7 +107,8 @@ class RoundTripTest(absltest.TestCase):
     offices_of(gm).install('chief', 'Ada', step=0)
     offices_of(gm).install('chief', 'Bo', step=4, how='acclaimed')
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(offices_of(again).get_state(), offices_of(gm).get_state())
     self.assertEqual(offices_of(again).expire(14), offices_of(gm).expire(14))

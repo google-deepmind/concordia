@@ -314,11 +314,11 @@ class Reciprocity(
         saved_defaulted if isinstance(saved_defaulted, (list, tuple)) else ()
     )
     saved_next = state.get('next')
-    with self._lock:
-      self._next = int(saved_next) if isinstance(saved_next, int) else 1
-      self._debts = {}
-      for debt_id, debtor, creditor, amount, good, given, due in debts:
-        self._debts[str(debt_id)] = Debt(
+    restored: dict[str, Debt] = {}
+    for record in debts:
+      try:
+        debt_id, debtor, creditor, amount, good, given, due = record
+        restored[str(debt_id)] = Debt(
             id=str(debt_id),
             debtor=str(debtor),
             creditor=str(creditor),
@@ -327,7 +327,16 @@ class Reciprocity(
             given=int(given),
             due=int(due),
         )
-      self._defaulted = {str(d) for d in defaulted if str(d) in self._debts}
+      except (TypeError, ValueError):
+        continue  # A malformed record is skipped.
+    # Never below the ids restored, so a new debt overwrites none.
+    next_id = max(
+        int(saved_next) if isinstance(saved_next, int) else 1,
+        max((_order(d) + 1 for d in restored), default=1),
+    )
+    with self._lock:
+      self._debts, self._next = restored, next_id
+      self._defaulted = {str(d) for d in defaulted if str(d) in restored}
 
 
 def _order(debt_id: str) -> int:

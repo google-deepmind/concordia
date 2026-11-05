@@ -14,6 +14,8 @@
 
 """Tests for reputation."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -130,7 +132,8 @@ class RoundTripTest(absltest.TestCase):
     reputation_of(gm).witness('Ada', 'generous', 1.0, witnesses=['Bo', 'Cy'])
     reputation_of(gm).hear('Di', 'Ada', 'honest', -0.4)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     restored = reputation_of(again)
     self.assertEqual(restored.get_state(), reputation_of(gm).get_state())

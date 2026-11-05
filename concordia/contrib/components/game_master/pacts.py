@@ -40,6 +40,7 @@ offers the moves to propose and accept, and tells what came of them.
 from collections.abc import Mapping, Sequence
 import dataclasses
 import threading
+import types
 from typing import Any, override
 
 from concordia.typing import entity as entity_lib
@@ -67,7 +68,7 @@ class Pact:
     kind: The game's kind of pact.
     parties: Who is bound: the one who offered, then the one who accepted.
     terms: What it says, in the game's words.
-    data: The game's plain data for it.
+    data: The game's plain data for it (read-only).
     made: The step it was made (or offered, while it waits).
     lasts: Its term in steps (0: until ended).
     until: The step its term runs out (None: until ended, or while it
@@ -177,7 +178,7 @@ class Pacts(
           kind=str(kind),
           parties=(str(proposer), str(partner)),
           terms=str(terms),
-          data=dict(data or {}),
+          data=types.MappingProxyType(dict(data or {})),
           made=int(step),
           lasts=int(lasts),
       )
@@ -186,7 +187,16 @@ class Pacts(
       return offer_id
 
   def offers_to(self, name: str, step: int) -> list[Pact]:
-    """The offers someone may accept at a step, oldest first."""
+    """The offers someone may accept at a step, oldest first.
+
+    Args:
+      name: To whom the offers were made.
+      step: The step (an offer is answerable from the step after it was
+        made, for `answer_within` steps).
+
+    Returns:
+      The offers waiting (their `made` is the step offered).
+    """
     with self._lock:
       return [
           o
@@ -227,7 +237,15 @@ class Pacts(
       return pact.id
 
   def decline(self, partner: str, offer_id: str) -> bool:
-    """Declines an offer; whether there was one to decline."""
+    """Declines an offer.
+
+    Args:
+      partner: The one it was offered to.
+      offer_id: Which offer.
+
+    Returns:
+      Whether there was such an offer to decline.
+    """
     with self._lock:
       found = self._offers.get(offer_id)
       if found is None or found.parties[1] != partner:
@@ -263,7 +281,16 @@ class Pacts(
       return found
 
   def end(self, pact_id: str, step: int, why: str = '') -> Pact | None:
-    """Ends a pact by the game's word; the pact ended, or None."""
+    """Ends a pact by the game's word.
+
+    Args:
+      pact_id: Which pact.
+      step: When.
+      why: Why (the game's word, kept as `why_ended`).
+
+    Returns:
+      The pact ended, or None if it did not hold.
+    """
     with self._lock:
       if pact_id not in self._pacts:
         return None
@@ -306,7 +333,15 @@ class Pacts(
       ]
 
   def pacts_of(self, name: str, kind: str | None = None) -> list[Pact]:
-    """The pacts someone holds (of a kind, if given), oldest first."""
+    """The pacts someone holds, oldest first.
+
+    Args:
+      name: A party.
+      kind: Only pacts of this kind, if given.
+
+    Returns:
+      The pacts holding.
+    """
     with self._lock:
       return [
           p
@@ -315,7 +350,16 @@ class Pacts(
       ]
 
   def between(self, a: str, b: str, kind: str | None = None) -> list[Pact]:
-    """The pacts two hold together (of a kind, if given)."""
+    """The pacts two hold together, oldest first.
+
+    Args:
+      a: One party.
+      b: The other.
+      kind: Only pacts of this kind, if given.
+
+    Returns:
+      The pacts holding between them.
+    """
     with self._lock:
       return [p for p in self.pacts_of(a, kind) if b in p.parties]
 
@@ -364,14 +408,32 @@ class Pacts(
     def read(key: str) -> list[Pact]:
       saved = state.get(key)
       records: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
-      return [_pact(r) for r in records]
+      found = []
+      for record in records:
+        try:
+          found.append(_pact(record))
+        except (AttributeError, KeyError, TypeError, ValueError):
+          continue  # A malformed record is skipped.
+      return found
 
+    offers = {p.id: p for p in read('offers')}
+    held = {p.id: p for p in read('pacts')}
+    history = read('history')
     saved_next = state.get('next')
+    # Never below the ids restored, so a new offer overwrites none.
+    next_id = max(
+        int(saved_next) if isinstance(saved_next, int) else 1,
+        max(
+            (
+                _order(p.id) + 1
+                for p in (*offers.values(), *held.values(), *history)
+            ),
+            default=1,
+        ),
+    )
     with self._lock:
-      self._next = int(saved_next) if isinstance(saved_next, int) else 1
-      self._offers = {p.id: p for p in read('offers')}
-      self._pacts = {p.id: p for p in read('pacts')}
-      self._history = read('history')
+      self._offers, self._pacts, self._history = offers, held, history
+      self._next = next_id
 
 
 def _record(pact: Pact) -> dict[str, Any]:
@@ -399,7 +461,7 @@ def _pact(record: Mapping[str, Any]) -> Pact:
       kind=str(record.get('kind', '')),
       parties=(str(a), str(b)),
       terms=str(record.get('terms', '')),
-      data=dict(record.get('data') or {}),
+      data=types.MappingProxyType(dict(record.get('data') or {})),
       made=int(record.get('made', 0)),
       lasts=int(record.get('lasts', 0)),
       until=None if until is None else int(until),

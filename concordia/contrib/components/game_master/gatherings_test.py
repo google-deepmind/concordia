@@ -14,6 +14,8 @@
 
 """Tests for gatherings."""
 
+import json
+
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import concat_act_component
@@ -118,7 +120,8 @@ class RoundTripTest(absltest.TestCase):
     for gathering_id in due:
       calendar_of(gm).attend('Ada', gathering_id, step=6)
     again = game_master()
-    again.set_state(gm.get_state())
+    # Through JSON, as a checkpoint is saved.
+    again.set_state(json.loads(json.dumps(gm.get_state())))
 
     self.assertEqual(
         calendar_of(again).get_state(), calendar_of(gm).get_state()

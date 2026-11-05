@@ -21,8 +21,9 @@ on, in the game's word (`succession`: say 'election', 'heredity' or
 a holder who leaves (`forget`) or steps down (`vacate`) leaves the office
 vacant. `vacant` lists the offices to fill, with their succession, and the
 game decides who fills each: by its own vote, an heir, the best reputed.
-Each office remembers its last `max_history` holders, so a body that runs
-indefinitely stays bounded.
+Each office remembers its last `max_history` holders, so an office's record
+stays bounded however long a body runs; how many offices there are is the
+game's (it creates them).
 
 It is state and rules only, for the GM's other components to call by key
 (`DEFAULT_OFFICES_COMPONENT_KEY`). It adds nothing to prompts: the game
@@ -275,9 +276,9 @@ class Offices(
   def set_state(self, state: entity_component.ComponentState) -> None:
     saved = state.get('offices')
     records: Sequence[Any] = saved if isinstance(saved, (list, tuple)) else ()
-    with self._lock:
-      self._offices = {}
-      for record in records:
+    restored: dict[str, _Office] = {}
+    for record in records:
+      try:
         found = _Office(
             name=str(record['name']),
             succession=str(record.get('succession', '')),
@@ -297,4 +298,8 @@ class Offices(
                 for t in record.get('history') or ()
             ],
         )
-        self._offices[found.name] = found
+      except (AttributeError, KeyError, TypeError, ValueError):
+        continue  # A malformed record is skipped.
+      restored[found.name] = found
+    with self._lock:
+      self._offices = restored
