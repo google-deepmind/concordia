@@ -47,6 +47,11 @@ class GameMaster(prefab_lib.Prefab):
           "name": "ExperimenterGM",
           "experiment_component_class": None,
           "experiment_component_init_kwargs": {},
+          # If false, this game master always names itself as the next game
+          # master, so an engine running several game masters (e.g. this one
+          # after an initializer) never asks the LLM which one runs next. Set
+          # it to true to let the LLM choose, e.g. to hand over to another.
+          "llm_chooses_next_game_master": False,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -115,7 +120,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     # Assemble all components for the Game Master
-    components_of_game_master = {
+    components_of_game_master: dict[str, Any] = {
         _get_class_name(instructions): instructions,
         _get_class_name(examples_synchronous): examples_synchronous,
         player_characters_key: player_characters,
@@ -139,6 +144,14 @@ class GameMaster(prefab_lib.Prefab):
             experiment_component
         ),
     }
+    if not self.params.get("llm_chooses_next_game_master", False):
+      components_of_game_master[
+          gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+      ] = actor_components.constant.Constant(
+          state=name,
+          pre_act_label="Next game master",
+          prefix_pre_act=False,
+      )
 
     component_order = list(components_of_game_master.keys())
 

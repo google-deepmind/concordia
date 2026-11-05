@@ -60,6 +60,9 @@ class RetryLanguageModel(language_model.LanguageModel):
         retry=tenacity.retry_if_exception_type(tuple(retry_on_exceptions)),
         wait=wait,
         stop=tenacity.stop_after_attempt(retry_tries),
+        # Reraise the final exception instead of tenacity.RetryError so that
+        # callers see the underlying language model error itself.
+        reraise=True,
     )
 
   @override

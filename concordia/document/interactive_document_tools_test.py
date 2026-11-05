@@ -96,6 +96,25 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     self.assertEqual(tool.call_count, 0)
     model.sample_text.assert_not_called()
 
+  def test_multiple_choice_with_one_answer_skips_model_and_tools(self):
+    """A single answer leaves nothing to choose or to look up."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search the web', 'search results')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    response = doc.multiple_choice_question(
+        'Which rule set should we use?', answers=['default rules']
+    )
+
+    self.assertEqual(response, 0)
+    self.assertEqual(tool.call_count, 0)
+    model.sample_text.assert_not_called()
+    model.sample_choice.assert_not_called()
+
   def test_open_question_direct_answer(self):
     """LLM provides direct answer without using tools."""
     model = mock.create_autospec(

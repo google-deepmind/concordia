@@ -151,7 +151,7 @@ else:
 
 _INTERVIEW_MODEL = flags.DEFINE_string(
     "interview_model",
-    "gemini-2.5-flash",
+    "gemini-flash-latest",
     "Model name for live agent interview mode.",
 )
 if "api_key" not in flags.FLAGS:
@@ -1287,7 +1287,7 @@ __EVENT_OPTIONS__
           </div>
           <div>
             <label class="cfg-label">Model Name</label>
-            <input class="cfg-select" id="cfgModel" value="gemini-2.5-flash" oninput="markCustom()">
+            <input class="cfg-select" id="cfgModel" value="gemini-flash-latest" oninput="markCustom()">
           </div>
           <div style="display:flex;gap:16px;flex-wrap:wrap;">
             <label class="cfg-label"><input type="checkbox" id="cfgDates" checked onchange="markCustom()"> First dates</label>
@@ -1641,22 +1641,22 @@ const LAUNCH_PRESETS = {
           xRounds: 1, mktRounds: 1, out: './local_runs/quick_test'},
   brecksville112: {agents: 20, ticks: 112, population: 'brecksville',
           prefab: 'esa', event: '', layoff: 0, backend: 'google_aistudio',
-          model: 'gemini-2.5-flash', dates: true, x: true, mkt: true,
+          model: 'gemini-flash-latest', dates: true, x: true, mkt: true,
           poll: false, xRounds: 2, mktRounds: 5,
           out: './local_runs/brecksville_20x112'},
   nightMkt: {agents: 20, ticks: 40, population: 'brecksville',
           prefab: 'esa', event: '', layoff: 0,
-          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-2.5-flash',
+          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-flash-latest',
           dates: true, x: false, mkt: true, poll: false, xRounds: 2,
           mktRounds: 5, out: './local_runs/night_marketplace'},
   nightX: {agents: 20, ticks: 40, population: 'brecksville',
           prefab: 'esa', event: '', layoff: 0,
-          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-2.5-flash',
+          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-flash-latest',
           dates: true, x: true, mkt: false, poll: false, xRounds: 2,
           mktRounds: 5, out: './local_runs/night_x'},
   nightBoth: {agents: 20, ticks: 40, population: 'brecksville',
           prefab: 'esa', event: '', layoff: 0,
-          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-2.5-flash',
+          fiscal: 'ubi', backend: 'google_aistudio', model: 'gemini-flash-latest',
           dates: true, x: true, mkt: true, poll: false, xRounds: 2,
           mktRounds: 5, out: './local_runs/night_x_marketplace'},
 };

@@ -134,6 +134,7 @@ class GameMaster(prefab_lib.Prefab):
         history_length=1_000_000,
     )
 
+    roster_key = gm_components.player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
     clock_key = DEFAULT_CLOCK_COMPONENT_KEY
     clock = clock_module.ThreadSafeGenerativeClock(
         model=model,
@@ -142,6 +143,7 @@ class GameMaster(prefab_lib.Prefab):
         player_names=player_names,
         update_question=clock_update_question,
         aliases=aliases,
+        roster_component_key=roster_key,
     )
 
     forum_key = forum_module.DEFAULT_FORUM_COMPONENT_KEY
@@ -177,7 +179,27 @@ class GameMaster(prefab_lib.Prefab):
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
     next_actor = social_media_moderation_components.NextActingEligiblePlayers(
         player_names=player_names,
+        roster_component_key=roster_key,
     )
+
+    # Optional dynamic membership: with `player_prefabs`, players join and
+    # leave through a `PlayerRoster`, which the clock, forum, resolution and
+    # next-acting components follow (they read it rather than being told of
+    # changes).
+    player_prefabs = self.params.get('player_prefabs', None)
+    roster = self.params.get('player_roster', None)
+    if roster is None and player_prefabs is not None:
+      players_list = (
+          []
+          if isinstance(self.entities, tuple) and not self.entities
+          else self.entities
+      )
+      roster = gm_components.player_roster.PlayerRoster(
+          players=players_list,
+          player_prefabs=player_prefabs,
+          model=self.params.get('player_model') or model,
+          embedder=self.params.get('embedder'),
+      )
 
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
@@ -193,9 +215,11 @@ class GameMaster(prefab_lib.Prefab):
     next_game_master_key = (
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
     )
-    next_game_master = actor_components.constant.Constant(state=name)
+    next_game_master = actor_components.constant.Constant(
+        state=name, prefix_pre_act=False
+    )
 
-    components_of_game_master = {
+    components_of_game_master: dict[str, Any] = {
         observation_component_key: observation,
         observation_to_memory_key: observation_to_memory,
         memory_component_key: memory_component,
@@ -208,6 +232,9 @@ class GameMaster(prefab_lib.Prefab):
         terminate_key: terminate,
         next_game_master_key: next_game_master,
     }
+    if roster is not None:
+      self._player_roster = roster
+      components_of_game_master[roster_key] = roster
 
     # SimulationTimeline: chronological event log (no LLM calls).
     timeline_key = (

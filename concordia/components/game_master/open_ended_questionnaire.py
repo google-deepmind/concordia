@@ -126,7 +126,10 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
     questionnaire_name, current_question = self._questions_by_id[question_id]
     questionnaire = self._questionnaires[questionnaire_name]
 
-    if questionnaire.questionnaire_type == 'multiple_choice':
+    if questionnaire.questionnaire_type in (
+        'multiple_choice',
+        'multiple-choice',
+    ):
       output_type = entity_lib.OutputType.CHOICE
       options = tuple(
           opt.replace('{player_name}', player_name)
@@ -246,7 +249,9 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
         for choice in current_question.choices:  # pyrefly: ignore[not-iterable]
           choice_embedding = self._embedder(choice)
           similarity = np.dot(answer_embedding, choice_embedding)
-          choice_similarities.append({'choice': choice, 'similarity': similarity})
+          choice_similarities.append(
+              {'choice': choice, 'similarity': similarity}
+          )
         value = choice_similarities
 
       self._answers[self._event_counter][player_name][questionnaire_name][
@@ -264,7 +269,14 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
     ):
       # make value 1 for the selected choice, 0 for the rest
       choice_similarities = [
-          {'choice': choice, 'similarity': 1 if choice == answer_text else 0}
+          {
+              'choice': choice,
+              'similarity': (
+                  1
+                  if choice.replace('{player_name}', player_name) == answer_text
+                  else 0
+              ),
+          }
           for choice in current_question.choices  # pyrefly: ignore[not-iterable]
       ]
 

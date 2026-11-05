@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
+import copy
 import types
 import unittest
 
@@ -139,6 +141,68 @@ class DeepCompareComponentsTest(absltest.TestCase):
         self,
         skip_keys={'value'},
     )
+
+
+class FindNestedSequenceDataTest(absltest.TestCase):
+
+  def test_top_level_tuple_is_searched(self):
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(('a', {'a': 1}), 'a'),
+        [1],
+    )
+
+  def test_mixed_sequences_keep_depth_first_order_and_input(self):
+    data = (
+        {'event': 1, 'nested': [{'event': 2}]},
+        [{'branch': ({'event': 3},)}],
+    )
+    before = copy.deepcopy(data)
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), [1, 2, 3]
+    )
+    self.assertEqual(data, before)
+
+  def test_duplicates_across_list_and_tuple_branches(self):
+    value = {'name': 'Alice', 'tags': ['x']}
+    data = ([{'event': value}], {'outer': ({'event': copy.deepcopy(value)},)})
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), [value]
+    )
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            data, 'event', remove_duplicates=False
+        ),
+        [value, value],
+    )
+
+  def test_other_sequences_follow_the_same_traversal(self):
+    pair = collections.namedtuple('Pair', ['first', 'second'])
+    for data in (
+        collections.UserList([{'event': 1}, {'event': 2}]),
+        pair({'event': 1}, {'event': 2}),
+    ):
+      with self.subTest(sequence_type=type(data)):
+        self.assertEqual(
+            helper_functions.find_data_in_nested_structure(data, 'event'),
+            [1, 2],
+        )
+
+  def test_text_binary_and_empty_sequences_remain_leaves(self):
+    data = ('event', b'event', bytearray(b'event'), (), [], {'event': 'kept'})
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), ['kept']
+    )
+    self.assertEmpty(
+        helper_functions.find_data_in_nested_structure((), 'event')
+    )
+
+  def test_matching_tuple_value_is_preserved_and_searched(self):
+    value = ({'event': 'nested'},)
+    actual = helper_functions.find_data_in_nested_structure(
+        {'event': value}, 'event'
+    )
+    self.assertEqual(actual, [value, 'nested'])
+    self.assertIs(actual[0], value)
 
 
 if __name__ == '__main__':

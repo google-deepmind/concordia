@@ -20,6 +20,7 @@ from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
+from concordia.components import agent as actor_components
 from concordia.components import game_master as gm_components
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
@@ -40,6 +41,11 @@ class GameMaster(prefab_lib.Prefab):
           "sequence_of_events": [],  # Optional: sequence of events
           "embedder": None,  # Required: embedder for open-ended questions
           "verbose": False,
+          # If false, this game master always names itself as the next game
+          # master, so an engine running several game masters (e.g. this one
+          # after an initializer) never asks the LLM which one runs next. Set
+          # it to true to let the LLM choose, e.g. to hand over to another.
+          "llm_chooses_next_game_master": False,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -93,7 +99,7 @@ class GameMaster(prefab_lib.Prefab):
         gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
     )
 
-    components_of_game_master = {
+    components_of_game_master: dict[str, Any] = {
         next_acting_component_key: questionnaire_component_instance,
         next_action_spec_key: questionnaire_component_instance,
         terminator_key: questionnaire_component_instance,
@@ -101,6 +107,14 @@ class GameMaster(prefab_lib.Prefab):
         resolution_key: questionnaire_component_instance,
         "questionnaire": questionnaire_component_instance,
     }
+    if not self.params.get("llm_chooses_next_game_master", False):
+      components_of_game_master[
+          gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+      ] = actor_components.constant.Constant(
+          state=agent_name,
+          pre_act_label="Next game master",
+          prefix_pre_act=False,
+      )
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,

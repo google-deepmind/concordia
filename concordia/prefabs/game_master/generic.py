@@ -49,6 +49,11 @@ class GameMaster(prefab_lib.Prefab):
           # If true, the actors will alternate in a round robin fashion.
           # Otherwise, the actors will be chosen by call to the game master.
           'acting_order': 'game_master_choice',
+          # If false, this game master always names itself as the next game
+          # master, so an engine running several game masters (e.g. this one
+          # after an initializer) never asks the LLM which one runs next. Set
+          # it to true to let the LLM choose, e.g. to hand over to another.
+          'llm_chooses_next_game_master': False,
       }
   )
   entities: (
@@ -233,7 +238,7 @@ class GameMaster(prefab_lib.Prefab):
         notify_observers=True,
     )
 
-    components_of_game_master = {
+    components_of_game_master: dict[str, Any] = {
         instructions_key: instructions,
         examples_synchronous_key: examples_synchronous,
         player_characters_key: player_characters,
@@ -247,6 +252,20 @@ class GameMaster(prefab_lib.Prefab):
         next_action_spec_key: next_action_spec,
         event_resolution_key: event_resolution,
     }
+    next_game_master_key = (
+        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    )
+    if (
+        not self.params.get('llm_chooses_next_game_master', False)
+        and next_game_master_key not in extra_components
+    ):
+      components_of_game_master[next_game_master_key] = (
+          actor_components.constant.Constant(
+              state=name,  # pyrefly: ignore[bad-argument-type]
+              pre_act_label='Next game master',
+              prefix_pre_act=False,
+          )
+      )
 
     component_order = list(components_of_game_master.keys())
 

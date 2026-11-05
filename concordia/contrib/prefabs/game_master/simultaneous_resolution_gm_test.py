@@ -19,6 +19,7 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.components import agent as agent_components
 from concordia.components.game_master import next_acting
+from concordia.components.game_master import next_game_master
 from concordia.contrib.prefabs.game_master import simultaneous_resolution_gm
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
@@ -57,6 +58,27 @@ def _clock(**kwargs):
 
 
 class SimultaneousResolutionGameMasterTest(absltest.TestCase):
+
+  def test_names_itself_as_the_next_game_master(self):
+    game_master = _build(name='main rules')
+
+    chosen = game_master.act(
+        entity_lib.ActionSpec(
+            call_to_action='Which rule set should we use for the next step?',
+            output_type=entity_lib.OutputType.NEXT_GAME_MASTER,
+            options=('initial setup', 'main rules'),
+        )
+    )
+
+    self.assertEqual(chosen, 'main rules')
+
+  def test_lets_the_llm_choose_the_next_game_master_when_asked_to(self):
+    game_master = _build(llm_chooses_next_game_master=True)
+
+    with self.assertRaises(KeyError):
+      game_master.get_component(
+          next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+      )
 
   def test_builds_with_default_parameters(self):
     game_master = _build()

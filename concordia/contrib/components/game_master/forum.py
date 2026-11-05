@@ -51,6 +51,7 @@ from typing import Any
 
 from concordia.components.agent import memory as memory_component
 from concordia.components.game_master import event_resolution
+from concordia.components.game_master import player_roster
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
@@ -88,6 +89,10 @@ class ForumState(entity_component.ContextComponent):
   Registered under __forum__ and accessed by ForumResolution and
   ForumObservation components via get_entity().get_component(). This follows
   the same pattern as AssociativeMemory wrapping AssociativeMemoryBank.
+
+  If the game master also has a `PlayerRoster` (under `roster_component_key`),
+  the forum's active players follow the roster: players who join it are
+  enrolled and players who leave it are removed.
   """
 
   def __init__(
@@ -100,9 +105,13 @@ class ForumState(entity_component.ContextComponent):
       temp_ban_duration: int = 1,
       min_karma_to_post: int = -1,
       min_karma_to_direct_message: int = 1,
+      roster_component_key: str | None = (
+          player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
+      ),
   ):
     super().__init__()
     self._player_names = list(player_names)
+    self._roster_component_key = roster_component_key
     self._forum_name = forum_name
     self._max_summary_posts = max_summary_posts
     self._aliases = aliases or {}
@@ -147,6 +156,81 @@ class ForumState(entity_component.ContextComponent):
     self._event_seq: int = 0
     # Tracks how far drain_event_log has consumed.
     self._event_log_drain_cursor: int = 0
+
+  def get_player_names(self) -> list[str]:
+    """Return a copy of the currently active player names."""
+    self._sync_with_roster()
+    with self._lock:
+      return list(self._player_names)
+
+  def _sync_with_roster(self) -> None:
+    """Follows the game master's `PlayerRoster`, if it has one.
+
+    Players who joined the roster are added to the forum and players who left
+    it are removed, so the roster stays the only source of truth for who
+    plays. Called whenever the game master acts (from `pre_act`), and before
+    any method reads or acts on the active players (e.g. when notifications
+    are queued or an action is executed), so changes made between steps (such
+    as a component's `update`) are seen immediately.
+    """
+    if not self._roster_component_key:
+      return
+    try:
+      roster = self.get_entity().get_component(
+          self._roster_component_key, type_=player_roster.PlayerRoster
+      )
+    except (KeyError, RuntimeError):
+      return  # Not attached to a game master with a roster.
+    if not isinstance(roster, player_roster.PlayerRoster):
+      return
+    roster_names = roster.get_player_names()
+    with self._lock:
+      current = list(self._player_names)
+    for name in roster_names:
+      if name not in current:
+        self.add_player(name)
+    for name in current:
+      if name not in roster_names:
+        self.remove_player(name)
+
+  def get_active_karma(self) -> dict[str, int]:
+    """Return karma scores for currently active players only."""
+    self._sync_with_roster()
+    with self._lock:
+      return {name: self._karma.get(name, 0) for name in self._player_names}
+
+  def add_player(
+      self,
+      player_name: str,
+      initial_karma: int = 0,
+      alias: str | None = None,
+  ) -> None:
+    """Register a player joining the forum mid-simulation."""
+    with self._lock:
+      if player_name not in self._player_names:
+        self._player_names.append(player_name)
+      self._karma.setdefault(player_name, initial_karma)
+      self._notification_queue.setdefault(player_name, [])
+      self._last_seen_post_id.setdefault(player_name, -1)
+      self._last_seen_reply_id.setdefault(player_name, -1)
+      self._last_seen_votes.setdefault(player_name, {})
+      if alias:
+        self._aliases[alias] = player_name
+
+  def remove_player(self, player_name: str) -> None:
+    """Remove a departing player from active forum membership and queues.
+
+    Historical karma and posts are preserved so downstream forum metrics
+    account for all participants across the run.
+
+    Args:
+      player_name: The name of the departing player.
+    """
+    with self._lock:
+      if player_name in self._player_names:
+        self._player_names.remove(player_name)
+      self._notification_queue.pop(player_name, None)
+      self._bans.pop(player_name, None)
 
   def set_current_timestamp(self, timestamp: str) -> None:
     """Set the default timestamp for new posts and replies.
@@ -358,6 +442,7 @@ class ForumState(entity_component.ContextComponent):
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
+    self._sync_with_roster()
     return ''
 
   def create_post(
@@ -511,8 +596,11 @@ class ForumState(entity_component.ContextComponent):
       return False
 
   def get_karma_summary(self) -> str:
+    self._sync_with_roster()
     with self._lock:
-      entries = [f'{name}: {score}' for name, score in self._karma.items()]
+      entries = [
+          f'{name}: {self._karma.get(name, 0)}' for name in self._player_names
+      ]
       return 'Karma scores: ' + ', '.join(entries)
 
   def get_karma(self) -> dict[str, int]:
@@ -654,7 +742,8 @@ class ForumState(entity_component.ContextComponent):
           f' (votes: {post.votes}, replies: {reply_count})'
       )
       for name in self._player_names:
-        self._notification_queue[name].append(notification)
+        if name in self._notification_queue:
+          self._notification_queue[name].append(notification)
       self._record_event_locked(
           event_type='pin_post',
           actor=moderator,
@@ -704,6 +793,7 @@ class ForumState(entity_component.ContextComponent):
       return self._pinned_post_id
 
   def queue_notification(self, player_name: str, message: str) -> None:
+    self._sync_with_roster()
     with self._lock:
       if player_name in self._notification_queue:
         self._notification_queue[player_name].append(message)
@@ -935,6 +1025,9 @@ class ForumState(entity_component.ContextComponent):
     Returns:
       A string describing the result of the action.
     """
+    # Actions may name players who joined or left since the game master last
+    # acted (e.g. a direct message to a newcomer), so follow the roster first.
+    self._sync_with_roster()
     action = None
     image_data = None
 
@@ -1223,10 +1316,14 @@ class ForumState(entity_component.ContextComponent):
       for pid, post in self._posts.items():
         posts_state[str(pid)] = dataclasses.asdict(post)
       return {
+          'player_names': list(self._player_names),
           'posts': posts_state,
           'next_post_id': self._next_post_id,
           'next_reply_id': self._next_reply_id,
           'karma': dict(self._karma),
+          'notification_queue': {
+              k: list(v) for k, v in self._notification_queue.items()
+          },
           'last_seen_votes': {
               k: dict(v) for k, v in self._last_seen_votes.items()
           },
@@ -1248,6 +1345,8 @@ class ForumState(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
+      if 'player_names' in state and state['player_names'] is not None:
+        self._player_names = [str(n) for n in state['player_names']]  # pyrefly: ignore[not-iterable]
       self._posts = {}
       posts_data = dict(state.get('posts', {}))  # pyrefly: ignore[no-matching-overload]
       for pid_str, post_data in posts_data.items():
@@ -1257,6 +1356,23 @@ class ForumState(entity_component.ContextComponent):
       karma_data = state.get('karma', {})
       if karma_data:
         self._karma = {str(k): int(v) for k, v in dict(karma_data).items()}  # pyrefly: ignore[no-matching-overload]
+      raw_notifs = state.get('notification_queue')
+      if isinstance(raw_notifs, dict):
+        self._notification_queue = {
+            str(k): [str(m) for m in v] if isinstance(v, list) else []
+            for k, v in raw_notifs.items()
+        }
+      else:
+        self._notification_queue = {
+            name: list(self._notification_queue.get(name, []))
+            for name in self._player_names
+        }
+      for name in self._player_names:
+        self._karma.setdefault(name, 0)
+        self._notification_queue.setdefault(name, [])
+        self._last_seen_post_id.setdefault(name, -1)
+        self._last_seen_reply_id.setdefault(name, -1)
+        self._last_seen_votes.setdefault(name, {})
       votes_data = state.get('last_seen_votes', {})
       if votes_data:
         self._last_seen_votes = {
@@ -1617,6 +1733,19 @@ class ForumResolution(
     self._active_entity_name: str | None = None
     self._putative_action: str | None = None
 
+  def _known_player_names(self) -> list[str]:
+    with self._resolution_lock:
+      names = list(self._player_names)
+    seen = set(names)
+    try:
+      for name in self._get_forum_state().get_player_names():
+        if name not in seen:
+          names.append(name)
+          seen.add(name)
+    except (KeyError, AttributeError, RuntimeError):
+      pass
+    return names
+
   def _get_forum_state(self) -> ForumState:
     return self.get_entity().get_component(
         self._forum_component_key, type_=ForumState
@@ -1639,16 +1768,17 @@ class ForumResolution(
     # value is stable. We read it to restrict resolution to only the
     # calling entity's putative events, preventing cross-thread
     # contamination.
+    known_names = self._known_player_names()
     thread_entity_name = None
     game_master = self.get_entity()
     if hasattr(game_master, '_active_capture_key'):
       capture_key = game_master._active_capture_key  # pylint: disable=protected-access
-      if capture_key in self._player_names:
+      if capture_key in known_names:
         thread_entity_name = capture_key
 
     with self._resolution_lock:
       names_to_check = (
-          [thread_entity_name] if thread_entity_name else self._player_names
+          [thread_entity_name] if thread_entity_name else known_names
       )
       for name in names_to_check:
         prefix = f'{putative_event_tag} {name}'

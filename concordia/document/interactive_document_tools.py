@@ -378,8 +378,9 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
     Returns:
       The index of the selected answer in the original answers list.
     """
-    # If no tools, use base implementation directly
-    if not self._tools:
+    # With no tools, or only one answer (nothing to choose or look up), use the
+    # base implementation directly.
+    if not self._tools or len(answers) == 1:
       return super().multiple_choice_question(
           question=question,
           answers=answers,

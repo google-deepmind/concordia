@@ -278,13 +278,11 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
             else:
               value = answer_text
           elif qn.questionnaire_type in ('multiple_choice', 'multiple-choice'):
-            value = [
-                {
-                    'choice': choice,
-                    'similarity': 1 if choice == answer_text else 0,
-                }
-                for choice in question.choices  # pyrefly: ignore[not-iterable]
-            ]
+            value = []
+            for choice in question.choices:  # pyrefly: ignore[not-iterable]
+              rendered = choice.replace('{player_name}', player_name)
+              similarity = 1 if rendered == answer_text else 0
+              value.append({'choice': choice, 'similarity': similarity})
           else:
             value = answer_text
 

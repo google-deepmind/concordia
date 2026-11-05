@@ -40,7 +40,7 @@ Usage:
   python -m examples.concordia_island.personas.populations.generate_population \\
     --setting=brecksville \\
     --api_type=google_aistudio \\
-    --model_name=gemini-2.5-flash \\
+    --model_name=gemini-flash-latest \\
     --num_agents=1000 \\
     --output_path=/tmp/brecksville_roster.json
 
@@ -115,7 +115,7 @@ def _define_flags() -> None:
   )
   flags.DEFINE_string(
       'model_name',
-      'gemini-2.5-flash',
+      'gemini-flash-latest',
       'Model name passed to language_model_setup.',
   )
   flags.DEFINE_string(

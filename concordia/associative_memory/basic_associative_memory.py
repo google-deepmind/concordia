@@ -68,8 +68,12 @@ class AssociativeMemoryBank:
     """Sets the AssociativeMemory from a dictionary."""
 
     with self._memory_bank_lock:
-      self._stored_hashes = set(state['stored_hashes'])  # pyrefly: ignore[bad-argument-type]
       self._memory_bank = pd.read_json(StringIO(state['memory_bank']))  # pyrefly: ignore[bad-argument-type]
+      # String hashes vary between Python processes. Rebuild duplicate keys
+      # from the restored text rather than reusing the writer's hashes.
+      self._stored_hashes = {
+          hash((text,)) for text in self._memory_bank['text']
+      }
       self._pending_memories.clear()  # Clear any pending on state restore
 
   def _flush_pending(self) -> None:
@@ -133,6 +137,8 @@ class AssociativeMemoryBank:
   def _get_top_k_cosine(self, x: np.ndarray, k: int):
     """Returns the top k most cosine similar rows to an input vector x.
 
+    Zero-norm query or memory embeddings have similarity zero.
+
     Args:
       x: The input vector.
       k: The number of rows to return.
@@ -140,10 +146,19 @@ class AssociativeMemoryBank:
     Returns:
       Rows, sorted by cosine similarity in descending order.
     """
+    x = np.asarray(x)
+    x_norm = np.linalg.norm(x)
+    x = x / x_norm if x_norm > 0 else np.zeros_like(x)
+
+    def cosine_similarity(y):
+      y = np.asarray(y)
+      y_norm = np.linalg.norm(y)
+      return np.dot(x, y / y_norm) if y_norm > 0 else 0.0
+
     with self._memory_bank_lock:
       self._flush_pending()
       cosine_similarities = self._memory_bank['embedding'].apply(
-          lambda y: np.dot(x, y)
+          cosine_similarity
       )
 
       # Sort the cosine similarities in descending order.

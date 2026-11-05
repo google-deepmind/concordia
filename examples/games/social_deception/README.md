@@ -70,7 +70,7 @@ python -m examples.games.run \
   --game=social_deception \
   --scenario=basic_epistemic_town \
   --api_type=google_aistudio \
-  --model_name=gemini-2.5-flash
+  --model_name=gemini-flash-latest
 
 # Run with local Ollama
 python -m examples.games.run \

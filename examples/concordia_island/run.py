@@ -220,7 +220,7 @@ _AISTUDIO_API_KEY = flags.DEFINE_string(
 )
 _AISTUDIO_MODEL = flags.DEFINE_string(
     "aistudio_model",
-    "gemini-2.5-flash",
+    "gemini-flash-latest",
     "AI Studio model name.",
 )
 _TICK_INTERVAL = flags.DEFINE_integer(

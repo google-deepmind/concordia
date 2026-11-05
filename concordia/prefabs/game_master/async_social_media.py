@@ -64,12 +64,17 @@ class _NextActingEligiblePlayers(
   def __init__(
       self,
       player_names: Sequence[str] = (),
+      roster_component_key: str | None = (
+          gm_components.player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
+      ),
       pre_act_label: str = (
           gm_components.next_acting.DEFAULT_NEXT_ACTING_PRE_ACT_LABEL
       ),
   ):
     super().__init__()
     self._player_names = list(player_names)
+    self._manually_removed: set[str] = set()
+    self._roster_component_key = roster_component_key
     self._pre_act_label = pre_act_label
     self._lock = threading.Lock()
 
@@ -78,29 +83,52 @@ class _NextActingEligiblePlayers(
     with self._lock:
       if player_name in self._player_names:
         self._player_names.remove(player_name)
+      self._manually_removed.add(player_name)
 
   def add_player(self, player_name: str) -> None:
     """Add a player back to the active set (e.g. unban)."""
     with self._lock:
       if player_name not in self._player_names:
         self._player_names.append(player_name)
+      self._manually_removed.discard(player_name)
 
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      roster_names = None
+      if self._roster_component_key:
+        try:
+          roster = self.get_entity().get_component(
+              self._roster_component_key,
+              type_=gm_components.player_roster.PlayerRoster,
+          )
+          roster_names = roster.get_player_names()
+        except (KeyError, AttributeError, RuntimeError):
+          pass
       with self._lock:
-        return ', '.join(self._player_names)
+        candidates = (
+            roster_names if roster_names is not None else self._player_names
+        )
+        return ', '.join(
+            n for n in candidates if n not in self._manually_removed
+        )
     return ''
 
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
-      return {'player_names': list(self._player_names)}
+      return {
+          'player_names': list(self._player_names),
+          'manually_removed': sorted(self._manually_removed),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
       self._player_names = list(state['player_names'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
+      self._manually_removed = {
+          str(x) for x in state.get('manually_removed', ())  # pyrefly: ignore[not-iterable]
+      }
 
 
 @dataclasses.dataclass
@@ -195,8 +223,30 @@ class GameMaster(prefab_lib.Prefab):
     )
     make_observation = forum_module.ForumObservation()
 
+    roster_key = gm_components.player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
-    next_actor = _NextActingEligiblePlayers(player_names=player_names)
+    next_actor = _NextActingEligiblePlayers(
+        player_names=player_names,
+        roster_component_key=roster_key,
+    )
+
+    # Optional dynamic membership: with `player_prefabs`, players join and
+    # leave through a `PlayerRoster`, which the forum and next-acting
+    # components follow (they read it rather than being told of changes).
+    player_prefabs = self.params.get('player_prefabs', None)
+    roster = self.params.get('player_roster', None)
+    if roster is None and player_prefabs is not None:
+      players_list = (
+          []
+          if isinstance(self.entities, tuple) and not self.entities
+          else self.entities
+      )
+      roster = gm_components.player_roster.PlayerRoster(
+          players=players_list,
+          player_prefabs=player_prefabs,
+          model=self.params.get('player_model') or model,
+          embedder=self.params.get('embedder'),
+      )
 
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
@@ -213,9 +263,11 @@ class GameMaster(prefab_lib.Prefab):
     next_game_master_key = (
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
     )
-    next_game_master = actor_components.constant.Constant(state=name)
+    next_game_master = actor_components.constant.Constant(
+        state=name, prefix_pre_act=False
+    )
 
-    components_of_game_master = {
+    components_of_game_master: dict[str, Any] = {
         observation_component_key: observation,
         observation_to_memory_key: observation_to_memory,
         memory_component_key: memory_component,
@@ -227,6 +279,8 @@ class GameMaster(prefab_lib.Prefab):
         terminate_key: terminate,
         next_game_master_key: next_game_master,
     }
+    if roster is not None:
+      components_of_game_master[roster_key] = roster
 
     component_order = list(components_of_game_master.keys())
 

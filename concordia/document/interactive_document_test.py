@@ -189,6 +189,32 @@ Answer: (c)
       )
       self.assertSequenceEqual(doc.contents(), expected)
 
+  def test_multiple_choice_question_with_one_answer_skips_the_model(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+
+    doc = interactive_document.InteractiveDocument(model)
+    doc.statement('Hello')
+    response = doc.multiple_choice_question(
+        question='Which rule set should we use for the next step?',
+        answers=['default rules'],
+    )
+
+    with self.subTest('response'):
+      self.assertEqual(response, 0)
+
+    with self.subTest('model'):
+      model.sample_choice.assert_not_called()
+
+    with self.subTest('text'):
+      expected = """Hello
+Question: Which rule set should we use for the next step?
+  (a) default rules
+Answer: (a)
+"""
+      self.assertEqual(doc.text(), expected)
+
   def test_debug_hidden_from_default_view(self):
     model = mock.create_autospec(
         language_model.LanguageModel, instance=True, spec_set=True
