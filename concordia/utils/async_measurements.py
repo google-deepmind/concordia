@@ -44,8 +44,14 @@ class ReactiveMeasurements(measurements_lib.Measurements):
     # during the act() call.
   """
 
-  def __init__(self):
-    super().__init__()
+  def __init__(self, channel_retention: int | None = None):
+    """Initializes the ReactiveMeasurements object.
+
+    Args:
+      channel_retention: Optional. Keep only the most recent this many data in
+        each channel (see `Measurements`). None keeps every datum.
+    """
+    super().__init__(channel_retention=channel_retention)
     self._subject = reactivex_subject.Subject()
     self._active_captures: dict[int, tuple[str, dict[str, Any]]] = {}
     self._capture_lock = threading.Lock()
