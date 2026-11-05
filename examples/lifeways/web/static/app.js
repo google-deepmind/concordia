@@ -1694,7 +1694,8 @@ function lawLines(assembly) {
  */
 function gatheringText(gathering) {
   const whose = gathering.host === 'Experimenter' ? 'called by you' :
-      'the valley\'s own';
+      gathering.host ? `called by the chief ${gathering.host}` :
+        'the valley\'s own';
   const last = gathering.last === null || gathering.last === undefined ?
     'not held yet' : `last in the year ${gathering.last}, with ` +
       `${gathering.last_count} ${gathering.last_count === 1 ? 'person' :

@@ -1043,3 +1043,10 @@ test('grudges, feuds and truces read as lines', () => {
   assert.deepEqual(feudLines({grudges: [], truces: []}, 1),
       ['No people bears another a grudge.']);
 });
+
+test('a gathering a chief called says so', () => {
+  assert.equal(gatheringText({place: 'row 1, column 1', every: 5, host:
+    'Miha', held: 1, last: 10, last_count: 1, next: 15}), 'At row 1, ' +
+      'column 1, every 5 years (called by the chief Miha): next in the ' +
+      'year 15; last in the year 10, with 1 person.');
+});
