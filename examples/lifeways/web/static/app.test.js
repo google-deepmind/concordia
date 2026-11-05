@@ -29,6 +29,7 @@ const {
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
   sickNote, sicknessText, gatheringText, lawLines, chiefText, pactText,
+  feudLines,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -1027,4 +1028,18 @@ test('a pact of aid reads with whom and until when', () => {
       'With Bo, since the year 40, until the year 60');
   assert.equal(pactText({with: 'Bo', made: 40, until: null}),
       'With Bo, since the year 40');
+});
+
+test('grudges, feuds and truces read as lines', () => {
+  assert.deepEqual(feudLines({grudges: [{by: 'Hill people', against:
+    'River people', grievance: 1.5, hostile: true}, {by: 'River people',
+    against: 'Hill people', grievance: 0.3, hostile: false}], truces: [
+    {between: ['Lake people', 'River people'], until: 50},
+    {between: ['Lake people', 'Hill people'], until: 10}]}, 40), [
+    'The Hill people feud with the River people: they may raid them',
+    'The River people bear a grudge against the Hill people, not yet a feud',
+    'The Lake people and the River people are at peace until the year 50',
+  ]);
+  assert.deepEqual(feudLines({grudges: [], truces: []}, 1),
+      ['No people bears another a grudge.']);
 });

@@ -179,6 +179,13 @@ SANDBOX: Mapping[str, Any] = {
     # for `lasts` years to share when one goes hungry, and breaks at more
     # than `tolerance` refusals. None: no pacts.
     'pacts': {'lasts': 20, 'tolerance': 0},
+    # Feuds (contrib `Feuds`): taking from another people's fields and
+    # keeping food from its hungry are grudges its people hold; one at
+    # `threshold` is a feud, in which the grown may raid that people; each
+    # year grudges fade by `decay`; a raid adds `injury` to the raided
+    # people's grudge. Peace (a pact between peoples) holds `truce` years.
+    # None: no feuds.
+    'feuds': {'decay': 0.1, 'threshold': 1.0, 'injury': 0.5, 'truce': 20},
     'assembly': {
         'rule': 'majority',
         'quorum': 0.3,

@@ -66,6 +66,7 @@ from absl import logging
 from concordia.components.agent import human_act_component
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import feuds as feuds_lib
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import pacts as pacts_lib
@@ -2111,6 +2112,28 @@ class Session:
         'assembly': self._assembly(world['year']),
         # The valley's chief (None if there is none).
         'chief': self._chief(),
+        # Grudges between peoples and truces (None without feuds).
+        'feuds': self._feuds(),
+    }
+
+  def _feuds(self) -> dict[str, Any] | None:
+    """Grudges between peoples and the truces holding, from the GM's."""
+    feuds = self.run.gm_component(
+        feuds_lib.DEFAULT_FEUDS_COMPONENT_KEY, feuds_lib.Feuds
+    )
+    if feuds is None:
+      return None
+    return {
+        'grudges': [
+            {
+                'by': f['by'],
+                'against': f['against'],
+                'grievance': round(float(f['grievance']), 2),
+                'hostile': f['hostile'],
+            }
+            for f in feuds.feuds()
+        ],
+        'truces': feuds.truces(),
     }
 
   def _chief(self) -> dict[str, Any] | None:

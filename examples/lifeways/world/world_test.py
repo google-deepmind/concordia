@@ -20,6 +20,7 @@ import json
 from absl.testing import absltest
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import feuds as feuds_lib
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import pacts as pacts_lib
@@ -2691,6 +2692,87 @@ class PactsTest(absltest.TestCase):
     self._year(Ada=f'{world_lib.SHARE} Bo')
 
     self.assertEqual(self.pacts.size(), 1)
+
+
+class FeudsTest(absltest.TestCase):
+  """Grudges between peoples, raids and peace, the GM's `Feuds`."""
+
+  def setUp(self):
+    super().setUp()
+    self.feuds = feuds_lib.Feuds(seed=0, threshold=1.0)
+    self.pacts = pacts_lib.Pacts()
+    self.world = world_lib.World(
+        {
+            'seed': 0,
+            'founders': 0,
+            'farming': {'yield': 1.0, 'fallow': 10, 'inherit': None},
+            'feuds': {'truce': 10},
+        },
+        world_lib.Mechanics(feuds=self.feuds, pacts=self.pacts),
+    )
+    for name, age, tile, people in (
+        ('Ada', 30, (2, 2), 'River people'),
+        ('Eld', 70, (2, 3), 'River people'),
+        ('Hal', 30, (3, 3), 'Hill people'),
+        ('Hob', 30, (3, 4), 'Hill people'),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name,
+          born=self.world.year - age,
+          sex='f',
+          tile=tile,
+          food=8.0,
+          descent=people,
+      )
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_taking_from_another_peoples_field_is_a_grudge(self):
+    self.world.land.fields[(2, 3)] = (3, self.world.year, 'Hal')
+
+    self._year(Ada=world_lib.GATHER)
+
+    self.assertGreater(self.feuds.grievance('Hill people', 'River people'), 0)
+
+  def test_a_people_in_feud_may_raid_and_the_raided_grieve(self):
+    self.feuds.grieve('Hill people', 'River people', 2.0, step=0)
+    raid = f'{world_lib.RAID} River people'
+    self.assertIn(raid, self.world.moves('Hal'))
+    self.assertNotIn(f'{world_lib.RAID} Hill people', self.world.moves('Ada'))
+
+    self._year(Hal=raid, Hob=raid)
+
+    self.assertEqual(self.world.history[-1]['raids'], 2)
+    self.assertGreater(self.feuds.grievance('River people', 'Hill people'), 0)
+    told = ' '.join(self.world.queued['Hal'])
+    self.assertIn('Hal', told)
+    self.assertIn(
+        'The Hill people bear a grudge against the River people.',
+        self.world.status('Hal'),
+    )
+
+  def test_an_elder_offers_peace_and_the_other_people_accepts(self):
+    self.feuds.grieve('Hill people', 'River people', 2.0, step=0)
+    offer = f'{world_lib.OFFER_PEACE} Hill people'
+    self.assertIn(offer, self.world.moves('Eld'))
+    self.assertNotIn(offer, self.world.moves('Ada'))  # Not an elder.
+
+    self._year(Eld=offer)
+    accept = f'{world_lib.ACCEPT_PEACE} River people'
+    self.assertIn(accept, self.world.moves('Hal'))
+    self._year(Hal=accept)
+
+    self.assertEqual(self.feuds.feuds(), [])
+    self.assertTrue(
+        self.feuds.at_peace('Hill people', 'River people', self.world.year)
+    )
+    self.assertNotIn(f'{world_lib.RAID} River people', self.world.moves('Hal'))
+    self.assertIn('are at peace with the', self.world.status('Ada'))
 
 
 class SeasonsTest(absltest.TestCase):

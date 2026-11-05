@@ -1708,7 +1708,31 @@ const NEWS_WORDS = {
   disaster: 'a disaster seen',
   death: 'a death',
   word: 'your word',
+  raid: 'a raid',
+  praise: 'a good deed',
+  blame: 'food kept from the hungry',
+  default: 'a debt unpaid',
+  betrayal: 'a pact broken',
 };
+
+/**
+ * Grudges between peoples and the truces holding, a line each, in words.
+ * @param {!Object} feuds {grudges: [{by, against, grievance, hostile}],
+ *     truces: [{between, until}]}.
+ * @param {number} year The year now.
+ * @return {!Array<string>} E.g. 'The Hill people feud with the River
+ *     people'.
+ */
+function feudLines(feuds, year) {
+  const grudges = (feuds.grudges || []).map((g) => `The ${g.by} ` +
+      (g.hostile ? `feud with the ${g.against}: they may raid them` :
+        `bear a grudge against the ${g.against}, not yet a feud`));
+  const truces = (feuds.truces || []).filter((t) => t.until > year).map(
+      (t) => `The ${t.between[0]} and the ${t.between[1]} are at peace ` +
+      `until the year ${t.until}`);
+  const lines = [...grudges, ...truces];
+  return lines.length ? lines : ['No people bears another a grudge.'];
+}
 
 /**
  * A rumour going round, in words.
@@ -1917,7 +1941,9 @@ const PART_WORDS = {
       'grown, standing for a term',
   Offices: 'the valley\'s chief, acclaimed for the best name, for a term',
   Pacts: 'pacts of aid between close friends, kept by sharing in hunger ' +
-      'and broken by refusing',
+      'and broken by refusing; and peace between peoples',
+  Feuds: 'grudges between peoples, the raids they lead to, and the ' +
+      'truces that end them',
 };
 
 /** Where a part comes from, in words. */
@@ -2901,6 +2927,13 @@ async function refreshOnce() {
           item.textContent = line;
           return item;
         }));
+    document.getElementById('feuds').replaceChildren(
+        ...feudLines(world.feuds || {grudges: [], truces: []}, world.year)
+            .map((line) => {
+              const item = document.createElement('li');
+              item.textContent = line;
+              return item;
+            }));
     document.getElementById('gatherings').replaceChildren(
         ...(world.gatherings || []).map((gathering) => {
           const item = document.createElement('li');
@@ -3893,6 +3926,6 @@ if (typeof document !== 'undefined') {
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
     tieText, wordMove, rumourText, knownForText, debtLines, sickNote,
-    sicknessText, gatheringText, lawLines, chiefText, pactText,
+    sicknessText, gatheringText, lawLines, chiefText, pactText, feudLines,
   };
 }

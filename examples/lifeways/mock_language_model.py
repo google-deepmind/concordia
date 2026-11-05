@@ -283,6 +283,18 @@ def _choose(
   if proposals and food >= 4.0 and draw < 0.1:
     fitting = [m for m in proposals if _in_keeping(m, customs)]
     return (fitting or proposals)[0]
+  # Peace offered is mostly accepted; elders offer it once a grudge has
+  # grown into a feud (their status says so); in a feud, the hungry raid on
+  # some draws.
+  accept_peace = [m for m in moves if m.startswith(world_lib.ACCEPT_PEACE)]
+  if accept_peace and draw < 0.6:
+    return accept_peace[0]
+  peace = [m for m in moves if m.startswith(world_lib.OFFER_PEACE)]
+  if peace and 'bear a grudge' in prompt and draw < 0.3:
+    return peace[0]
+  raid = [m for m in moves if m.startswith(world_lib.RAID)]
+  if raid and food < 5.0 and draw < 0.35:
+    return raid[0]
   # A pact of aid offered is mostly accepted; one is now and then offered to
   # one close.
   accept = [m for m in moves if m.startswith(world_lib.ACCEPT_AID)]

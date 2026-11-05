@@ -34,6 +34,7 @@ import zlib
 
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion as contagion_lib
+from concordia.contrib.components.game_master import feuds as feuds_lib
 from concordia.contrib.components.game_master import gatherings as gatherings_lib
 from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import pacts as pacts_lib
@@ -94,6 +95,13 @@ CALL_HERE = 'call a gathering where you live'
 # the one offered may accept.
 OFFER_AID = 'offer a pact of aid to'
 ACCEPT_AID = 'accept the pact of aid with'
+# Feuds (the `feuds` setting): ... a people. The grown of a people that bears
+# a grudge against another may raid it where one of it lives within
+# `RAID_REACH`; an elder or the chief may offer it peace, and the grown of
+# the other people may accept the next year.
+RAID = 'raid the'
+OFFER_PEACE = 'offer peace to the'
+ACCEPT_PEACE = 'accept peace with the'
 _GO_GATHER = re.compile(r'^go to the gathering at (?P<row>\d+),(?P<col>\d+)$')
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
@@ -299,6 +307,22 @@ NAME_QUALITIES = (GENEROUS, RELIABLE, LAWFUL)
 AID = 'aid'
 AID_TERMS = 'We help each other when one goes hungry.'
 BETRAYAL_NEWS = 'betrayal'
+# Feuds between peoples (by descent): taking from the fields another
+# people tends (`GRIEF_FIELD`), and keeping full stores while one of another
+# people had none (`GRIEF_HOARD`), are injuries its people remember. A raid
+# pits the raider and the grown of its people within sight against the one
+# raided (the richest of that people within reach) and the grown of its
+# people within sight, each counting `ALLY` beside the one; the winner takes
+# half the loser's stores (raiders) or nothing, and the loser may die
+# (`RAID_DEATH`). Peace is a pact between the peoples (kind `PEACE`).
+RAID_REACH = 4
+GRIEF_FIELD = 0.4
+GRIEF_HOARD = 0.3
+ALLY = 0.5
+RAID_DEATH = 0.1
+PEACE = 'peace'
+PEACE_TERMS = 'We raid one another no more, and forget old wrongs.'
+RAID_NEWS = 'raid'
 FRAIL = 2.5
 FRAIL_YOUNG = 5
 FRAIL_OLD = 60
@@ -563,7 +587,10 @@ class Mechanics:
     assembly: The valley's assembly and its laws (`Assembly`, the
       `assembly` setting).
     offices: The valley's chief (`Offices`, the `offices` setting).
-    pacts: Pacts of aid between people (`Pacts`, the `pacts` setting).
+    pacts: Pacts of aid between people, and of peace between peoples
+      (`Pacts`, the `pacts` setting).
+    feuds: Grievances between peoples, raids and truces (`Feuds`, the
+      `feuds` setting).
   """
 
   ties: social_ties.SocialTies | None = None
@@ -575,6 +602,7 @@ class Mechanics:
   assembly: assembly_lib.Assembly | None = None
   offices: offices_lib.Offices | None = None
   pacts: pacts_lib.Pacts | None = None
+  feuds: feuds_lib.Feuds | None = None
 
 
 class World:
@@ -603,6 +631,9 @@ class World:
     self.assembly = mechanics.assembly
     self.offices = mechanics.offices
     self.pacts = mechanics.pacts
+    self.feuds = mechanics.feuds
+    self._raided = 0  # Raids this year.
+    self._raid_deaths = 0
     self._broken = 0  # Pacts broken this year.
     self._votes = 0  # Votes cast this year.
     self._law_breaches = 0  # Laws seen broken this year.
@@ -1306,6 +1337,7 @@ class World:
         *self._assembly_moves(person),
         *self._chief_moves(person),
         *self._pact_moves(person),
+        *self._feud_moves(person),
     ]
     if (
         self.farming
@@ -1834,6 +1866,7 @@ class World:
         )
         + ''.join(f' The valley\'s law: {law["text"]}' for law in self._laws())
         + self._chief_line(name)
+        + self._feud_line(person)
         + ''.join(
             f' Within sight is {self._describe(place)}.'
             for place in self._nearest_places(person)
@@ -1949,7 +1982,8 @@ class World:
         if m in (GATHER, SPARE)
     ]
     # Disasters strike after the year's work, before everyone eats.
-    deaths = self._send(self.actions.get(EXPERIMENTER, ''))
+    deaths = self._raids(did)
+    deaths += self._send(self.actions.get(EXPERIMENTER, ''))
     deaths += self._disaster()
     deaths += self._sicken(did)
     deaths += self._eat_and_die()
@@ -1963,6 +1997,7 @@ class World:
     self._fill_offices()
     if self.reputation is not None:
       self.reputation.step()
+    self._settle_feuds()
     self.norm_acts = {
         name: [
             name in seen,
@@ -2070,6 +2105,11 @@ class World:
         effort *= 0.5
       spare = self._fields_of_others(person) if move == SPARE else []
       person.food += self.land.gather(person.tile, effort, spare)
+      if move == GATHER:
+        for tile in self._fields_of_others(person):
+          tender = self.people.get(self.land.fields[tile][2])
+          if tender is not None:
+            self._grieve(tender.descent, person.descent, GRIEF_FIELD, 'a field')
     elif move == SOW:
       # Know-how the GM gave, enacted, makes a field; else nothing grows.
       level = self._level(enacted, culture_lib.FARMING)
@@ -2120,6 +2160,8 @@ class World:
       self._take_part(person, move)
     elif move.startswith((OFFER_AID, ACCEPT_AID)):
       self._pact(person, move)
+    elif move.startswith((OFFER_PEACE, ACCEPT_PEACE)):
+      self._peace(person, move)
     elif move == CALL_HERE and CALL_HERE in self._chief_moves(person):
       self._add_gathering(person.tile, name)
       self._report(
@@ -3077,6 +3119,203 @@ class World:
               a, f'The pact of aid of {" and ".join(ended.parties)} ends.'
           )
 
+  def _peoples(self) -> list[str]:
+    """The peoples living, by name."""
+    return sorted({p.descent for p in self.people.values() if p.descent})
+
+  def _grieve(self, by: str, against: str, amount: float, why: str) -> None:
+    if self.feuds is not None and by and against and by != against:
+      self.feuds.grieve(by, against, amount, self.year, why)
+
+  def _feud_moves(self, person: Person) -> list[str]:
+    """A grown person's part in its people's feuds this year, as moves."""
+    if (
+        self.feuds is None
+        or not person.descent
+        or person.age(self.year) < ADULT_AGE
+    ):
+      return []
+    mine = person.descent
+    found = []
+    for other in self._peoples():
+      if other == mine or self.feuds.at_peace(mine, other, self.year):
+        continue
+      if self.feuds.hostile(mine, other) and any(
+          p.descent == other
+          and self.places.distance(person.tile, p.tile) <= RAID_REACH
+          for p in self.people.values()
+      ):
+        found.append(f'{RAID} {other}')
+      leads = person.age(self.year) >= ELDER_AGE or self._is_chief(person.name)
+      if (
+          leads
+          and self.pacts is not None
+          and (
+              self.feuds.grievance(mine, other)
+              or self.feuds.grievance(other, mine)
+          )
+          and not self.pacts.between(mine, other, PEACE)
+      ):
+        found.append(f'{OFFER_PEACE} {other}')
+    if self.pacts is not None:
+      found.extend(
+          f'{ACCEPT_PEACE} {offer.parties[0]}'
+          for offer in self.pacts.offers_to(mine, self.year)
+          if offer.kind == PEACE
+      )
+    return found
+
+  def _peace(self, person: Person, move: str) -> None:
+    """Peace offered to another people, or accepted from one."""
+    if (
+        self.feuds is None
+        or self.pacts is None
+        or move not in self._feud_moves(person)
+    ):
+      return
+    mine = person.descent
+    truce = int((self.settings.get('feuds') or {}).get('truce', 20))
+    if move.startswith(OFFER_PEACE):
+      other = move.removeprefix(f'{OFFER_PEACE} ')
+      if self.pacts.offer(mine, other, PEACE, PEACE_TERMS, self.year, truce):
+        for name in self._of_people(other):
+          self._tell(
+              name,
+              f'{person.name} of the {mine} offers the {other} peace:'
+              f' "{PEACE_TERMS}" The grown of the {other} may accept it next'
+              ' year.',
+          )
+      return
+    other = move.removeprefix(f'{ACCEPT_PEACE} ')
+    for offer in self.pacts.offers_to(mine, self.year):
+      if offer.kind == PEACE and offer.parties[0] == other:
+        if self.pacts.accept(mine, offer.id, self.year):
+          self.feuds.make_peace(mine, other, self.year)
+          told = (
+              f'The {other} and the {mine} make peace for {truce} years:'
+              f' "{PEACE_TERMS}"'
+          )
+          for name in self._of_people(mine) + self._of_people(other):
+            self._tell(name, told)
+          self._report(told)
+
+  def _of_people(self, people: str) -> list[str]:
+    return [n for n in self.living() if self.people[n].descent == people]
+
+  def _raids(self, did: Mapping[str, tuple[str, list[str]]]) -> list[str]:
+    """The year's raids: who takes what from whom, and who dies of them."""
+    self._raided = 0
+    self._raid_deaths = 0
+    if self.feuds is None:
+      return []
+    raiding = {
+        name: move.removeprefix(f'{RAID} ')
+        for name, (move, _) in sorted(did.items())
+        if move.startswith(RAID) and name in self.people
+    }
+    dead: list[str] = []
+    for name, other in sorted(raiding.items()):
+      if name in dead:
+        continue
+      raider = self.people[name]
+      targets = [
+          p
+          for p in self.people.values()
+          if p.descent == other
+          and p.name not in dead
+          and self.places.distance(raider.tile, p.tile) <= RAID_REACH
+      ]
+      if not targets:
+        continue
+      target = max(targets, key=lambda p: (p.food, p.name))
+      allies = sum(
+          1 for ally in self._in_sight(raider) if raiding.get(ally) == other
+      )
+      defenders = sum(
+          1
+          for d in self._in_sight(target)
+          if self.people[d].descent == other
+          and self.people[d].age(self.year) >= ADULT_AGE
+      )
+      outcome = self.feuds.raid(
+          raider.descent,
+          other,
+          1.0 + ALLY * allies,
+          1.0 + ALLY * defenders,
+          self.year,
+      )
+      self._raided += 1
+      rng = self._rng('raid', name, target.name)
+      if outcome.won:
+        taken = min(target.food, max(1.0, target.food / 2))
+        target.food -= taken
+        raider.food += taken
+        self._tell(
+            target.name,
+            f'{name} of the {raider.descent} raids {target.name} and takes'
+            f' {_amount(round(taken, 1))} food.',
+        )
+        self._tell(
+            name,
+            f'{name} raids {target.name} of the {other} and takes'
+            f' {_amount(round(taken, 1))} food.',
+        )
+        if rng.random() < RAID_DEATH:
+          dead.append(target.name)
+      else:
+        self._tell(name, f"{name}'s raid on {target.name} is driven off.")
+        self._tell(target.name, f"{target.name} drives off {name}'s raid.")
+        if rng.random() < RAID_DEATH:
+          dead.append(name)
+      self._start_rumor(
+          f'In the year {self.year}, {name} of the {raider.descent} raided'
+          f' {target.name} of the {other}.',
+          [name, target.name, *self._in_sight(target)],
+          about=name,
+          kind=RAID_NEWS,
+      )
+    for name in dead:
+      self._die(name)
+    self._raid_deaths = len(dead)
+    return dead
+
+  def _settle_feuds(self) -> None:
+    """Grudges fade with the year; peoples that are gone are forgotten."""
+    if self.feuds is None:
+      return
+    self.feuds.step(self.year)
+    living = set(self._peoples())
+    known = {f['by'] for f in self.feuds.feuds()} | {
+        f['against'] for f in self.feuds.feuds()
+    }
+    for gone in sorted(known - living):
+      self.feuds.forget(gone)
+      if self.pacts is not None:
+        self.pacts.forget(gone, self.year)
+
+  def _feud_line(self, person: Person) -> str:
+    """What a person knows of its people's feuds and truces."""
+    if self.feuds is None or not person.descent:
+      return ''
+    mine = person.descent
+    line = ''
+    for other in self._peoples():
+      if other == mine:
+        continue
+      if self.feuds.hostile(mine, other):
+        line += f' The {mine} bear a grudge against the {other}.'
+      truce = next(
+          (
+              t['until']
+              for t in self.feuds.truces()
+              if sorted(t['between']) == sorted([mine, other])
+          ),
+          None,
+      )
+      if truce is not None and truce > self.year:
+        line += f' The {mine} are at peace with the {other} until {truce}.'
+    return line
+
   def _is_chief(self, name: str) -> bool:
     return self.offices is not None and self.offices.holder(CHIEF) == name
 
@@ -3646,6 +3885,11 @@ class World:
           self._in_sight(person),
           f'{name} kept full stores while {" and ".join(needy)} went hungry.',
       )
+      for hungry in needy:
+        if hungry in self.people:
+          self._grieve(
+              self.people[hungry].descent, person.descent, GRIEF_HOARD, 'hunger'
+          )
 
   def _pair_partners(self, allowed: Mapping[str, Sequence[str]]) -> None:
     """Pairs those looking for a partner, nearest first, in name order.
@@ -4028,6 +4272,14 @@ class World:
         # Pacts of aid holding, and broken this year.
         'pacts': self.pacts.size() if self.pacts is not None else 0,
         'pacts_broken': self._broken,
+        # Feuds between peoples: grudges at the threshold, raids, their dead.
+        'feuds': (
+            sum(1 for f in self.feuds.feuds() if f['hostile'])
+            if self.feuds is not None
+            else 0
+        ),
+        'raids': self._raided,
+        'raid_deaths': self._raid_deaths,
         'gatherings': (
             len(self.gatherings.gatherings()) if self.gatherings else 0
         ),

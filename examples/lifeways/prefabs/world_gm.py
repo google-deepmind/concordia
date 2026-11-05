@@ -30,7 +30,8 @@
 | `__gatherings__` | contrib `Gatherings`: gatherings held every few years (the `gatherings` setting) |
 | `__assembly__` | contrib `Assembly`: the valley's motions, votes and laws (the `assembly` setting) |
 | `__offices__` | contrib `Offices`: the valley's chief (the `offices` setting) |
-| `__pacts__` | contrib `Pacts`: pacts of aid between people (the `pacts` setting) |
+| `__pacts__` | contrib `Pacts`: pacts of aid between people, and of peace between peoples (the `pacts` setting) |
+| `__feuds__` | contrib `Feuds`: grudges between peoples, raids and truces (the `feuds` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -55,6 +56,7 @@ from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import feuds as feuds_lib
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
 from concordia.contrib.components.game_master import pacts as pacts_lib
@@ -168,6 +170,21 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
           if settings.get('pacts')
           else None
       ),
+      feuds=_feuds(settings),
+  )
+
+
+def _feuds(settings: Mapping[str, Any]) -> feuds_lib.Feuds | None:
+  """The feuds a world's settings ask for (None without the setting)."""
+  if not settings.get('feuds'):
+    return None
+  grudges = dict(settings['feuds'])
+  return feuds_lib.Feuds(
+      seed=int(settings.get('seed', 0)),
+      decay=float(grudges.get('decay', feuds_lib.DECAY)),
+      threshold=float(grudges.get('threshold', feuds_lib.THRESHOLD)),
+      injury=float(grudges.get('injury', feuds_lib.INJURY)),
+      truce=int(grudges.get('truce', feuds_lib.TRUCE)),
   )
 
 
@@ -301,6 +318,8 @@ class WorldGameMaster(prefab_lib.Prefab):
       components[offices_lib.DEFAULT_OFFICES_COMPONENT_KEY] = mechanics.offices
     if mechanics.pacts is not None:
       components[pacts_lib.DEFAULT_PACTS_COMPONENT_KEY] = mechanics.pacts
+    if mechanics.feuds is not None:
+      components[feuds_lib.DEFAULT_FEUDS_COMPONENT_KEY] = mechanics.feuds
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),
