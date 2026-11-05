@@ -238,13 +238,14 @@ class GeminiModel(language_model.LanguageModel):
 
     try:
       # pyrefly: ignore [missing-attribute, unsupported-operation]
-      response = sample.candidates[0].content.parts[0].text
-    except (ValueError, IndexError, AttributeError) as e:
+      response = sample.candidates[0].content.parts[0].text or ''
+    except (ValueError, IndexError, AttributeError, TypeError) as e:
       logging.error('An error occurred: %s', e)
       logging.debug('prompt: %s', prompt)
       logging.debug('sample: %s', sample)
       response = ''
-      response = self._strip_markdown(response)
+
+    response = self._strip_markdown(response)
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel, {'raw_text_length': len(response)}
