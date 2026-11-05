@@ -2360,7 +2360,7 @@ class SicknessTest(absltest.TestCase):
     return self.world.close_year()
 
   def test_it_passes_to_those_within_sight_and_the_sick_gather_less(self):
-    self.sickness.infect(['Ada'], step=0)
+    self.sickness.infect(['Ada'], step=-1)  # Caught before this year.
 
     self.assertIn('Ada is sick', self.world.status('Ada'))
     self.assertIn(world_lib.KEEP_APART, self.world.moves('Bo'))
@@ -2376,11 +2376,15 @@ class SicknessTest(absltest.TestCase):
     self.assertEqual((row['sick'], row['immune']), (1, 1))
 
   def test_one_who_keeps_apart_does_not_catch_it(self):
-    self.sickness.infect(['Ada'], step=0)
+    self.sickness.infect(['Ada'], step=-1)
+    self.world.people['Cy'] = world_lib.Person(
+        name='Cy', born=-30, sex='f', tile=(2, 3), food=8.0
+    )
 
     self._year(Bo=world_lib.KEEP_APART)
 
     self.assertEqual(self.sickness.status('Bo')[0], contagion.SUSCEPTIBLE)
+    self.assertEqual(self.sickness.status('Cy')[0], contagion.INFECTIOUS)
 
   def test_a_plague_sent_brings_the_sickness(self):
     self.world._strike(world_lib.PLAGUE, (2, 2), 'world')
@@ -2396,7 +2400,7 @@ class SicknessTest(absltest.TestCase):
     world.people['Ada'] = world_lib.Person(
         name='Ada', born=-30, sex='f', tile=(2, 2), food=8.0
     )
-    deadly.infect(['Ada'], step=0)
+    deadly.infect(['Ada'], step=-1)
     world.actions = {'Ada': world_lib.REST}
 
     outcome = world.close_year()

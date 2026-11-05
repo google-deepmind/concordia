@@ -38,9 +38,10 @@ asks for it. The world is built from the GM's own params (`settings`), so no
 object is shared with any entity.
 
 The mechanics from `concordia/contrib` are GM components under their own keys:
-this prefab builds each from the settings, registers it, and hands the same
-object to the `World`, which calls it as a year closes. The GM saves each
-with the rest of its state.
+this prefab builds each from the settings (`make_mechanics`) and registers it
+under its key (`game_master.MECHANICS`). The components that drive the world
+find them there by key and hand them to the `World`, which calls them as a
+year closes. The GM saves each with the rest of its state.
 """
 
 from collections.abc import Mapping
@@ -162,15 +163,33 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
       sickness=sickness,
       gatherings=calendar,
       assembly=council,
-      offices=offices_lib.Offices() if settings.get('offices') else None,
-      pacts=(
-          pacts_lib.Pacts(
-              tolerance=int(dict(settings['pacts']).get('tolerance', 0))
+      offices=(
+          offices_lib.Offices(
+              max_history=int(
+                  dict(settings['offices']).get(
+                      'max_history', offices_lib.MAX_HISTORY
+                  )
+              )
           )
-          if settings.get('pacts')
+          if settings.get('offices')
           else None
       ),
+      pacts=_pacts(settings),
       feuds=_feuds(settings),
+  )
+
+
+def _pacts(settings: Mapping[str, Any]) -> pacts_lib.Pacts | None:
+  """The pacts a world's settings ask for (None without the setting)."""
+  if not settings.get('pacts'):
+    return None
+  terms = dict(settings['pacts'])
+  return pacts_lib.Pacts(
+      answer_within=int(terms.get('answer_within', pacts_lib.ANSWER_WITHIN)),
+      tolerance=int(terms.get('tolerance', pacts_lib.TOLERANCE)),
+      max_pacts=int(terms.get('max_pacts', pacts_lib.MAX_PACTS)),
+      max_offers=int(terms.get('max_offers', pacts_lib.MAX_OFFERS)),
+      max_history=int(terms.get('max_history', pacts_lib.MAX_HISTORY)),
   )
 
 
@@ -182,6 +201,7 @@ def _feuds(settings: Mapping[str, Any]) -> feuds_lib.Feuds | None:
   return feuds_lib.Feuds(
       seed=int(settings.get('seed', 0)),
       decay=float(grudges.get('decay', feuds_lib.DECAY)),
+      floor=float(grudges.get('floor', feuds_lib.FLOOR)),
       threshold=float(grudges.get('threshold', feuds_lib.THRESHOLD)),
       injury=float(grudges.get('injury', feuds_lib.INJURY)),
       truce=int(grudges.get('truce', feuds_lib.TRUCE)),
@@ -240,7 +260,7 @@ class WorldGameMaster(prefab_lib.Prefab):
     self.check_extra_components()
     settings = dict(self.params.get('settings', {}))
     mechanics = make_mechanics(settings)
-    world = world_lib.World(settings, mechanics)
+    world = world_lib.World(settings)  # It finds its mechanics by key.
     world.found(self.params.get('founders', ()))
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
     players = self.entities if self.entities is not None else []
@@ -292,34 +312,11 @@ class WorldGameMaster(prefab_lib.Prefab):
         ),
         terminate.DEFAULT_TERMINATE_COMPONENT_KEY: terminate.Terminate(),
     }
-    if mechanics.ties is not None:
-      components[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = mechanics.ties
-    if mechanics.rumors is not None:
-      components[rumors_lib.DEFAULT_RUMORS_COMPONENT_KEY] = mechanics.rumors
-    if mechanics.reputation is not None:
-      components[reputation_lib.DEFAULT_REPUTATION_COMPONENT_KEY] = (
-          mechanics.reputation
-      )
-    if mechanics.debts is not None:
-      components[reciprocity.DEFAULT_RECIPROCITY_COMPONENT_KEY] = (
-          mechanics.debts
-      )
-    if mechanics.sickness is not None:
-      components[contagion.DEFAULT_CONTAGION_COMPONENT_KEY] = mechanics.sickness
-    if mechanics.gatherings is not None:
-      components[gatherings.DEFAULT_GATHERINGS_COMPONENT_KEY] = (
-          mechanics.gatherings
-      )
-    if mechanics.assembly is not None:
-      components[assembly_lib.DEFAULT_ASSEMBLY_COMPONENT_KEY] = (
-          mechanics.assembly
-      )
-    if mechanics.offices is not None:
-      components[offices_lib.DEFAULT_OFFICES_COMPONENT_KEY] = mechanics.offices
-    if mechanics.pacts is not None:
-      components[pacts_lib.DEFAULT_PACTS_COMPONENT_KEY] = mechanics.pacts
-    if mechanics.feuds is not None:
-      components[feuds_lib.DEFAULT_FEUDS_COMPONENT_KEY] = mechanics.feuds
+    # Each mechanic under its key; the world's components find them there.
+    for field, (key, _) in gm_components.MECHANICS.items():
+      mechanic = getattr(mechanics, field)
+      if mechanic is not None:
+        components[key] = mechanic
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

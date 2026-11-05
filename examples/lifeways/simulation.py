@@ -33,6 +33,7 @@ import threading
 from typing import Any, TextIO
 
 from absl import logging as absl_logging
+from concordia.agents import entity_agent
 from concordia.environment.engines import asynchronous
 from examples.lifeways import mock_language_model
 from examples.lifeways import scenarios
@@ -315,8 +316,10 @@ class Run:
     Returns:
       The component, or None.
     """
-    components = self.sim.game_masters[0].get_all_context_components()  # pyrefly: ignore[missing-attribute]
-    found = components.get(key)
+    master = self.sim.game_masters[0]
+    if not isinstance(master, entity_agent.EntityAgent):
+      return None
+    found = master.get_all_context_components().get(key)
     return found if isinstance(found, type_) else None
 
   def world_lock(self) -> threading.RLock:

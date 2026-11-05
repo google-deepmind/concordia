@@ -33,6 +33,16 @@ from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import assembly
+from concordia.contrib.components.game_master import contagion
+from concordia.contrib.components.game_master import feuds
+from concordia.contrib.components.game_master import gatherings
+from concordia.contrib.components.game_master import offices
+from concordia.contrib.components.game_master import pacts
+from concordia.contrib.components.game_master import reciprocity
+from concordia.contrib.components.game_master import reputation
+from concordia.contrib.components.game_master import rumors
+from concordia.contrib.components.game_master import social_ties
 from concordia.environment import engine as engine_lib
 from examples.lifeways.world import world as world_lib
 from concordia.typing import entity as entity_lib
@@ -82,13 +92,60 @@ class Lifecycle:
   year_closed: Callable[[int], None] = lambda year: None
 
 
+# The contrib mechanics the world calls, by `world.Mechanics` field: the key
+# each is registered under in the World GM, and its class.
+MECHANICS: Mapping[str, tuple[str, type[entity_component.BaseComponent]]] = {
+    'ties': (
+        social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY,
+        social_ties.SocialTies,
+    ),
+    'rumors': (rumors.DEFAULT_RUMORS_COMPONENT_KEY, rumors.Rumors),
+    'reputation': (
+        reputation.DEFAULT_REPUTATION_COMPONENT_KEY,
+        reputation.Reputation,
+    ),
+    'debts': (
+        reciprocity.DEFAULT_RECIPROCITY_COMPONENT_KEY,
+        reciprocity.Reciprocity,
+    ),
+    'sickness': (
+        contagion.DEFAULT_CONTAGION_COMPONENT_KEY,
+        contagion.Contagion,
+    ),
+    'gatherings': (
+        gatherings.DEFAULT_GATHERINGS_COMPONENT_KEY,
+        gatherings.Gatherings,
+    ),
+    'assembly': (assembly.DEFAULT_ASSEMBLY_COMPONENT_KEY, assembly.Assembly),
+    'offices': (offices.DEFAULT_OFFICES_COMPONENT_KEY, offices.Offices),
+    'pacts': (pacts.DEFAULT_PACTS_COMPONENT_KEY, pacts.Pacts),
+    'feuds': (feuds.DEFAULT_FEUDS_COMPONENT_KEY, feuds.Feuds),
+}
+
+
 class WorldComponent(entity_component.ContextComponent):
-  """Holds the world; its state is the world's."""
+  """Holds the world; its state is the world's.
+
+  The contrib mechanics the world calls are the GM's own components, found
+  by key (`MECHANICS`): `bind_mechanics` hands the world those the GM has,
+  as the components that drive the world (`TurnGate`, `Questions`) begin.
+  """
 
   def __init__(self, world: world_lib.World):
     super().__init__()
     self.world = world
     self.lock = threading.RLock()
+
+  def bind_mechanics(self) -> None:
+    """Hands the world the GM's mechanics, found by key (hold `lock`)."""
+    entity = self.get_entity()
+    found: dict[str, Any] = {}
+    for field, (key, kind) in MECHANICS.items():
+      try:
+        found[field] = entity.get_component(key, type_=kind)
+      except KeyError:
+        found[field] = None  # The GM keeps no such mechanic.
+    self.world.bind(world_lib.Mechanics(**found))
 
   @override
   def get_state(self) -> entity_component.ComponentState:
@@ -175,6 +232,7 @@ class TurnGate(
       return ''
     holder = _world_component(self, self._world_key)
     with holder.lock:
+      holder.bind_mechanics()
       world = holder.world
       late = (
           self._free is not None
@@ -293,6 +351,7 @@ class Questions(
     )
     holder = _world_component(self, self._world_key)
     with holder.lock:
+      holder.bind_mechanics()
       world = holder.world
       if not world.may_act(name):
         # In free mode the year may have closed (and the person died) since

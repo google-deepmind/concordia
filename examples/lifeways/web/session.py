@@ -1979,9 +1979,19 @@ class Session:
       and what the page needs to know of the game (kinds, domains, the age
       of the grown, the highest skill level, the rows kept).
     """
-    world = self.run.world_state()
+    # The world and its mechanics, read in one hold of the World GM's lock,
+    # so that no year closes between them.
     with self.run.world_lock():
+      world = self.run.world_state()
       reach = self.run.world().song_reach()
+      mechanics = {
+          'rumours': self._rumours(),
+          'sick': self._sick(),
+          'gatherings': self._gatherings(world['year']),
+          'assembly': self._assembly(world['year']),
+          'chief': self._chief(),
+          'feuds': self._feuds(),
+      }
     land = world['land']
     surveys = list(world.get('surveys', ()))
     surveyed = {
@@ -2103,17 +2113,17 @@ class Session:
         ),
         'played': self._played_state(people) if self.played else None,
         # The word going round (None if the world keeps no rumours).
-        'rumours': self._rumours(),
+        'rumours': mechanics['rumours'],
         # Who is sick now (none if no sickness passes).
-        'sick': self._sick(),
+        'sick': mechanics['sick'],
         # The gatherings kept (None if nobody gathers).
-        'gatherings': self._gatherings(world['year']),
+        'gatherings': mechanics['gatherings'],
         # The assembly's laws and open motion (None without an assembly).
-        'assembly': self._assembly(world['year']),
+        'assembly': mechanics['assembly'],
         # The valley's chief (None if there is none).
-        'chief': self._chief(),
+        'chief': mechanics['chief'],
         # Grudges between peoples and truces (None without feuds).
-        'feuds': self._feuds(),
+        'feuds': mechanics['feuds'],
     }
 
   def _feuds(self) -> dict[str, Any] | None:
@@ -2456,7 +2466,16 @@ class Session:
     Returns:
       The person, or None if nobody of that name lives.
     """
-    world = self.run.world_state()
+    with self.run.world_lock():  # The world and its mechanics, one year.
+      world = self.run.world_state()
+      mechanics = {
+          'close_to': self._close_to(name),
+          'heard': self._heard_by(name),
+          'known_for': self._known_for(name),
+          'debts': self._debts_of(name),
+          'sickness': self._sickness_of(name),
+          'pacts': self._pacts_of(name),
+      }
     body = next((p for p in world['people'] if p['name'] == name), None)
     entity = next(
         (e for e in list(self.run.sim.entities) if e.name == name), None
@@ -2490,12 +2509,12 @@ class Session:
         'let_go': learner.let_go(),
         # Its standing: how often it has judged at a court.
         'judged': int(world.get('judgments', {}).get(name, 0)),
-        'close_to': self._close_to(name),
-        'heard': self._heard_by(name),
-        'known_for': self._known_for(name),
-        'debts': self._debts_of(name),
-        'sickness': self._sickness_of(name),
-        'pacts': self._pacts_of(name),
+        'close_to': mechanics['close_to'],
+        'heard': mechanics['heard'],
+        'known_for': mechanics['known_for'],
+        'debts': mechanics['debts'],
+        'sickness': mechanics['sickness'],
+        'pacts': mechanics['pacts'],
     }
 
   def _pacts_of(self, name: str) -> list[dict[str, Any]]:

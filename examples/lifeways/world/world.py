@@ -276,6 +276,8 @@ SICK_TIE = 0.5
 # may call more.
 GATHERING = 'gathering'
 SEEN_AT = 3
+GATHERING_EVERY = 5  # Unless the `gatherings` setting says (`every`).
+GATHERING_REACH = 6  # Unless the `gatherings` setting says (`reach`).
 # The laws an assembly may pass, by kind, and what each asks. A law in force
 # is in everyone's status; one seen breaking it is thought less `LAWFUL` by
 # those who saw (a deed's weight). Breaches: gathering from others' fields
@@ -299,6 +301,7 @@ LAWFUL = 'lawful'
 # year, and call a gathering where it lives.
 CHIEF = 'chief'
 ACCLAIM = 'acclaim'
+CHIEF_TERM = 20  # Years, unless the `offices` setting says (`term`).
 NAME_QUALITIES = (GENEROUS, RELIABLE, LAWFUL)
 # A pact of aid binds two to share when one goes hungry: a year one party
 # had none, the other could share with it and did not, breaks it. The
@@ -306,6 +309,7 @@ NAME_QUALITIES = (GENEROUS, RELIABLE, LAWFUL)
 # goes round (`BETRAYAL_NEWS`).
 AID = 'aid'
 AID_TERMS = 'We help each other when one goes hungry.'
+PACT_YEARS = 20  # A pact of aid's years, unless the `pacts` setting says.
 BETRAYAL_NEWS = 'betrayal'
 # Feuds between peoples (by descent): taking from the fields another
 # people tends (`GRIEF_FIELD`), and keeping full stores while one of another
@@ -621,17 +625,7 @@ class World:
         saves them; the world calls them as a year closes.
     """
     self.settings = dict(settings)
-    mechanics = mechanics or Mechanics()
-    self.ties = mechanics.ties
-    self.rumors = mechanics.rumors
-    self.reputation = mechanics.reputation
-    self.debts = mechanics.debts
-    self.sickness = mechanics.sickness
-    self.gatherings = mechanics.gatherings
-    self.assembly = mechanics.assembly
-    self.offices = mechanics.offices
-    self.pacts = mechanics.pacts
-    self.feuds = mechanics.feuds
+    self.bind(mechanics or Mechanics())
     self._raided = 0  # Raids this year.
     self._raid_deaths = 0
     self._broken = 0  # Pacts broken this year.
@@ -795,6 +789,23 @@ class World:
     self._reports: list[str] = []
 
   # --- Setup -------------------------------------------------------------
+
+  def bind(self, mechanics: Mechanics) -> None:
+    """Takes the World GM's mechanics to call (the GM finds them by key).
+
+    Args:
+      mechanics: The mechanics the GM has (None where it has none).
+    """
+    self.ties = mechanics.ties
+    self.rumors = mechanics.rumors
+    self.reputation = mechanics.reputation
+    self.debts = mechanics.debts
+    self.sickness = mechanics.sickness
+    self.gatherings = mechanics.gatherings
+    self.assembly = mechanics.assembly
+    self.offices = mechanics.offices
+    self.pacts = mechanics.pacts
+    self.feuds = mechanics.feuds
 
   def found(self, founders: Sequence[Mapping[str, Any]]) -> None:
     """Settles the founders the scenario made (`scenarios.founders`).
@@ -3058,7 +3069,7 @@ class World:
     """A pact of aid offered, or accepted."""
     if self.pacts is None or move not in self._pact_moves(person):
       return
-    lasts = int((self.settings.get('pacts') or {}).get('lasts', 20))
+    lasts = int((self.settings.get('pacts') or {}).get('lasts', PACT_YEARS))
     if move.startswith(OFFER_AID):
       other = move.removeprefix(f'{OFFER_AID} ')
       if self.pacts.offer(
@@ -3097,7 +3108,14 @@ class World:
         could = f'{SHARE} {other}' in allowed.get(name, ())
         if not could or did.get(name, ('', []))[0] == f'{SHARE} {other}':
           continue
-        if self.pacts.breach(pact.id, name, self.year, 'did not share'):
+        after = self.pacts.breach(pact.id, name, self.year, 'did not share')
+        if after is not None and after.ended is None:
+          self._tell(
+              other,
+              f'{name} did not share though the pact of aid asked it; the'
+              ' pact holds.',
+          )
+        elif after is not None:
           self._broken += 1
           self._tell(
               other,
@@ -3174,7 +3192,9 @@ class World:
     ):
       return
     mine = person.descent
-    truce = int((self.settings.get('feuds') or {}).get('truce', 20))
+    truce = int(
+        (self.settings.get('feuds') or {}).get('truce', feuds_lib.TRUCE)
+    )
     if move.startswith(OFFER_PEACE):
       other = move.removeprefix(f'{OFFER_PEACE} ')
       if self.pacts.offer(mine, other, PEACE, PEACE_TERMS, self.year, truce):
@@ -3218,6 +3238,8 @@ class World:
       if name in dead:
         continue
       raider = self.people[name]
+      if self.feuds.at_peace(raider.descent, other, self.year):
+        continue  # Peace was made since the raid was planned.
       targets = [
           p
           for p in self.people.values()
@@ -3245,6 +3267,9 @@ class World:
           self.year,
       )
       self._raided += 1
+      if self.pacts is not None:  # A raid ends any peace between them.
+        for pact in self.pacts.between(raider.descent, other, PEACE):
+          self.pacts.end(pact.id, self.year, 'raid')
       rng = self._rng('raid', name, target.name)
       if outcome.won:
         taken = min(target.food, max(1.0, target.food / 2))
@@ -3356,7 +3381,7 @@ class World:
     """Terms end, and the vacant chiefdom goes to the best name."""
     if self.offices is None:
       return
-    term = int((self.settings.get('offices') or {}).get('term', 20))
+    term = int((self.settings.get('offices') or {}).get('term', CHIEF_TERM))
     if not self.offices.offices():
       self.offices.create(CHIEF, succession=ACCLAIM, term=term)
     self.offices.expire(self.year)
@@ -3409,7 +3434,14 @@ class World:
     verb, _, text = move.partition(': ')
     if verb == PROPOSE:
       kind = next((k for k, t in LAWS.items() if t == text), '')
-      if kind and self.assembly.propose(person.name, text, self.year, kind):
+      pending = any(
+          m['text'] == text for m in self.assembly.open_motions(self.year + 1)
+      )
+      if (
+          kind
+          and not pending
+          and self.assembly.propose(person.name, text, self.year, kind)
+      ):
         for name in self.living():
           if self.people[name].age(self.year) >= ADULT_AGE:
             self._tell(
@@ -3488,7 +3520,9 @@ class World:
     """The gatherings held this year within reach of a person, as moves."""
     if self.gatherings is None:
       return []
-    reach = int((self.settings.get('gatherings') or {}).get('reach', 6))
+    reach = int(
+        (self.settings.get('gatherings') or {}).get('reach', GATHERING_REACH)
+    )
     found = []
     for gathering_id in self.gatherings.due(self.year):
       tile = _gathering_tile(gathering_id)
@@ -3513,7 +3547,9 @@ class World:
     )
 
   def _gathering_every(self) -> int:
-    return int((self.settings.get('gatherings') or {}).get('every', 5))
+    return int(
+        (self.settings.get('gatherings') or {}).get('every', GATHERING_EVERY)
+    )
 
   def _add_gathering(self, tile: land_lib.Tile, host: str) -> None:
     """A gathering at a tile, held every few years from next year."""
@@ -3719,7 +3755,11 @@ class World:
             f'Word reaches {heard.hearer} from {heard.teller}: {heard.text}',
         )
         self._heard += 1
-        if self.reputation is not None and heard.kind in NEWS_REPORT:
+        if (
+            self.reputation is not None
+            and heard.kind in NEWS_REPORT
+            and heard.about in self.people  # The dead keep no name.
+        ):
           quality, weight = NEWS_REPORT[heard.kind]
           self.reputation.hear(
               heard.hearer,

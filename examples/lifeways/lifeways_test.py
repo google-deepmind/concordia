@@ -62,11 +62,17 @@ def _unordered_sets(data: Any) -> Any:
 
 
 def _snapshot(run: simulation.Run) -> str:
-  """The world and every living entity's state, as JSON."""
+  """The world, its mechanics and every living entity's state, as JSON."""
   state = json.loads(
       json.dumps(
           {
               'world': run.world().get_state(),
+              # The contrib mechanics, each a World GM component by key.
+              'mechanics': {
+                  key: found.get_state()
+                  for key, kind in gm_components.MECHANICS.values()
+                  if (found := run.gm_component(key, kind)) is not None
+              },
               'entities': {
                   e.name: e.get_state()  # pyrefly: ignore[missing-attribute]
                   for e in run.sim.entities
