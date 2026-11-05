@@ -461,6 +461,28 @@ prefab's `make_mechanics` builds them, and `world.Mechanics` hands them over.
 | Pacts of aid | `game_master/pacts.py` `Pacts` | The grown may `offer a pact of aid to <name>`, one of their two closest; the other may `accept the pact of aid with <name>` the next year, binding both for twenty years to share when one goes hungry. A year one had none and the other could share and did not, the pact breaks: the betrayed thinks the betrayer unreliable, and word of the betrayal goes round. A person's panel lists their pacts. Census: `pacts`, `pacts_broken`. |
 | Feuds | `game_master/feuds.py` `Feuds` | Peoples (by descent) remember injuries: gathering from fields another people tends, and keeping full stores while one of another people had none. A grudge at the threshold is a feud: the grown of that people may `raid the <people>` where one of it lives within four steps. A raid is a contest (the raider and its people's raiders within sight against the richest of that people near and its grown within sight); the winning raider takes half the stores, the loser may die, word goes round, and the raided people's grudge deepens. An elder or the chief may `offer peace to the <people>`, a pact between the peoples (contrib `Pacts`) that their grown may `accept peace with the <people>` the next year: grudges are cleared and a truce holds twenty years. Statuses say which grudges and truces one's people holds; "Shape the valley" lists them. Census: `feuds`, `raids`, `raid_deaths`. |
 
+**Building on them in another game.** Register a mechanic in your game
+master prefab under its key, and call it from your GM's own components by
+key; nothing else is needed, and the GM's checkpoint saves it:
+
+```python
+# In the game master prefab's build:
+components[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = (
+    social_ties.SocialTies(decay=0.1)
+)
+
+# In one of the GM's own components (its resolution, say):
+ties = self.get_entity().get_component(
+    social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY,
+    type_=social_ties.SocialTies,
+)
+ties.strengthen('Ada', 'Bo', 0.2, kind='work')
+```
+
+Lifeways's prefab instead hands the same objects to its `World`, which owns
+the year's close; either way each mechanic stays one component with its own
+state, lock and key.
+
 **Closing a year.** Answers are resolved together, in a fixed order, when the
 last one is in. A year's outcome therefore never depends on thread timing:
 two runs with the same seed are identical. In free mode (the `free`
