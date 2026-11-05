@@ -30,6 +30,7 @@
 | `__gatherings__` | contrib `Gatherings`: gatherings held every few years (the `gatherings` setting) |
 | `__assembly__` | contrib `Assembly`: the valley's motions, votes and laws (the `assembly` setting) |
 | `__offices__` | contrib `Offices`: the valley's chief (the `offices` setting) |
+| `__pacts__` | contrib `Pacts`: pacts of aid between people (the `pacts` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
@@ -56,6 +57,7 @@ from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
+from concordia.contrib.components.game_master import pacts as pacts_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -159,6 +161,13 @@ def make_mechanics(settings: Mapping[str, Any]) -> world_lib.Mechanics:
       gatherings=calendar,
       assembly=council,
       offices=offices_lib.Offices() if settings.get('offices') else None,
+      pacts=(
+          pacts_lib.Pacts(
+              tolerance=int(dict(settings['pacts']).get('tolerance', 0))
+          )
+          if settings.get('pacts')
+          else None
+      ),
   )
 
 
@@ -290,6 +299,8 @@ class WorldGameMaster(prefab_lib.Prefab):
       )
     if mechanics.offices is not None:
       components[offices_lib.DEFAULT_OFFICES_COMPONENT_KEY] = mechanics.offices
+    if mechanics.pacts is not None:
+      components[pacts_lib.DEFAULT_PACTS_COMPONENT_KEY] = mechanics.pacts
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

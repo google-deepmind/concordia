@@ -22,6 +22,7 @@ from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
+from concordia.contrib.components.game_master import pacts as pacts_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2620,6 +2621,76 @@ class ChiefTest(absltest.TestCase):
     self.world._die('Eld')
     self._year()
     self.assertEqual(self.offices.holder(world_lib.CHIEF), 'Ada')
+
+
+class PactsTest(absltest.TestCase):
+  """Pacts of aid, the GM's `Pacts`."""
+
+  def setUp(self):
+    super().setUp()
+    self.pacts = pacts_lib.Pacts()
+    self.ties = social_ties.SocialTies(decay=0.0)
+    self.reputation = reputation_lib.Reputation(decay=0.0)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'pacts': {'lasts': 5}},
+        world_lib.Mechanics(
+            ties=self.ties, reputation=self.reputation, pacts=self.pacts
+        ),
+    )
+    for name, tile in (('Ada', (2, 2)), ('Bo', (2, 3))):
+      self.world.people[name] = world_lib.Person(
+          name=name, born=self.world.year - 30, sex='f', tile=tile, food=8.0
+      )
+    self.ties.strengthen('Ada', 'Bo', 0.6, kind=world_lib.FRIEND)
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def _make_pact(self):
+    self._year(Ada=f'{world_lib.OFFER_AID} Bo')
+    self.assertIn(f'{world_lib.ACCEPT_AID} Ada', self.world.moves('Bo'))
+    self._year(Bo=f'{world_lib.ACCEPT_AID} Ada')
+
+  def test_one_close_offers_a_pact_and_the_other_accepts_it(self):
+    self.assertIn(f'{world_lib.OFFER_AID} Bo', self.world.moves('Ada'))
+
+    self._make_pact()
+
+    self.assertLen(self.pacts.between('Ada', 'Bo', world_lib.AID), 1)
+    self.assertIn(
+        f'Ada and Bo make a pact of aid for 5 years: "{world_lib.AID_TERMS}"',
+        self.world.queued['Ada'],
+    )
+    self.assertNotIn(f'{world_lib.OFFER_AID} Bo', self.world.moves('Ada'))
+    self.assertEqual(self.world.history[-1]['pacts'], 1)
+
+  def test_one_who_could_share_and_did_not_breaks_the_pact(self):
+    self._make_pact()
+    self.world.people['Bo'].food = 0.0
+
+    self._year()  # Ada could share with Bo, and rested.
+
+    self.assertEqual(self.pacts.size(), 0)
+    self.assertIn(
+        'Ada broke the pact of aid: Ada kept food while Bo had none.',
+        self.world.queued['Bo'],
+    )
+    self.assertEqual(
+        self.reputation.view('Bo', 'Ada', world_lib.RELIABLE), -1.0
+    )
+    self.assertEqual(self.world.history[-1]['pacts_broken'], 1)
+
+  def test_one_who_shares_keeps_the_pact(self):
+    self._make_pact()
+    self.world.people['Bo'].food = 0.0
+
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+
+    self.assertEqual(self.pacts.size(), 1)
 
 
 class SeasonsTest(absltest.TestCase):

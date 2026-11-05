@@ -28,7 +28,7 @@ const {
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
   letGoText, mapText, tieText, wordMove, rumourText, knownForText, debtLines,
-  sickNote, sicknessText, gatheringText, lawLines, chiefText,
+  sickNote, sicknessText, gatheringText, lawLines, chiefText, pactText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -1020,4 +1020,11 @@ test('the chief reads with its term', () => {
       'for the best name; the term ends in the year 60. A chief may ' +
       'propose a law and call gatherings.');
   assert.equal(chiefText(null), '');
+});
+
+test('a pact of aid reads with whom and until when', () => {
+  assert.equal(pactText({with: 'Bo', made: 40, until: 60}),
+      'With Bo, since the year 40, until the year 60');
+  assert.equal(pactText({with: 'Bo', made: 40, until: null}),
+      'With Bo, since the year 40');
 });

@@ -283,6 +283,14 @@ def _choose(
   if proposals and food >= 4.0 and draw < 0.1:
     fitting = [m for m in proposals if _in_keeping(m, customs)]
     return (fitting or proposals)[0]
+  # A pact of aid offered is mostly accepted; one is now and then offered to
+  # one close.
+  accept = [m for m in moves if m.startswith(world_lib.ACCEPT_AID)]
+  if accept and draw < 0.7:
+    return accept[0]
+  offer = [m for m in moves if m.startswith(world_lib.OFFER_AID)]
+  if offer and food >= 3.0 and draw < 0.12:
+    return offer[0]
   # A chief now and then calls a gathering where it lives.
   if world_lib.CALL_HERE in moves and food >= 3.0 and draw < 0.2:
     return world_lib.CALL_HERE

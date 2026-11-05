@@ -36,6 +36,7 @@ from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion as contagion_lib
 from concordia.contrib.components.game_master import gatherings as gatherings_lib
 from concordia.contrib.components.game_master import offices as offices_lib
+from concordia.contrib.components.game_master import pacts as pacts_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -88,6 +89,11 @@ VOTE_FOR = 'vote for the law'
 VOTE_AGAINST = 'vote against the law'
 # The chief's (the `offices` setting): a gathering where the chief lives.
 CALL_HERE = 'call a gathering where you live'
+# Pacts (the `pacts` setting): ... a name, one of one's two closest (a
+# social tie), grown, with no pact of aid with one yet; and, the year after,
+# the one offered may accept.
+OFFER_AID = 'offer a pact of aid to'
+ACCEPT_AID = 'accept the pact of aid with'
 _GO_GATHER = re.compile(r'^go to the gathering at (?P<row>\d+),(?P<col>\d+)$')
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
@@ -286,6 +292,13 @@ LAWFUL = 'lawful'
 CHIEF = 'chief'
 ACCLAIM = 'acclaim'
 NAME_QUALITIES = (GENEROUS, RELIABLE, LAWFUL)
+# A pact of aid binds two to share when one goes hungry: a year one party
+# had none, the other could share with it and did not, breaks it. The
+# betrayed thinks the betrayer unreliable (a deed's weight), and word of it
+# goes round (`BETRAYAL_NEWS`).
+AID = 'aid'
+AID_TERMS = 'We help each other when one goes hungry.'
+BETRAYAL_NEWS = 'betrayal'
 FRAIL = 2.5
 FRAIL_YOUNG = 5
 FRAIL_OLD = 60
@@ -294,6 +307,7 @@ NEWS_REPORT: Mapping[str, tuple[str, float]] = {
     PRAISE: (GENEROUS, DEED_WEIGHT),
     BLAME: (GENEROUS, -DEED_WEIGHT),
     DEFAULT_NEWS: (RELIABLE, -DEED_WEIGHT),
+    BETRAYAL_NEWS: (RELIABLE, -DEED_WEIGHT),
 }
 # The standing past which one is renowned (or shunned), for the census.
 RENOWN = 0.5
@@ -549,6 +563,7 @@ class Mechanics:
     assembly: The valley's assembly and its laws (`Assembly`, the
       `assembly` setting).
     offices: The valley's chief (`Offices`, the `offices` setting).
+    pacts: Pacts of aid between people (`Pacts`, the `pacts` setting).
   """
 
   ties: social_ties.SocialTies | None = None
@@ -559,6 +574,7 @@ class Mechanics:
   gatherings: gatherings_lib.Gatherings | None = None
   assembly: assembly_lib.Assembly | None = None
   offices: offices_lib.Offices | None = None
+  pacts: pacts_lib.Pacts | None = None
 
 
 class World:
@@ -586,6 +602,8 @@ class World:
     self.gatherings = mechanics.gatherings
     self.assembly = mechanics.assembly
     self.offices = mechanics.offices
+    self.pacts = mechanics.pacts
+    self._broken = 0  # Pacts broken this year.
     self._votes = 0  # Votes cast this year.
     self._law_breaches = 0  # Laws seen broken this year.
     # This year's gatherings: who came, and whom each met there.
@@ -1287,6 +1305,7 @@ class World:
         *self._gathering_moves(person),
         *self._assembly_moves(person),
         *self._chief_moves(person),
+        *self._pact_moves(person),
     ]
     if (
         self.farming
@@ -1935,6 +1954,7 @@ class World:
     deaths += self._sicken(did)
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
+    self._keep_pacts(did, allowed)
     self._spread_word()
     self._see_defaults()
     # Laws judge the year's moves before this year's motions are decided.
@@ -2098,6 +2118,8 @@ class World:
       self._repay(person, move.removeprefix(f'{REPAY} '))
     elif move.startswith((PROPOSE, VOTE_FOR, VOTE_AGAINST)):
       self._take_part(person, move)
+    elif move.startswith((OFFER_AID, ACCEPT_AID)):
+      self._pact(person, move)
     elif move == CALL_HERE and CALL_HERE in self._chief_moves(person):
       self._add_gathering(person.tile, name)
       self._report(
@@ -2973,6 +2995,88 @@ class World:
           kind=DEFAULT_NEWS,
       )
 
+  def _pact_moves(self, person: Person) -> list[str]:
+    """Pacts of aid a grown person may offer or accept this year."""
+    if self.pacts is None:
+      return []
+    found = [
+        f'{ACCEPT_AID} {offer.parties[0]}'
+        for offer in self.pacts.offers_to(person.name, self.year)
+        if offer.kind == AID and offer.parties[0] in self.people
+    ]
+    found.extend(
+        f'{OFFER_AID} {other}'
+        for other in self._closest(person)
+        if self.people[other].age(self.year) >= ADULT_AGE
+        and not self.pacts.between(person.name, other, AID)
+    )
+    return found
+
+  def _pact(self, person: Person, move: str) -> None:
+    """A pact of aid offered, or accepted."""
+    if self.pacts is None or move not in self._pact_moves(person):
+      return
+    lasts = int((self.settings.get('pacts') or {}).get('lasts', 20))
+    if move.startswith(OFFER_AID):
+      other = move.removeprefix(f'{OFFER_AID} ')
+      if self.pacts.offer(
+          person.name, other, AID, AID_TERMS, self.year, lasts=lasts
+      ):
+        self._tell(
+            other,
+            f'{person.name} offers {other} a pact of aid: "{AID_TERMS}"'
+            f' {other} may accept it next year.',
+        )
+      return
+    other = move.removeprefix(f'{ACCEPT_AID} ')
+    for offer in self.pacts.offers_to(person.name, self.year):
+      if offer.kind == AID and offer.parties[0] == other:
+        if self.pacts.accept(person.name, offer.id, self.year):
+          for a, b in ((person.name, other), (other, person.name)):
+            self._tell(
+                a,
+                f'{a} and {b} make a pact of aid for {lasts} years:'
+                f' "{AID_TERMS}"',
+            )
+          self._meet(person.name, other, FRIEND)
+
+  def _keep_pacts(
+      self,
+      did: Mapping[str, tuple[str, list[str]]],
+      allowed: Mapping[str, Sequence[str]],
+  ) -> None:
+    """Pacts of aid kept or broken this year; terms that ran out end."""
+    self._broken = 0
+    if self.pacts is None:
+      return
+    for name in self.living():
+      for pact in self.pacts.pacts_of(name, AID):
+        other = pact.parties[1] if pact.parties[0] == name else pact.parties[0]
+        could = f'{SHARE} {other}' in allowed.get(name, ())
+        if not could or did.get(name, ('', []))[0] == f'{SHARE} {other}':
+          continue
+        if self.pacts.breach(pact.id, name, self.year, 'did not share'):
+          self._broken += 1
+          self._tell(
+              other,
+              f'{name} broke the pact of aid: {name} kept food while'
+              f' {other} had none.',
+          )
+          if self.reputation is not None:
+            self.reputation.witness(name, RELIABLE, -DEED_WEIGHT, [other])
+          self._start_rumor(
+              f'{name} broke a pact of aid with {other}, who went hungry.',
+              [other],
+              about=name,
+              kind=BETRAYAL_NEWS,
+          )
+    for ended in self.pacts.expire(self.year):
+      for a in ended.parties:
+        if a in self.people:
+          self._tell(
+              a, f'The pact of aid of {" and ".join(ended.parties)} ends.'
+          )
+
   def _is_chief(self, name: str) -> bool:
     return self.offices is not None and self.offices.holder(CHIEF) == name
 
@@ -3770,6 +3874,8 @@ class World:
       self.sickness.forget(name)
     if self.offices is not None:
       self.offices.forget(name, self.year)
+    if self.pacts is not None:
+      self.pacts.forget(name, self.year)
     if self.rumors is not None:
       self.rumors.forget(name)
       age = person.age(self.year)
@@ -3919,6 +4025,9 @@ class World:
         'law_breaches': self._law_breaches,
         # The valley's chief ('' if none).
         'chief': self.offices.holder(CHIEF) if self.offices else '',
+        # Pacts of aid holding, and broken this year.
+        'pacts': self.pacts.size() if self.pacts is not None else 0,
+        'pacts_broken': self._broken,
         'gatherings': (
             len(self.gatherings.gatherings()) if self.gatherings else 0
         ),

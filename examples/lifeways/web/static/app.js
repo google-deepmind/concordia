@@ -1916,6 +1916,8 @@ const PART_WORDS = {
   Assembly: 'the valley\'s laws: proposed by elders, voted on by the ' +
       'grown, standing for a term',
   Offices: 'the valley\'s chief, acclaimed for the best name, for a term',
+  Pacts: 'pacts of aid between close friends, kept by sharing in hunger ' +
+      'and broken by refusing',
 };
 
 /** Where a part comes from, in words. */
@@ -2010,6 +2012,14 @@ async function showPerson(name) {
       (line) => {
         const item = document.createElement('li');
         item.textContent = line;
+        return item;
+      }));
+  const pacts = person.pacts || [];
+  document.getElementById('person-pacts-box').hidden = !pacts.length;
+  document.getElementById('person-pacts').replaceChildren(...pacts.map(
+      (pact) => {
+        const item = document.createElement('li');
+        item.textContent = pactText(pact);
         return item;
       }));
   const heard = person.heard || [];
@@ -2219,6 +2229,17 @@ function sicknessText(sickness) {
         `year${sickness.left === 1 ? '' : 's'}.`;
   }
   return '';
+}
+
+/**
+ * A pact of aid, in words.
+ * @param {!Object} pact {with, made, until}.
+ * @return {string} E.g. 'With Bo, since the year 40, until the year 60'.
+ */
+function pactText(pact) {
+  return `With ${pact.with}, since the year ${pact.made}` +
+      (pact.until === null || pact.until === undefined ? '' :
+        `, until the year ${pact.until}`);
 }
 
 /**
@@ -3872,6 +3893,6 @@ if (typeof document !== 'undefined') {
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
     tieText, wordMove, rumourText, knownForText, debtLines, sickNote,
-    sicknessText, gatheringText, lawLines, chiefText,
+    sicknessText, gatheringText, lawLines, chiefText, pactText,
   };
 }

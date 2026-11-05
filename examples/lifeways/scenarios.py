@@ -174,6 +174,11 @@ SANDBOX: Mapping[str, Any] = {
     # The chief may propose a law any year, and call a gathering where it
     # lives. None: no chief.
     'offices': {'term': 20},
+    # Pacts (contrib `Pacts`): the grown may offer one of their two closest a
+    # pact of aid, which the other may accept the next year; it binds both
+    # for `lasts` years to share when one goes hungry, and breaks at more
+    # than `tolerance` refusals. None: no pacts.
+    'pacts': {'lasts': 20, 'tolerance': 0},
     'assembly': {
         'rule': 'majority',
         'quorum': 0.3,

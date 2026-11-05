@@ -68,6 +68,7 @@ from concordia.contrib.components.game_master import assembly as assembly_lib
 from concordia.contrib.components.game_master import contagion
 from concordia.contrib.components.game_master import gatherings
 from concordia.contrib.components.game_master import offices as offices_lib
+from concordia.contrib.components.game_master import pacts as pacts_lib
 from concordia.contrib.components.game_master import reciprocity
 from concordia.contrib.components.game_master import reputation as reputation_lib
 from concordia.contrib.components.game_master import rumors as rumors_lib
@@ -2471,7 +2472,24 @@ class Session:
         'known_for': self._known_for(name),
         'debts': self._debts_of(name),
         'sickness': self._sickness_of(name),
+        'pacts': self._pacts_of(name),
     }
+
+  def _pacts_of(self, name: str) -> list[dict[str, Any]]:
+    """The pacts of aid a person holds, from the GM's pacts."""
+    pacts = self.run.gm_component(
+        pacts_lib.DEFAULT_PACTS_COMPONENT_KEY, pacts_lib.Pacts
+    )
+    if pacts is None:
+      return []
+    return [
+        {
+            'with': p.parties[1] if p.parties[0] == name else p.parties[0],
+            'made': p.made,
+            'until': p.until,
+        }
+        for p in pacts.pacts_of(name, world_lib.AID)
+    ]
 
   def _sickness_of(self, name: str) -> dict[str, Any]:
     """Whether a person is sick or immune, and for how long."""
