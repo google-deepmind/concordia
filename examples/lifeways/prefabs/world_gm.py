@@ -22,10 +22,16 @@
 | `__make_observation__` | stock `MakeObservation` on the world's queue |
 | `__terminate__` | stock `Terminate`, told by `TurnGate` at `max_years` |
 | `lifeways_world` | `WorldComponent`: the world, its state the GM's |
+| `__social_ties__` | contrib `SocialTies`: who is close to whom (the `ties` setting) |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it. The world is built from the GM's own params (`settings`), so no
 object is shared with any entity.
+
+The mechanics from `concordia/contrib` are GM components under their own keys:
+this prefab builds each from the settings, registers it, and hands the same
+object to the `World`, which calls it as a year closes. The GM saves each
+with the rest of its state.
 """
 
 from collections.abc import Mapping
@@ -39,6 +45,7 @@ from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
+from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import measures
@@ -102,7 +109,20 @@ class WorldGameMaster(prefab_lib.Prefab):
     del memory_bank
     self.check_extra_components()
     settings = dict(self.params.get('settings', {}))
-    world = world_lib.World(settings)
+    mechanics: dict[str, Any] = {}
+    if settings.get('ties'):
+      tie_settings = dict(settings['ties'])
+      mechanics[social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY] = (
+          social_ties.SocialTies(
+              decay=float(tie_settings.get('decay', social_ties.DECAY)),
+              floor=float(tie_settings.get('floor', social_ties.FLOOR)),
+              max_ties=int(tie_settings.get('max', social_ties.MAX_TIES)),
+          )
+      )
+    world = world_lib.World(
+        settings,
+        ties=mechanics.get(social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY),
+    )
     world.found(self.params.get('founders', ()))
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
     players = self.entities if self.entities is not None else []
@@ -154,6 +174,7 @@ class WorldGameMaster(prefab_lib.Prefab):
         ),
         terminate.DEFAULT_TERMINATE_COMPONENT_KEY: terminate.Terminate(),
     }
+    components.update(mechanics)
     gate.deliver(world)  # The founders' first observations.
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),

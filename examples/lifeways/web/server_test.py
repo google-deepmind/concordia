@@ -1340,6 +1340,14 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(kin['person']['name'], name)
     self.assertIn('from', person['customs'][0])
     self.assertNotEmpty(lineage['variants'])
+    # The founders' family and work have made ties by now (the Sandbox keeps
+    # them), read from the World GM's contrib `SocialTies`.
+    self.assertTrue(
+        any(
+            self._get(f'/api/person?name={p["name"]}')['close_to']
+            for p in self._get('/api/state')['people']
+        )
+    )
 
   def test_the_page_shows_how_concordia_builds_a_person_and_the_world(self):
     name = self._get('/api/state')['people'][0]['name']

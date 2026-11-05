@@ -336,6 +336,11 @@ def _choose(
       return ' '.join([world_lib.WRITE, *reading, *others])
     if world_lib.READ in moves and draw < 0.5:
       return ' '.join([world_lib.READ, *reading])
+  # One with food to spare now and then visits one it is close to, showing
+  # the ways it holds dear.
+  visit = [m for m in moves if m.startswith(f'{world_lib.VISIT} ')]
+  if visit and food >= 3.0 and 0.6 <= draw < 0.75:
+    return ' '.join([visit[0], *sacred])
   if world_lib.MOVE in moves and draw > 0.92:
     return world_lib.MOVE
   return follow(world_lib.GATHER, culture_lib.FOOD)

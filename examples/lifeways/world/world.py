@@ -32,6 +32,7 @@ import re
 from typing import Any
 import zlib
 
+from concordia.contrib.components.game_master import social_ties
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import places as places_lib
@@ -62,6 +63,8 @@ PASS_ON = 'pass on'
 TEACH = 'teach'
 APPRENTICE = 'learn a craft'
 SHARE = 'share food with'  # ... a name.
+# ... a name: one the person is close to (a social tie), to keep the tie.
+VISIT = 'visit'
 SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
 WRITE = 'write at the library'
@@ -185,6 +188,32 @@ _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
 # worshippers, not onlookers; passing on and joining are words, not deeds.
+# Social ties (the `ties` setting): how much a year's encounter of each kind
+# brings two people closer. Kin are partners, parents and children, alive;
+# work is gathering or sowing on one tile; a visit is a friend's. Customs
+# passed on bring giver and receiver closer by the channel they passed by
+# (a sanction does not).
+KIN = 'kin'
+WORK = 'work'
+FRIEND = 'friend'
+TIE_AMOUNTS: Mapping[str, float] = {
+    KIN: 0.2,
+    WORK: 0.1,
+    FRIEND: 0.3,
+    SHARE: 0.3,
+    culture_lib.UPBRINGING: 0.2,
+    culture_lib.APPRENTICESHIP: 0.2,
+    culture_lib.SCHOOL: 0.1,
+    culture_lib.RITE: 0.1,
+    culture_lib.MARKET: 0.05,
+    culture_lib.STORY: 0.05,
+    culture_lib.OBSERVATION: 0.03,
+    culture_lib.PREACHING: 0.03,
+    culture_lib.READING: 0.02,
+}
+# How many of one's closest a person is offered to visit.
+VISITS_OFFERED = 2
+
 WITNESSED = (
     GATHER,
     REST,
@@ -387,8 +416,23 @@ class YearOutcome:
 class World:
   """The land, the people's lives and the record of customs."""
 
-  def __init__(self, settings: Mapping[str, Any]):
+  def __init__(
+      self,
+      settings: Mapping[str, Any],
+      ties: social_ties.SocialTies | None = None,
+  ):
+    """Makes the world, empty until founded.
+
+    Args:
+      settings: The world's settings (`scenarios.settings`).
+      ties: The World GM's social ties (`SocialTies`), if the world keeps
+        them (the `ties` setting). The GM saves them; the world records who
+        met whom each year and lets the ties fade.
+    """
     self.settings = dict(settings)
+    self.ties = ties
+    # Encounters this year: (a, b, kind) with a < b, made ties at its close.
+    self._met: set[tuple[str, str, str]] = set()
     self.seed = int(settings.get('seed', 0))
     self.mode = str(settings.get('mode', SEXUAL))
     self.channels: dict[str, dict[str, Any]] = {
@@ -1091,6 +1135,7 @@ class World:
           if self.people[other].food < 1.0
       )
       found.extend(f'{SHARE} {other}' for _, other in needy[:2])
+    found.extend(f'{VISIT} {other}' for other in self._closest(person))
     if culture_lib.SANCTION in self.channels:
       found.extend(
           f'{SHAME} {other}'
@@ -1674,6 +1719,7 @@ class World:
     self._schools(did)
     self._rites(did)
     self._transmit(did)
+    self._tie_up(did)
     worked = [
         self._level(e, culture_lib.FOOD)
         for m, e in did.values()
@@ -1814,7 +1860,10 @@ class World:
         other.food += self.share
         self._shares += 1
         self._fed.add(other.name)
+        self._meet(name, other.name, SHARE)
         self._tell(other.name, f'{name} shares food with {other.name}.')
+    elif move.startswith(f'{VISIT} '):
+      self._visit(person, move.removeprefix(f'{VISIT} '), enacted)
     elif move.startswith(f'{SHAME} '):
       other = move.removeprefix(f'{SHAME} ')
       if other in self.people:
@@ -2560,6 +2609,7 @@ class World:
     if custom.id not in person.given:
       person.given.append(custom.id)
     self._offers[via] += 1
+    self._meet(receiver, source, via)
     line = culture_lib.offer_line(
         custom.spec(),
         via,
@@ -2568,6 +2618,70 @@ class World:
         self.judgments.get(source, 0),
     )
     self._tell(receiver, f'{scene}: {line}')
+
+  def _meet(self, a: str, b: str, kind: str) -> None:
+    """Records that two living people met this year (if ties are kept)."""
+    if (
+        self.ties is not None
+        and a != b
+        and a in self.people
+        and b in self.people
+        and TIE_AMOUNTS.get(kind, 0.0) > 0.0
+    ):
+      self._met.add((min(a, b), max(a, b), kind))
+
+  def _closest(self, person: Person) -> list[str]:
+    """The living a person is closest to, whom it may visit."""
+    if self.ties is None:
+      return []
+    return [
+        other
+        for other, _ in self.ties.ties_of(person.name)
+        if other in self.people and other != person.partner
+    ][:VISITS_OFFERED]
+
+  def _visit(self, person: Person, other: str, enacted: Sequence[str]) -> None:
+    """A visit: two grow closer, and the host sees the visitor's ways."""
+    if other not in self.people or other not in self._closest(person):
+      return
+    self._meet(person.name, other, FRIEND)
+    self._tell(other, f'{person.name} visits {other}.')
+    for custom_id in enacted:
+      self._offer(
+          other,
+          person.name,
+          custom_id,
+          culture_lib.OBSERVATION,
+          f'{person.name} visits',
+      )
+
+  def _tie_up(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """The year's encounters make ties; then every tie fades a little.
+
+    Kin meet every year; so do those who worked one tile. Customs passed
+    on, food shared and visits made were recorded as they happened.
+
+    Args:
+      did: The year's moves, by person.
+    """
+    if self.ties is None:
+      return
+    for name, person in sorted(self.people.items()):
+      for kin in {person.partner, *person.parents, *person.children}:
+        self._meet(name, kin, KIN)
+    worked: dict[land_lib.Tile, list[str]] = collections.defaultdict(list)
+    for name, (move, _) in sorted(did.items()):
+      if move in (GATHER, SPARE, SOW) and name in self.people:
+        worked[self.people[name].tile].append(name)
+    for group in worked.values():
+      for i, a in enumerate(group):
+        for b in group[i + 1 :]:
+          self._meet(a, b, WORK)
+    for a, b, kind in sorted(self._met):
+      if a in self.people and b in self.people:
+        self.ties.strengthen(a, b, TIE_AMOUNTS[kind], kind)
+    self._met.clear()
+    self.ties.step()
 
   def _apprentice(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Pairs each youth learning a craft with a skilled worker nearby."""
@@ -2907,6 +3021,8 @@ class World:
         'descent': person.descent,
     })
     del self.dead[:-DEAD_KEPT]
+    if self.ties is not None:
+      self.ties.remove(name)
     self._bequeath(person)
     self.judgments.pop(name, None)  # Standing is the living's.
     if person.partner in self.people:
@@ -3014,6 +3130,13 @@ class World:
         'gini': gini([p.food for p in self.people.values()]),
         'shares': self._shares,
         'fed': len(self._fed),
+        # Social ties (none if the world keeps none): how many, how close.
+        'ties': self.ties.size() if self.ties is not None else 0,
+        'closeness': (
+            round(self.ties.mean_strength(), 3)
+            if self.ties is not None
+            else 0.0
+        ),
         'judged': len(self._judged),
         'inherited': self._inherited,
         'sold': self._sold,
@@ -3197,7 +3320,7 @@ def person_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
 
 def _move_kind(move: str) -> str:
   """A move without the one it is made towards (for counting)."""
-  for kind in (SHARE, SHAME, COURT_ONE):
+  for kind in (SHARE, SHAME, COURT_ONE, VISIT):
     if move.startswith(f'{kind} '):
       return kind
   return move

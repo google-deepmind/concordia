@@ -64,6 +64,7 @@ from typing import Any
 
 from absl import logging
 from concordia.components.agent import human_act_component
+from concordia.contrib.components.game_master import social_ties
 from concordia.environment.engines import asynchronous
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
@@ -90,6 +91,8 @@ SAVE_VERSION = 2
 # on a thread pool of its own, so a loop is found by what its thread runs.
 # pylint: disable-next=protected-access
 _ENTITY_LOOP = asynchronous.Asynchronous._entity_loop.__code__
+# The most of a person's closest the inspector shows.
+CLOSE_SHOWN = 6
 # Variants nobody holds any more that the page remembers, for lineages.
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
@@ -2350,7 +2353,24 @@ class Session:
         'let_go': learner.let_go(),
         # Its standing: how often it has judged at a court.
         'judged': int(world.get('judgments', {}).get(name, 0)),
+        'close_to': self._close_to(name),
     }
+
+  def _close_to(self, name: str) -> list[dict[str, Any]]:
+    """Those a person is closest to (`CLOSE_SHOWN`), from the GM's ties."""
+    ties = self.run.gm_component(
+        social_ties.DEFAULT_SOCIAL_TIES_COMPONENT_KEY, social_ties.SocialTies
+    )
+    if ties is None:
+      return []
+    return [
+        {
+            'name': other,
+            'strength': round(strength, 2),
+            'kinds': ties.kinds(name, other),
+        }
+        for other, strength in ties.ties_of(name, limit=CLOSE_SHOWN)
+    ]
 
   def lineage(self, custom_id: str) -> dict[str, Any] | None:
     """A custom's family of variants, and who holds each and from whom.

@@ -1813,6 +1813,8 @@ const PART_WORDS = {
   Answers: 'what each answer does in the world',
   MakeObservation: 'tells each person what they see',
   Terminate: 'ends the world when you end it',
+  SocialTies: 'who is close to whom: ties that family, work, teaching, ' +
+      'rites, food shared and visits make, and that fade unless renewed',
 };
 
 /** Where a part comes from, in words. */
@@ -1896,6 +1898,18 @@ async function showPerson(name) {
         `${person.name}'s ways more readily.` : '');
   document.getElementById('person-kin').replaceChildren(...KIN.map(
       ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
+  const ties = person.close_to || [];
+  document.getElementById('person-ties-box').hidden = !ties.length;
+  document.getElementById('person-ties').replaceChildren(...ties.map((tie) => {
+    const item = document.createElement('li');
+    const who = document.createElement('button');
+    who.type = 'button';
+    who.className = 'link';
+    who.textContent = tie.name;
+    who.addEventListener('click', () => showPerson(tie.name));
+    item.append(who, ` · ${tieText(tie)}`);
+    return item;
+  }));
   const list = document.getElementById('person-customs');
   list.replaceChildren(...person.customs.map((custom) => {
     const item = document.createElement('li');
@@ -2039,6 +2053,35 @@ const EXAMPLE_SAYS = {
   question: 'What would my elders do in a situation such as this?',
   story: 'In the year of the great fire, we fled to the hills.',
 };
+
+/** What brought two people together, by the kind of their tie. */
+const BOND_WORDS = {
+  kin: 'family',
+  work: 'worked the same land',
+  friend: 'visits',
+  'share food with': 'food shared',
+  upbringing: 'taught at home',
+  apprenticeship: 'a craft learned',
+  school: 'school',
+  rite: 'rites',
+  market: 'the market',
+  story: 'stories told',
+  observation: 'saw each other\'s ways',
+  preaching: 'preaching',
+  reading: 'a text read',
+};
+
+/**
+ * How close two people are, and what brought them together, in words.
+ * @param {!Object} tie {strength (0 to 1), kinds}.
+ * @return {string} E.g. 'very close: family, visits'.
+ */
+function tieText(tie) {
+  const how = tie.strength >= 0.6 ? 'very close' :
+      tie.strength >= 0.3 ? 'close' : 'known to each other';
+  const what = [].concat(tie.kinds || []).map((k) => BOND_WORDS[k] || k);
+  return what.length ? `${how}: ${what.join(', ')}` : how;
+}
 
 /** What each kind of custom is, in words. */
 const KIND_WORDS = {
@@ -3600,5 +3643,6 @@ if (typeof document !== 'undefined') {
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
+    tieText,
   };
 }

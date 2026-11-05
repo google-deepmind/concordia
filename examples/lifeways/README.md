@@ -426,9 +426,21 @@ the customs offered in observations, by the person's own learning biases:
 | `__make_observation__` | the stock `MakeObservation` |
 | `__terminate__` | the stock `Terminate` |
 | `lifeways_world` | the world (`world/`) |
+| `__social_ties__` | contrib `SocialTies` (the `ties` setting) |
 
 The world is built from the GM's own params; no object is shared with any
 entity.
+
+**Mechanics from Concordia contrib.** Lifeways' newer mechanics are
+general-purpose game master components in `concordia/contrib`, each under
+its own key, for any game to build on. Each keeps its own state and rules
+behind a lock, saves and restores with the GM, and adds nothing to prompts;
+the World GM prefab builds it from the settings and hands it to the `World`,
+which calls it as a year closes and tells people what came of it.
+
+| Mechanic | Contrib component | In Lifeways |
+|---|---|---|
+| Social ties | `game_master/social_ties.py` `SocialTies` | Family, work on one tile, customs passed on (by their channel), food shared and visits bring two closer; each year every tie fades, and the faintest are forgotten. The grown may `visit` their two closest. A person's panel lists whom they are close to; the census counts ties (`ties`, `closeness`). |
 
 **Closing a year.** Answers are resolved together, in a fixed order, when the
 last one is in. A year's outcome therefore never depends on thread timing:

@@ -27,7 +27,7 @@ const {
   crossedText, labLines, labStatus, prevalenceSeries, previewText,
   spreadLabels,
   surveyMove, surveyText, treeLayout, twinReport, wordChange,
-  letGoText, mapText,
+  letGoText, mapText, tieText,
   tileText,
   overlayKey, parseFolded, personColour, placeText, queuedNote,
   tongueRanks,
@@ -936,4 +936,12 @@ test('a skill is released with how good it is', () => {
   assert.equal(moveWords('release skill food level 4 as a song at 3,4: Dry' +
       ' fish.'), 'Sing “Dry fish.” at row 3, column 4: know-how, level 4' +
       ' (about food)');
+});
+
+test('a tie says how close two are and what brought them together', () => {
+  assert.equal(tieText({strength: 0.7, kinds: ['kin', 'friend']}),
+      'very close: family, visits');
+  assert.equal(tieText({strength: 0.35, kinds: ['work']}),
+      'close: worked the same land');
+  assert.equal(tieText({strength: 0.1, kinds: []}), 'known to each other');
 });

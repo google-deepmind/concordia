@@ -18,6 +18,7 @@ import copy
 import json
 
 from absl.testing import absltest
+from concordia.contrib.components.game_master import social_ties
 from examples.lifeways import scenarios
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
@@ -2005,6 +2006,97 @@ class ReleaseTest(_PlaceTest):
 
     self.assertEqual(self.world.history[-1]['released'], 0)
     self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
+
+
+class TiesTest(absltest.TestCase):
+  """Social ties: who met whom in a year, kept by the GM's `SocialTies`."""
+
+  def setUp(self):
+    super().setUp()
+    self.ties = social_ties.SocialTies(decay=0.1)
+    self.world = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL}, ties=self.ties
+    )
+    self.belief = self.world.culture.add('belief', 'sacred', 'Hills.').id
+    for name, tile, food in (
+        ('Ada', (2, 2), 8.0),
+        ('Bo', (2, 2), 8.0),
+        ('Cy', (9, 9), 8.0),
+        ('Dee', (9, 9), 8.0),
+    ):
+      self.world.people[name] = world_lib.Person(
+          name=name,
+          born=self.world.year - 30,
+          sex='f',
+          tile=tile,
+          food=food,
+          given=[self.belief],
+      )
+    self.world.people['Cy'].children = ['Dee']
+    self.world.people['Dee'].parents = ['Cy']
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = {
+        name: actions.get(name, world_lib.REST) for name in self.world.people
+    }
+    return self.world.close_year()
+
+  def test_kin_and_those_who_work_one_tile_grow_close(self):
+    self._year(Ada=world_lib.GATHER, Bo=world_lib.GATHER)
+
+    # Ada and Bo gathered on one tile; Cy and Dee are mother and daughter.
+    self.assertEqual(self.ties.kinds('Ada', 'Bo'), [world_lib.WORK])
+    self.assertEqual(self.ties.kinds('Cy', 'Dee'), [world_lib.KIN])
+    self.assertEqual(self.ties.strength('Ada', 'Cy'), 0.0)
+    # Made, then faded a step: 0.1 of work, 0.2 of kin, less a tenth.
+    self.assertAlmostEqual(self.ties.strength('Ada', 'Bo'), 0.09)
+    self.assertAlmostEqual(self.ties.strength('Cy', 'Dee'), 0.18)
+    row = self.world.history[-1]
+    self.assertEqual((row['ties'], row['closeness']), (2, 0.135))
+
+  def test_one_may_visit_its_closest_and_the_host_sees_its_ways(self):
+    self.ties.strengthen('Ada', 'Cy', 0.5, kind=world_lib.FRIEND)
+
+    self.assertIn(f'{world_lib.VISIT} Cy', self.world.moves('Ada'))
+    self.assertNotIn(f'{world_lib.VISIT} Dee', self.world.moves('Ada'))
+
+    self._year(Ada=f'{world_lib.VISIT} Cy {self.belief}')
+
+    self.assertIn('Ada visits Cy.', self.world.queued['Cy'])
+    offered = '\n'.join(self.world.queued['Cy'])
+    self.assertIn(f'via={culture_lib.OBSERVATION} from=Ada', offered)
+    # 0.5, then a visit's 0.3 of the rest (0.65), then the belief seen's
+    # 0.03 of the rest (0.6605), less a tenth.
+    self.assertAlmostEqual(self.ties.strength('Ada', 'Cy'), 0.59445)
+    self.assertEqual(self.world.history[-1]['moves'][world_lib.VISIT], 1)
+
+  def test_food_shared_brings_two_closer(self):
+    self.world.people['Bo'].food = 0.0
+
+    self._year(Ada=f'{world_lib.SHARE} Bo')
+
+    self.assertIn(world_lib.SHARE, self.ties.kinds('Ada', 'Bo'))
+
+  def test_the_dead_keep_no_ties(self):
+    self.ties.strengthen('Ada', 'Cy', 0.5)
+
+    self.world._die('Cy')
+
+    self.assertEqual(self.ties.ties_of('Ada'), [])
+    self.assertEqual(self.ties.ties_of('Dee'), [])
+
+  def test_a_world_without_ties_offers_no_visits(self):
+    world = world_lib.World({'seed': 0, 'founders': 2})
+
+    self.assertEqual(world.ties, None)
+    for name in world.people:
+      self.assertFalse(
+          [m for m in world.moves(name) if m.startswith(world_lib.VISIT)]
+      )
+    world.actions = {name: world_lib.GATHER for name in world.people}
+    world.close_year()
+    self.assertEqual(world.history[-1]['ties'], 0)
 
 
 class SeasonsTest(absltest.TestCase):

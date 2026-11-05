@@ -128,6 +128,11 @@ SANDBOX: Mapping[str, Any] = {
         'fallow': land_lib.FALLOW,
         'inherit': world_lib.ELDEST,
     },
+    # Social ties (contrib `SocialTies`): kin, work, teaching, rites, food
+    # shared and visits bring people closer; every year each tie fades by
+    # `decay`, one fainter than `floor` is forgotten, and each person keeps
+    # its `max` closest. None: the world keeps no ties.
+    'ties': {'decay': 0.1, 'floor': 0.05, 'max': 12},
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.

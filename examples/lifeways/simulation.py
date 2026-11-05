@@ -300,6 +300,25 @@ class Run:
     """
     return self._world_component().world
 
+  def gm_component(
+      self, key: str, type_: type[entity_component.ComponentT]
+  ) -> entity_component.ComponentT | None:
+    """A World GM component by key, for reading (None if the GM has none).
+
+    The mechanics from `concordia/contrib` (social ties and others) are GM
+    components under their own keys; each takes its own lock to be read.
+
+    Args:
+      key: The component's key.
+      type_: Its class.
+
+    Returns:
+      The component, or None.
+    """
+    components = self.sim.game_masters[0].get_all_context_components()  # pyrefly: ignore[missing-attribute]
+    found = components.get(key)
+    return found if isinstance(found, type_) else None
+
   def world_lock(self) -> threading.RLock:
     """The World GM's lock: holding it, no year closes and no move lands.
 
