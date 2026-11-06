@@ -14,6 +14,8 @@
 
 
 import functools
+import itertools
+import string
 from unittest import mock
 
 from absl.testing import absltest
@@ -22,7 +24,6 @@ from concordia.document import document
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 import numpy as np
-
 
 DEBUG = functools.partial(document.Content, tags=frozenset({'debug'}))
 STATEMENT = functools.partial(document.Content, tags=frozenset({'statement'}))
@@ -34,6 +35,52 @@ MODEL_RESPONSE = functools.partial(
 
 
 class InteractiveDocumentTest(parameterized.TestCase):
+
+  @parameterized.product(
+      count=(26, 27, 52, 53, 702, 703), randomize=(False, True)
+  )
+  def test_multiple_choice_all_labels_and_original_indices(
+      self, count, randomize
+  ):
+    labels = (
+        list(string.ascii_lowercase)
+        + [
+            ''.join(pair)
+            for pair in itertools.product(string.ascii_lowercase, repeat=2)
+        ]
+        + ['aaa']
+    )
+    labels = labels[:count]
+    answers = [f'option {i}' for i in range(count)]
+    model = mock.create_autospec(language_model.LanguageModel, instance=True)
+    model.sample_choice.return_value = (count - 1, labels[-1], {})
+    rng = np.random.default_rng(42)
+    indices = (
+        np.random.default_rng(42).permutation(count)
+        if randomize
+        else range(count)
+    )
+    doc = interactive_document.InteractiveDocument(model, rng=rng)
+
+    result = doc.multiple_choice_question('Choose?', answers, randomize)
+
+    self.assertEqual(result, indices[-1])
+    self.assertEqual(model.sample_choice.call_args.kwargs['responses'], labels)
+    for label, index in zip(labels, indices):
+      self.assertIn(f'  ({label}) {answers[index]}\n', doc.text())
+    self.assertTrue(doc.view().text().endswith(f'Answer: ({labels[-1]})\n'))
+
+  def test_multiple_choice_empty_still_delegates_to_model(self):
+    model = mock.create_autospec(language_model.LanguageModel, instance=True)
+    model.sample_choice.side_effect = language_model.InvalidResponseError(
+        'empty'
+    )
+    doc = interactive_document.InteractiveDocument(model)
+    with self.assertRaises(language_model.InvalidResponseError):
+      doc.multiple_choice_question('Choose?', [], randomize_choices=False)
+    model.sample_choice.assert_called_once_with(
+        prompt='Question: Choose?\nAnswer: (', responses=[]
+    )
 
   def test_open_question(self):
     model = mock.create_autospec(

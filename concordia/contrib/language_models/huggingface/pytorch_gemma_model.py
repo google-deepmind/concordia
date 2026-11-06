@@ -129,19 +129,52 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
 
     # pyrefly: ignore [not-callable]
     inputs = self._tokenizer(prompt, return_tensors='pt')
+    extended_choices = any(len(response) > 1 for response in responses)
+    max_tokens = 1
+    if extended_choices:
+      # Include whitespace and answer punctuation, not just the label tokens.
+      # Keep the legacy one-token score selection for single-character choices.
+      max_tokens = max(
+          16,
+          2
+          + max(
+              len(
+                  self._tokenizer.encode(
+                      f' ({response})', add_special_tokens=False
+                  )
+              )
+              for response in responses
+          ),
+      )
     generated_tokens = self._model.generate(
         inputs.input_ids.to(self._device),
-        max_new_tokens=1,
+        max_new_tokens=max_tokens,
         return_dict_in_generate=True,
         output_scores=True,
+        **({'do_sample': False} if extended_choices else {}),
     )
+    if extended_choices:
+      response_tokens = generated_tokens.sequences[
+          :, inputs.input_ids.shape[-1] :
+      ]
+      if response_tokens.shape[-1] >= max_tokens:
+        eos_ids = self._model.generation_config.eos_token_id
+        if isinstance(eos_ids, int):
+          eos_ids = (eos_ids,)
+        if not eos_ids or int(response_tokens[0, -1]) not in eos_ids:
+          # A truncated 'aa' must never be accepted as the valid choice 'a'.
+          raise language_model.InvalidResponseError(
+              'Choice generation reached its token limit before completing.'
+          )
+    else:
+      response_tokens = [np.argmax(generated_tokens.scores[0][0].cpu())]
     # pyrefly: ignore [missing-attribute]
     sample = self._tokenizer.batch_decode(
-        [np.argmax(generated_tokens.scores[0][0].cpu())],
+        response_tokens,
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False,
     )[0]
-    answer = sampling.extract_choice_response(sample)
+    answer = sampling.extract_choice_response(sample, responses=responses)
     try:
       idx = responses.index(answer)
       logging.debug('sample: %s, response: %s', sample, idx)

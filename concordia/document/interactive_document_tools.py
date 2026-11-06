@@ -28,8 +28,8 @@ from concordia.document import document
 from concordia.document import interactive_document
 from concordia.document import tool as tool_module
 from concordia.language_model import language_model
+from concordia.utils import sampling
 import numpy as np
-
 
 # Default configuration
 DEFAULT_MAX_TOOL_CALLS_PER_QUESTION = 5
@@ -119,9 +119,7 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
           '\nTo use this tool, respond with a JSON object containing'
           ' the arguments. For example: {"action": "list_threads"}'
       )
-      lines.append(
-          'After receiving tool results, provide your final answer.'
-      )
+      lines.append('After receiving tool results, provide your final answer.')
       return '\n'.join(lines)
 
     lines = ['\nAvailable tools (use JSON format to call):']
@@ -176,7 +174,8 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       # object is routed to the sole tool. Objects nested within that payload
       # are its arguments, not separate calls.
       outermost_objects = [
-          obj for obj in json_objects
+          obj
+          for obj in json_objects
           if not any(
               other_start < obj[0] and obj[1] <= other_end
               for other_start, other_end, _ in json_objects
@@ -393,9 +392,9 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
     else:
       original_indices = list(range(len(answers)))
 
-    letters = 'abcdefghijklmnopqrstuvwxyz'
     options: dict[str, Any] = {
-        letters[i]: answers[idx] for i, idx in enumerate(original_indices)
+        label: answers[idx]
+        for label, idx in zip(sampling.choice_labels(), original_indices)
     }
 
     # Inject tool descriptions as a preamble (system-prompt style)
@@ -425,20 +424,9 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
 
       if tool_call is None:
         # Not a tool call - try to parse as answer choice
-        response_lower = response.lower().strip()
-        option_letters = ''.join(options)
-        standalone_choice = re.fullmatch(
-            rf'([{option_letters}])', response_lower
+        letter = sampling.extract_choice_response(
+            response.lower(), responses=options
         )
-        parenthesized_choices = set(
-            re.findall(rf'\(([{option_letters}])\)', response_lower)
-        )
-        if standalone_choice is not None:
-          letter = standalone_choice.group(1)
-        elif len(parenthesized_choices) == 1:
-          letter = parenthesized_choices.pop()
-        else:
-          letter = None
         if letter is not None:
           self._model_response(f'({letter})\n')
           # Find the original index

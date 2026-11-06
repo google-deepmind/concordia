@@ -12,34 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper functions for language model sampling.
-"""
+"""Helper functions for language model sampling."""
 
+from collections.abc import Collection, Iterator
+import itertools
 import re
+import string
 
 
-def _extract_parenthesized_choice(sample: str):
-  """Given text formatted as 'lorum(a)ipsum', return 'a'."""
-  # The word boundary stops the last letter of a parenthesized word, such as
-  # the 'y' in '(probably)', from being mistaken for a choice.
-  match = re.search(r'\(?\b(\w)\)', sample)
-  if match:
-    return match.group(1)
-  else:
-    return None
+def choice_labels() -> Iterator[str]:
+  """Yields a, ..., z, aa, ..., az, ba, ... without a choice-count limit."""
+  for length in itertools.count(1):
+    for letters in itertools.product(string.ascii_lowercase, repeat=length):
+      yield ''.join(letters)
 
 
-def extract_choice_response(sample: str) -> str | None:
-  """Given a sample such as "a", "a)", or "foo(a)bar, return the choice."""
-  if len(sample) == 1:
-    # i.e. this would be a sample such as "a"
+def extract_choice_response(
+    sample: str, responses: Collection[str] | None = None
+) -> str | None:
+  """Extracts one unambiguous choice, without matching word fragments.
+
+  Accepts an exact response, a response followed by a period or closing
+  parenthesis, or a parenthesized response in text. Repeated occurrences of
+  the same choice are allowed; distinct choices are ambiguous. Matching is
+  case sensitive. Bare choices embedded in prose are not extracted.
+
+  Args:
+    sample: The model's output.
+    responses: Valid response strings, including multi-character labels. When
+      omitted, only single-character choices are recognized, as in the legacy
+      interface. An empty collection accepts nothing.
+  """
+  sample = sample.strip()
+  choices = set(responses) if responses is not None else None
+
+  def is_choice(value: str) -> bool:
+    if choices is None:
+      return len(value) == 1
+    return bool(value) and value in choices
+
+  if is_choice(sample):
     return sample
-  elif len(sample) == 2:
-    # i.e. this would be a sample such as "a)"
-    return sample[0]
-  else:
-    # extract a substring like "(a)" wherever it may be in a longer string
-    return _extract_parenthesized_choice(sample)
+  if sample.endswith('.') and is_choice(sample[:-1]):
+    return sample[:-1]
+
+  # Consume complete parenthesized strings first. Bare labels must start at
+  # whitespace or the beginning, so contractions and hyphenated words do not
+  # yield suffix choices. Both punctuation forms count towards ambiguity.
+  matches = {
+      (parenthesized or unopened).strip()
+      for parenthesized, unopened in re.findall(
+          r'\(([^()]*)\)|(?<!\S)(\w+)(?:\)|\.(?=\s|$))', sample
+      )
+      if is_choice((parenthesized or unopened).strip())
+  }
+  return matches.pop() if len(matches) == 1 else None
 
 
 def dynamically_adjust_temperature(

@@ -25,7 +25,6 @@ from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 from google.cloud import aiplatform
 
-
 _MAX_ATTEMPTS = 20
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _NUM_SILENT_ATTEMPTS = 3
@@ -197,9 +196,7 @@ class VertexAI(language_model.LanguageModel):
 
       sample = self.sample_text(prompt, temperature=temperature, seed=seed)
 
-      # clean up the sample from newlines and spaces
-      sample = sample.replace("\n", "").replace(" ", "")
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
         if self._measurements is not None:

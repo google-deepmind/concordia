@@ -105,6 +105,17 @@ def test_flash_choice_uses_same_reasoning_policy_once():
 
 
 @pytest.mark.parametrize(
+    'name', [_FLASH, 'google/gemma-4-31B-it', 'openai/gpt-oss-120b']
+)
+@pytest.mark.parametrize('label', ['a', 'z', 'aa', 'ba', 'aaa'])
+def test_choice_preserves_complete_labels(name, label):
+  client = client_with(label)
+  model = together_ai_model.Base(name, api_key='fixture', client=client)
+  assert model.sample_choice('Choose?', ['b', label])[:2] == (1, label)
+  client.chat.completions.create.assert_called_once()
+
+
+@pytest.mark.parametrize(
     'name',
     [
         'deepseek-ai/DeepSeek-V3',
