@@ -35,7 +35,6 @@ from concordia.utils import text
 from google import genai
 from google.genai import types
 
-
 MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
 DEFAULT_HISTORY = (
@@ -278,7 +277,7 @@ class GeminiModel(language_model.LanguageModel):
           temperature=temperature,
           seed=seed,
       )
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
       except ValueError:

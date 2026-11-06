@@ -21,6 +21,75 @@ from concordia.utils import sampling
 
 class ExtractChoiceResponseTest(parameterized.TestCase):
 
+  @parameterized.parameters(
+      ("don't)", None),
+      ('non-aa)', None),
+      ('a. or (aa)', None),
+      ('a.\n(aa)', None),
+      ('(a) or aa.', None),
+      ('( a)', 'a'),
+      ('( aa )', 'aa'),
+      ('The answer is ( aa).', 'aa'),
+  )
+  def test_reviewed_word_boundaries_and_explicit_forms(self, sample, expected):
+    self.assertEqual(
+        sampling.extract_choice_response(sample, ['a', 't', 'aa']), expected
+    )
+
+  @parameterized.parameters(
+      ('aa', 'aa'),
+      ('aa)', 'aa'),
+      ('aa.', 'aa'),
+      (' (aa) ', 'aa'),
+      ('foo(aa)bar', 'aa'),
+      ('aa) because', 'aa'),
+      ('(aa) then (aa)', 'aa'),
+      ('(probably) (ba)', 'ba'),
+      ('a', 'a'),
+      ('a)', 'a'),
+      ('a.', 'a'),
+      ('a or aa', None),
+      ('(a) or (aa)', None),
+      ('(aa) (ba)', None),
+      ('(aaa)', None),
+      ('aaa', None),
+      ('aardvark)', None),
+      ('(aardvark)', None),
+      ('I have a preference.', None),
+      ('(not aa)', None),
+      ('x_aa)', None),
+      ('', None),
+  )
+  def test_supplied_choices(self, sample, expected):
+    self.assertEqual(
+        sampling.extract_choice_response(
+            sample, responses=['a', 'b', 'aa', 'ba']
+        ),
+        expected,
+    )
+
+  @parameterized.parameters('aa', 'aa)', '(aa)', '(a) (b)', 'ab', 'a or b')
+  def test_legacy_does_not_accept_fragments_or_ambiguity(self, sample):
+    self.assertIsNone(sampling.extract_choice_response(sample))
+
+  @parameterized.parameters('aa', 'aa)', '(aa)', 'aaa)', '(banana)')
+  def test_unavailable_label_is_not_a_shorter_choice(self, sample):
+    self.assertIsNone(
+        sampling.extract_choice_response(sample, responses=['a', 'b', 'n'])
+    )
+
+  def test_supplied_choices_are_literal_and_may_be_empty(self):
+    self.assertEqual(
+        sampling.extract_choice_response('(a+)', responses=['a', 'a+']), 'a+'
+    )
+    self.assertEqual(
+        sampling.extract_choice_response(
+            'go home', responses=['go', 'go home']
+        ),
+        'go home',
+    )
+    self.assertIsNone(sampling.extract_choice_response('(a)', responses=[]))
+
   @parameterized.named_parameters(
       ('single_letter', 'a', 'a'),
       ('single_digit', '5', '5'),
