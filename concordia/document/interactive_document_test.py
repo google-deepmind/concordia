@@ -35,6 +35,28 @@ MODEL_RESPONSE = functools.partial(
 
 class InteractiveDocumentTest(parameterized.TestCase):
 
+  def test_edit_preserves_model_and_shared_rng(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_choice.return_value = (0, 'a', {})
+    rng = np.random.default_rng(17)
+    expected_rng = np.random.default_rng(17)
+    expected_order = expected_rng.permutation(3)
+    doc = interactive_document.InteractiveDocument(model, rng=rng)
+    doc.statement('Original context')
+
+    with doc.edit() as branch:
+      self.assertEqual(
+          branch.multiple_choice_question(
+              'Choose', ['first', 'second', 'third']
+          ),
+          expected_order[0],
+      )
+    model.sample_choice.assert_called_once()
+    self.assertEqual(rng.integers(10000), expected_rng.integers(10000))
+    self.assertTrue(doc.text().startswith('Original context\nQuestion: Choose'))
+
   def test_open_question(self):
     model = mock.create_autospec(
         language_model.LanguageModel, instance=True, spec_set=True
