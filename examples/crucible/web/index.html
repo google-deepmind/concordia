@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Twelve Words · crucible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Limelight&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap">
+<style>
+  :root { color-scheme: light dark; --paper:#f5f2ea; --ink:#1f1d1a; --muted:#6e6a62; --line:#d9d3c7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+         padding: 12px 16px calc(96px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 20px; margin: 2px 0 0; letter-spacing: .02em; }
+  .tag { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  h2 { font-size: 15px; margin: 16px 0 6px; color: var(--muted); font-weight: 600; }
+  button { min-height: 44px; min-width: 44px; padding: 8px 14px; font: inherit; margin: 4px 6px 4px 0;
+           border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  button:disabled { opacity: .45; }
+  button.primary { background: var(--command); border-color: var(--command); color: #fff; font-weight: 600; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hud { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 15px; }
+  .bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 3px; }
+  .bar > i { display: block; height: 100%; transition: width .45s ease-out; }
+  .meter { font-size: 14px; color: var(--muted); }
+  .glyph { display: inline-block; min-width: 1.2em; text-align: center; font-weight: 700; }
+  .strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .cell { border: 1px solid var(--line); border-radius: 10px; padding: 6px; text-align: center; font-size: 14px; }
+  .cell .glyph { font-size: 22px; display: block; }
+  .crew { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .crew .cell { text-align: left; }
+  .crew .cell .glyph { display: inline-block; font-size: 16px; }
+  .next { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line); }
+  .order { font-size: 17px; }
+  textarea { width: 100%; min-height: 72px; font: inherit; font-size: 17px; padding: 8px; border-radius: 10px;
+             border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  .muted { color: var(--muted); }
+  .error { color: var(--squall); }
+  pre { white-space: pre-wrap; word-break: break-word; font: 13px/1.4 ui-monospace, monospace; margin: 6px 0; }
+  ol { padding-left: 20px; margin: 4px 0; } li { margin: 6px 0; }
+  .goal { font-size: 18px; font-weight: 700; margin: 4px 0 10px; }
+  .cap { font-size: 12px; color: var(--muted); }
+  .chip { display: inline-block; margin: 4px 6px 2px 0; padding: 6px 10px; font-size: 14px; }
+  .chip small { display: block; font-size: 11px; color: var(--muted); }
+  .hop { margin: 0 0 4px; }
+  .hop .who { font-weight: 700; }
+  .arrow { text-align: center; color: var(--muted); margin: 0 0 4px; }
+  ins { text-decoration: none; background: color-mix(in srgb, var(--project) 25%, transparent); border-radius: 3px; padding: 0 2px; }
+  del { color: var(--hull); }
+  .ok { color: var(--project); font-weight: 700; }
+  .taboo { border-color: var(--hull); }
+  #pTabooWords { color: var(--hull); font-weight: 700; }
+  .banned { color: var(--hull); font-weight: 700; }
+  .bad { color: var(--hull); font-weight: 700; }
+  #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+          background: var(--paper); border-top: 1px solid var(--line); }
+  #dock button { width: 100%; margin: 0; }
+  #resultDock { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+                background: var(--paper); border-top: 3px solid var(--project); box-shadow: 0 -6px 18px rgba(0,0,0,.12); }
+  #resultDock.lost { border-top-color: var(--hull); }
+  #resultText { font-size: 22px; font-weight: 700; }
+  #resultText small { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+  .fresh { animation: fade .35s ease-out; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @keyframes fade { from { opacity: .3; } to { opacity: 1; } }
+  /* Motion marks a change of state, once: the hull shakes when damage rises
+     (hazards and leaks), a new turn's cell settles in. */
+  .hit { animation: hit .6s ease-out; }
+  @keyframes hit { 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); }
+                   60% { transform: translateX(-2px); } 100% { transform: translateX(0); } }
+  .arrive { animation: arrive .5s ease-out; }
+  @keyframes arrive { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fresh, .hit, .arrive { animation: none; }
+    .bar > i { transition: none; }
+  }
+
+  /* The Night Wire (cycle 119): a telegraph office on the night of the
+     flood. Yellow forms on a desk; messages as pasted ticker tape in
+     capitals; what changed marked in red pencil; staff cards on a wire. */
+  body.wire { --desk:#e6dcc4; --desk-ink:#2b2116; --desk-muted:#6b5a3e;
+    --form:#f3e2a0; --form-ink:#2b2116; --form-muted:#6d5b3c; --form-line:#c7ad6b;
+    --tape:#fdf8e8; --red:#a8261a; --good:#1d5236; --wire:#4a3b29; --command:#7a2418;
+    --paper: var(--desk); --ink: var(--desk-ink); --muted: var(--desk-muted); --line:#bfae86;
+    --deco: 'Limelight', 'Rockwell', Georgia, serif; --type: 'Special Elite', 'Courier New', ui-monospace, monospace;
+    background: var(--desk); color: var(--ink); font: 17px/1.5 'Old Standard TT', Georgia, 'Times New Roman', serif; }
+  @media (prefers-color-scheme: dark) {
+    body.wire { --desk:#14110c; --desk-ink:#efe3c2; --desk-muted:#b5a27c; --line:#4d4232;
+      --form:#e6d38f; --tape:#f6efd9; --wire:#c9b37a; --command:#9a3324; }
+  }
+  body.wire .form { --ink: var(--form-ink); --muted: var(--form-muted); --line: var(--form-line);
+    background: var(--form); color: var(--ink); border-radius: 3px; padding: 12px 14px; margin: 10px 0;
+    box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 16px rgba(0,0,0,.14); }
+  body.wire h1 { font: 400 32px/1.1 var(--deco); letter-spacing: .03em; margin: 2px 0 2px; }
+  body.wire .company { font: 700 11px/1.2 'Old Standard TT', serif; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--muted); border-top: 2px solid currentColor; border-bottom: 1px solid currentColor; padding: 3px 0; margin: 0 0 8px; }
+  body.wire .tag { font-style: italic; }
+  body.wire h2, body.wire h3 { font: 700 12px/1.3 'Old Standard TT', serif; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  body.wire button { border-radius: 4px; }
+  body.wire button.primary { font-family: var(--deco); font-weight: 400; letter-spacing: .06em; font-size: 18px; }
+  body.wire textarea { font: 18px/1.45 var(--type); background: var(--tape); border: 1px solid var(--line); border-radius: 2px; }
+  body.wire .card { border-color: var(--line); border-radius: 3px; }
+  body.wire #menu .chapter { display: flex; width: 100%; margin: 0; gap: 10px; align-items: baseline; text-align: left;
+    border: 0; border-bottom: 1px dotted var(--line); border-radius: 0; background: transparent; color: var(--ink); }
+  body.wire #menu .chapter .t { font: 15px var(--type); min-width: 5.6em; color: var(--muted); }
+  body.wire #menu .chapter .n { flex: 1; }
+  body.wire #menu .chapter.here { background: var(--command); color: #fff; border-radius: 3px; }
+  body.wire #menu .chapter.here .t { color: #fff; }
+  .wire .time { font: 30px/1 var(--deco); }
+  .wire .deco { font: 400 22px/1.2 var(--deco); margin: 6px 0 4px; letter-spacing: .02em; }
+  .wire .story { margin: 4px 0 8px; }
+  .wire .wanted { font-weight: 700; border-top: 1px solid var(--line); padding-top: 6px; margin: 6px 0 0; }
+  .tape { display: inline-block; background: var(--tape); color: #2b2116; font: 15px/1.5 var(--type); text-transform: uppercase;
+    letter-spacing: .05em; padding: 3px 9px; margin: 6px 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,.28); transform: rotate(-.5deg); max-width: 100%; }
+  .tape:nth-of-type(even) { transform: rotate(.4deg); }
+  .tape.lost { color: var(--red); }
+  .tape ins { background: none; color: var(--red); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; padding: 0; }
+  .tape del { color: var(--red); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .wireline { position: relative; padding-left: 24px; margin: 6px 0 10px; }
+  .wireline::before { content: ''; position: absolute; left: 9px; top: 18px; bottom: 34px; border-left: 2px solid var(--wire); }
+  .node { position: relative; margin: 0 0 10px; }
+  .node::before { content: ''; position: absolute; left: -21px; top: 13px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--wire); box-shadow: 0 0 0 3px var(--paper); }
+  .node.you, .node.relay { background: var(--form); color: #2b2116; padding: 8px 12px; border-radius: 3px; box-shadow: 0 3px 10px rgba(0,0,0,.12); }
+  .node.you { --muted: #6d5b3c; }
+  .node.relay { --muted: #6d5b3c; }
+  .staff b { font: 400 19px/1.2 var(--deco); letter-spacing: .02em; }
+  .staff i { color: var(--muted); }
+  .habit { font-size: 14px; font-style: italic; color: var(--muted); }
+  .ends { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .ends .end { background: var(--form); color: #2b2116; --muted: #6d5b3c; --line: #c7ad6b; margin: 0; border: 0; border-radius: 3px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.12); padding: 8px 10px; }
+  .want { font-size: 14px; font-weight: 700; margin-top: 4px; }
+  .take { font-size: 14px; font-style: italic; margin-top: 4px; border-left: 2px solid var(--line); padding-left: 6px; }
+  .stamp { display: inline-block; margin: 8px 0 2px; padding: 2px 7px; border: 2px solid currentColor; border-radius: 4px;
+    font: 13px/1.3 var(--type); text-transform: uppercase; letter-spacing: .04em; transform: rotate(-2.5deg); }
+  .stamp.good { color: var(--good); } .stamp.bad { color: var(--red); }
+  .blankhead { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; letter-spacing: .12em;
+    text-transform: uppercase; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 8px; }
+  .key { font: 14px var(--type); text-transform: uppercase; letter-spacing: .04em; border: 1px solid var(--line);
+    border-bottom-width: 3px; border-radius: 6px; padding: 6px 10px; margin: 4px 6px 2px 0; min-height: 40px; background: var(--tape); color: #2b2116; }
+  body.wire #resultDock { --ink: var(--form-ink); --muted: var(--form-muted); --line: var(--form-line);
+    background: var(--form); color: var(--ink); border-top: 4px double var(--command); }
+  body.wire #resultDock.lost { border-top-color: var(--red); }
+  body.wire #resultText { font: 400 22px/1.25 var(--deco); }
+  body.wire #resultText small { font-family: 'Old Standard TT', Georgia, serif; font-style: italic; }
+  body.wire #dock { background: var(--desk); }
+</style>
+</head>
+<body>
+<p class="company" id="company" hidden></p>
+<h1 id="title">Twelve Words</h1>
+<p class="tag" id="tagline"></p>
+
+<div id="menu" class="form">
+  <details class="card" id="intro"><summary><strong>What is this?</strong></summary><div id="introText"></div></details>
+  <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
+  <label id="mindrow" class="meter">Who plays the crew: <select id="mind"></select></label>
+  <h2 id="levelsHead">Levels</h2>
+  <div id="campaign"></div>
+  <details class="meter" id="earlier"><summary id="earlierTitle">The earlier game: Twelve Words (a crew sim)</summary>
+    <button id="freeplay">Free play: any order, nothing at stake</button>
+    <div id="earlierChapters"></div>
+  </details>
+  <details class="meter"><summary>For developers: earlier prototypes</summary><div id="pick"></div></details>
+</div>
+
+<p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
+<p id="announce" class="sr" aria-live="polite"></p>
+<p id="again" hidden><button id="nextLevel" class="primary" hidden>Next level</button> <button id="retry">Try again</button> <button id="toMenu">Levels</button></p>
+<p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
+
+<div id="board" hidden>
+  <p class="goal" id="goalLine"></p>
+  <div class="card task"><strong id="taskTitle">Your task</strong><p id="task" style="margin:4px 0 0"></p></div>
+  <details class="card" id="how"><summary><strong>How it works</strong></summary><ol id="howSteps"></ol></details>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong id="scene"></strong><span class="meter" id="turn"></span>
+    </div>
+    <div class="meter muted" id="starRules"></div>
+    <div class="hud" style="margin-top:6px">
+      <div><span id="pointsLabel"></span><div class="meter" id="points"></div><div class="cap" id="pointsCap"></div></div>
+      <div id="suppliesCell"><span id="suppliesLabel"></span><div class="meter" id="supplies"></div><div class="cap" id="suppliesCap"></div></div>
+      <div hidden><span id="goalLabel"></span><div class="meter" id="goal"></div></div>
+    </div>
+    <div style="margin-top:8px" id="hullRow"><span id="hullLabel"></span> <span class="meter" id="hull"></span>
+      <div class="bar"><i id="hullBar"></i></div><div class="cap" id="hullCap"></div></div>
+    <div style="margin-top:6px"><span id="goalBarLabel"></span> <span class="meter" id="goalNum"></span>
+      <div class="bar"><i id="goalBar"></i></div></div>
+  </div>
+
+  <div id="seaBox">
+  <h2>The sea, now and ahead</h2>
+  <div class="cap" id="seaCap"></div>
+  <div class="strip" id="ahead"></div>
+  <p class="meter" id="situation"></p>
+  </div>
+
+  <h2>Your crew <span class="meter muted">(each reads your order their own way)</span></h2>
+  <div class="crew" id="crew"></div>
+
+  <div class="card" id="can">
+    <strong>What you can tell them</strong> <span class="cap">(tap to add to your order)</span>
+    <div id="canActions"></div>
+    <div id="canNames"></div>
+    <div id="canPhrases"></div>
+  </div>
+
+  <h2>Your order <span class="meter muted">(followed every turn until you change it)</span></h2>
+  <div class="card order" id="order"></div>
+
+  <div id="controls">
+  <textarea id="move" aria-label="Your order" placeholder="Type an order, e.g. “Build.”" autocomplete="off" enterkeyhint="send"></textarea>
+  <div class="row"><span class="meter" id="count"></span></div>
+  <div>
+    <button id="preview">Preview</button>
+    <button id="hold">Hold</button>
+    <button id="holdAll">Hold to the end</button>
+    <button id="menuToggle">Menu</button>
+  </div>
+  </div>
+  <div class="card" id="previewout" hidden></div>
+  <p id="reqerror" class="error"></p>
+
+  <h2>What happened, turn by turn</h2>
+  <ol id="log" reversed></ol>
+</div>
+
+<div id="pass" hidden>
+  <p class="goal" id="pGoal"></p>
+  <div class="card"><strong id="pTitle"></strong> <span class="cap" id="pStars"></span><p id="pTask" style="margin:4px 0 0"></p></div>
+  <div class="card taboo" id="pTaboo" hidden><strong>You may not say:</strong> <span id="pTabooWords"></span>
+    <div class="cap">Say the jobs another way. The crew still have to understand you.</div></div>
+  <h2>The line <span class="meter muted">(your words go up it, mouth to ear)</span></h2>
+  <div id="pLine"></div>
+  <div id="pControls">
+    <textarea id="pmove" aria-label="Your message" placeholder="Your message" autocomplete="off" enterkeyhint="send"></textarea>
+    <div class="row"><span class="meter" id="pCount"></span></div>
+    <div><button id="rehearse">Rehearse with the first in line</button></div>
+    <p class="meter" id="rehearsal" hidden></p>
+    <div class="cap">Tap to add:</div>
+    <div id="pChips"></div>
+    <p class="cap" id="pTries"></p>
+  </div>
+  <div id="pHistory"></div>
+</div>
+
+<div id="wire" class="wire" hidden>
+  <div class="form">
+    <div class="company" id="wCompany"></div>
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <span class="time" id="wTime"></span><span class="cap" id="wStars"></span>
+    </div>
+    <h3 class="deco" id="wTitle"></h3>
+    <p class="story" id="wTask"></p>
+    <p class="wanted" id="wGoal"></p>
+  </div>
+  <h2>The line <span class="meter muted">(your wire goes down it, hop by hop)</span></h2>
+  <div id="wLine" class="wireline"></div>
+  <div id="wControls" class="form">
+    <div class="blankhead"><span id="wTo"></span><span id="wTries"></span></div>
+    <textarea id="wmove" aria-label="Your message" placeholder="Your message" autocomplete="off" enterkeyhint="send"></textarea>
+    <div class="row"><span class="meter" id="wCount"></span></div>
+    <div class="cap">Tap to add:</div>
+    <div id="wChips"></div>
+    <div><button id="wRehearse"></button></div>
+    <div id="wRehearsal" hidden></div>
+  </div>
+  <div id="wHistory"></div>
+</div>
+
+<div id="plain" hidden>
+  <pre id="question"></pre>
+  <textarea id="plainmove" placeholder="Your move" autocomplete="off"></textarea>
+  <button id="plainpreview">Preview</button> <button id="plainpass">Pass</button>
+  <pre id="plainpreviewout" class="muted"></pre>
+  <ol id="plainlog" reversed></ol>
+</div>
+
+<details><summary class="meter">For developers: the player's full prompt</summary><pre id="context"></pre></details>
+<p class="meter" id="foot">Twelve Words, a game on Google DeepMind's Concordia.</p>
+<div id="dock" hidden><button id="send" class="primary">Send</button></div>
+<div id="resultDock" hidden>
+  <div id="resultText"></div>
+  <div class="row" style="gap:8px;margin-top:8px">
+    <button id="rNext" class="primary">Next level</button>
+    <button id="rRetry">Try again</button>
+    <button id="rMenu">Levels</button>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let LOOK = null, requestId = null, lastQuestion = '', lastView = null, mode = 'plain';
+let PREDICTED = null;  // the last preview's predicted crew actions
+let lastReceipts = [];
+let shownTurn = null, shownDamage = null;  // what the motion last marked
+function once(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+let menuOpen = false;  // the player opened the menu during a game
+let starting = false;  // a start request is in flight (one game per tap)
+let shownEnd = null;  // the finished game whose result was scrolled to
+let blocked = false;  // the typed order is too long or cannot be paid for
+let autoHold = false;  // Hold to the end: hold each turn until stopped
+let autoHeld = null;  // the request auto-held last
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  return res.json();
+}
+function applyPalette() {
+  if (!LOOK) return;
+  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  const p = LOOK.palette[dark ? 'dark' : 'light'];
+  for (const [k, v] of Object.entries(p)) document.documentElement.style.setProperty('--' + k, v);
+}
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPalette);
+function g(category, key) {  // a glyph span from the look
+  const spec = LOOK && LOOK[category] && LOOK[category][key];
+  if (!spec) return document.createTextNode(key || '');
+  const s = document.createElement('span');
+  s.className = 'glyph'; s.textContent = spec.glyph; s.style.color = 'var(--' + spec.color + ')';
+  s.title = spec.word; s.setAttribute('aria-hidden', 'true'); return s;  // the word beside it is read
+}
+function word(category, key) { const s = LOOK && LOOK[category] && LOOK[category][key]; return s ? s.word : key; }
+function label(el, category, key, text) { el.innerHTML = ''; el.append(g(category, key), ' ' + text); }
+function stars(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
+function beatWord(beat) { return (LOOK && LOOK.beat_words && LOOK.beat_words[beat]) || beat || ''; }
+
+let howtoSet = false;  // How to play opened once for a player with no stars yet
+let CHAPTERS = {};  // scenario -> chapter number, for the phrases a chapter shows
+let ORDER = [];  // the main game's levels in order, for Next level
+function nextLevel(v) {
+  if (!v || !v.scenario) return null;
+  const i = ORDER.findIndex((ch) => ch.scenario === v.scenario);
+  return i >= 0 && i + 1 < ORDER.length ? ORDER[i + 1].scenario : null;
+}
+function chapterButton(c, ch, fresh) {
+  const b = document.createElement('button');
+  if (ch.time) {  // the Night Wire: a log of the night's hours
+    b.className = 'chapter' + (fresh && ch.number === 1 ? ' here' : '');
+    const t = Object.assign(document.createElement('span'), {className: 't', textContent: ch.time.toUpperCase()});
+    const n = Object.assign(document.createElement('span'), {className: 'n', textContent: ch.number + '. ' + ch.title
+        + (fresh && ch.number === 1 ? '  \u2190 start here' : '') + (ch.open ? '' : ' (locked)')});
+    b.append(t, n, stars(ch.stars));
+  } else {
+    b.textContent = ch.number + '. ' + ch.title + ' · ' + beatWord(ch.beat) + ' ' + stars(ch.stars) + (ch.open ? '' : ' (locked)');
+    if (fresh && ch.number === 1) { b.className = 'primary'; b.textContent += ' \u2190 start here'; }
+  }
+  b.disabled = !ch.open; b.onclick = () => start({toy: c.toy, scenario: ch.scenario});
+  return b;
+}
+function chapterButtons(box, c) {
+  box.innerHTML = '';
+  const fresh = !c.chapters.some((x) => x.stars > 0);
+  for (const ch of c.chapters) box.appendChild(chapterButton(c, ch, fresh));
+}
+function renderMenu(state) {
+  const box = $('campaign'), c = state.campaign;
+  for (const k of Object.values(state.campaigns || {})) for (const ch of k.chapters) CHAPTERS[ch.scenario] = ch.number;
+  if (c) ORDER = c.chapters;
+  // The earlier games, folded under the main one (cycle 119: two of them).
+  const others = Object.values(state.campaigns || {}).filter((k) => !c || k.toy !== c.toy);
+  const named = (k) => (LOOK && LOOK.earlier && LOOK.earlier[k.toy]) || k.title;
+  if ($('earlierChapters').dataset.key !== JSON.stringify(others)) {
+    $('earlierChapters').dataset.key = JSON.stringify(others); $('earlierChapters').innerHTML = '';
+    for (const k of others) {
+      if (others.length > 1) $('earlierChapters').appendChild(Object.assign(document.createElement('h3'), {textContent: named(k)}));
+      const box = document.createElement('div'); chapterButtons(box, k); $('earlierChapters').appendChild(box);
+    }
+    $('earlierTitle').textContent = (others.length > 1 ? 'Earlier games: ' : 'The earlier game: ') + others.map(named).join('; ');
+  }
+  $('earlier').hidden = !others.length;
+  if (c && !howtoSet && LOOK) {
+    howtoSet = true;
+    const fresh = !c.chapters.some((ch) => ch.stars > 0);  // a first visit reads them
+    $('howto').open = fresh; $('intro').open = fresh;
+    for (const line of (LOOK.intro || [])) { const p = document.createElement('p'); p.textContent = line; $('introText').appendChild(p); }
+  }
+  const key = JSON.stringify(c);
+  if (c && box.dataset.key !== key) {
+    box.dataset.key = key; box.innerHTML = '';
+    const fresh = !c.chapters.some((x) => x.stars > 0);
+    for (const ch of c.chapters) box.appendChild(chapterButton(c, ch, fresh));
+    if (c.daily) {
+      const b = document.createElement('button');
+      const from = c.chapters.find((ch) => ch.scenario === (c.daily.opens_with || c.daily.scenario));
+      b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '')
+          + (from ? ' (chapter ' + from.number + ', a ' + beatWord(from.beat) + ')' : '') + ' ' + stars(c.daily.stars);
+      if (from && !from.open) { b.disabled = true; b.textContent += ' (opens with chapter ' + from.number + ')'; }
+      b.onclick = () => start({toy: c.toy, daily: true}); box.appendChild(b);
+    }
+  }
+  const pick = $('pick');
+  if (!pick.dataset.done) {
+    const chapters = new Set(c ? c.chapters.map(x => x.scenario) : []);
+    for (const t of state.toys) {
+      const inCampaign = c && c.toy === t.toy;
+      // Orders' free play has its own button at the top.
+      const scenarios = t.scenarios.filter(s => !(inCampaign && (chapters.has(s) || s === 'free')));
+      if (inCampaign && !scenarios.length) continue;
+      for (const scenario of (scenarios.length ? scenarios : [''])) {
+        const b = document.createElement('button');
+        b.textContent = t.toy + (scenario ? ' / ' + scenario : '');
+        b.onclick = () => start({toy: t.toy, scenario}); pick.appendChild(b);
+      }
+    }
+    for (const m of state.modes) {
+      const o = document.createElement('option'); o.value = m;
+      o.textContent = {mock: 'word list (instant; not a real reader)',
+                       together: 'DeepSeek Flash (a real model, a few seconds a turn)',
+                       ollama: 'qwen3:8b on this Mac (a real model, slow)'}[m] || m;
+      $('mind').appendChild(o);
+    }
+    // The game is read by a model: prefer a real one when it is offered.
+    if (state.modes.includes('together')) $('mind').value = 'together';
+    $('mindrow').hidden = state.modes.length < 2;
+    pick.dataset.done = '1';
+  }
+}
+let lastStart = null;  // what the last game was started with, for Try again
+async function start(body) {
+  if (starting) return;
+  starting = true;
+  body.mode = $('mind').value;
+  lastStart = Object.assign({}, body);
+  $('again').hidden = true;
+  let r;
+  try { r = await api('api/start', body); }
+  catch (e) { r = {ok: false, error: 'Could not start: ' + e}; }
+  finally { starting = false; }
+  if (!r.ok) { $('status').textContent = r.error || 'Could not start.'; return; }
+  $('log').innerHTML = ''; $('plainlog').innerHTML = ''; menuOpen = false; $('menu').hidden = true;
+  $('share').hidden = true; $('copyShare').textContent = 'Copy';
+}
+
+function starRule(limits) {
+  const words = (LOOK && LOOK.star_rules) || {};
+  return Object.entries(limits).map(([key, n]) => {
+    const special = n === 0 ? words[key + '_none'] : (n === 1 ? words[key + '_one'] : null);
+    return special || (words[key] || key + ' ≤ {n}').replace('{n}', n);
+  }).join(', ');
+}
+function starRules(v) {
+  const rules = v.star_rules || {};
+  if (v.free || !Object.keys(rules).length) return '';
+  const words = (LOOK && LOOK.star_rules) || {};
+  return ['★ ' + (words.win || 'meet the goal')].concat(
+      Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
+}
+let howFor = null;  // the game the How it works box was last set up for
+function wordDiff(a, b) {  // b, with words a lacked marked and a's dropped words struck
+  const norm = (w) => w.toLowerCase().replace(/[^a-z']/g, '');
+  const x = a.split(/\s+/).filter(Boolean), y = b.split(/\s+/).filter(Boolean);
+  const L = Array.from({length: x.length + 1}, () => Array(y.length + 1).fill(0));
+  for (let i = x.length - 1; i >= 0; i--) for (let j = y.length - 1; j >= 0; j--)
+    L[i][j] = norm(x[i]) === norm(y[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = document.createElement('span'); let i = 0, j = 0;
+  const put = (tag, w) => { const e = document.createElement(tag); e.textContent = w; out.append(e, ' '); };
+  while (i < x.length || j < y.length) {
+    if (i < x.length && j < y.length && norm(x[i]) === norm(y[j])) { put('span', y[j]); i++; j++; }
+    else if (j < y.length && (i === x.length || L[i][j + 1] >= L[i + 1][j])) { put('ins', y[j]); j++; }
+    else { put('del', x[i]); i++; }
+  }
+  return out;
+}
+function quoted(t) { return t ? '\u201c' + t + '\u201d' : '(nothing)'; }
+function line(text, cls) { const p = document.createElement('div'); p.className = cls || 'meter'; p.append(text); return p; }
+let passFor = null;
+function renderPass(v, finished) {
+  const say = v.say || {};
+  const wantText = (who, a) => who + ' to ' + (say[a] || a);
+  $('pGoal').textContent = 'Goal: get ' + Object.entries(v.goal).map(([w, a]) => wantText(w, a)).join(' and ') + '.';
+  $('pTitle').textContent = (CHAPTERS[v.scenario] ? CHAPTERS[v.scenario] + '. ' : '') + v.title + (v.beat ? ' \u00b7 ' + beatWord(v.beat) : '');
+  $('pStars').textContent = starRules(v);
+  $('pTask').textContent = v.task;
+  $('pTaboo').hidden = !(v.taboo && v.taboo.length);
+  $('pTabooWords').textContent = (v.taboo || []).join(', ');
+  const last = v.attempts.length ? v.attempts[v.attempts.length - 1] : null;
+  const box = $('pLine'); box.innerHTML = '';
+  const card = (who, sub) => {
+    const d = document.createElement('div'); d.className = 'card hop';
+    const h = document.createElement('div'); h.className = 'who'; h.append(who); d.appendChild(h);
+    if (sub) d.appendChild(line(sub, 'cap'));
+    box.appendChild(d); return d;
+  };
+  const arrow = () => box.appendChild(line('\u2193', 'arrow'));
+  const you = card((LOOK && LOOK.you) || 'You', '');
+  if (last) you.appendChild(line('said ' + quoted(last.message)));
+  for (const [i, hop] of v.line.entries()) {
+    arrow();
+    const means = (LOOK && LOOK.passes_short && LOOK.passes_short[hop.how]) || hop.passes;
+    const d = card(Object.assign(document.createElement('span'), {}), word('temperaments', hop.temperament) + ': ' + means);
+    d.firstChild.append(g('temperaments', hop.temperament), ' ' + hop.who);
+    const h = last && last.hops[i];
+    if (h) {
+      d.appendChild(line('heard ' + quoted(h.heard)));
+      const s = line('said: '); s.appendChild(wordDiff(h.heard, h.said)); d.appendChild(s);
+    }
+  }
+  arrow();
+  for (const r of v.receivers) {
+    const means = LOOK && LOOK.temperaments && LOOK.temperaments[r.temperament] && LOOK.temperaments[r.temperament].means;
+    const d = card(Object.assign(document.createElement('span'), {}), word('temperaments', r.temperament) + ' (' + (means || '') + '); ' + ((LOOK && LOOK.at_top) || 'acts on what they hear'));
+    d.firstChild.append(g('temperaments', r.temperament), ' ' + r.who + ' \u2014 goal: ' + (say[v.goal[r.who]] || v.goal[r.who] || 'anything'));
+    const a = last && last.acted.find((x) => x.who === r.who);
+    if (a) {
+      d.appendChild(line('heard ' + quoted(a.heard)));
+      const did = line('did: '); did.append(g('actions', a.does), ' ' + (say[a.does] || a.does) + ' ');
+      did.appendChild(Object.assign(document.createElement('span'), {className: a.ok ? 'ok' : 'bad', textContent: a.ok ? '\u2713' : '\u2717 (goal: ' + (say[a.wanted] || a.wanted) + ')'}));
+      d.appendChild(did);
+      d.appendChild(line(a.why && a.why !== 'none' ? 'acted on ' + a.why : 'found nothing in it for ' + a.who + ': did what ' + a.who + ' does anyway', 'cap'));
+    }
+  }
+  // The words to tap: the actions, the names at the top, and "don't".
+  const key = v.scenario + '|' + v.title;
+  if (passFor !== key) {
+    passFor = key;
+    $('rehearsal').hidden = true;
+    const chips = $('pChips'); chips.innerHTML = '';
+    const add = (text) => { addWords(text, false, 'pmove'); countPass(); };
+    for (const a of (v.taboo && v.taboo.length ? [] : Object.keys(say))) {
+      const b = document.createElement('button'); b.className = 'chip'; b.append(g('actions', a), ' ' + say[a]);
+      b.onclick = () => add(say[a]); chips.appendChild(b);
+    }
+    for (const r of v.receivers) {
+      const b = document.createElement('button'); b.className = 'chip'; b.textContent = r.who + ',';
+      b.onclick = () => add(r.who + ','); chips.appendChild(b);
+    }
+    const no = document.createElement('button'); no.className = 'chip'; no.textContent = "don't";
+    no.onclick = () => add("don't"); chips.appendChild(no);
+    $('pmove').placeholder = 'Your message (up to ' + v.max_words + ' words)';
+  }
+  $('pControls').hidden = !!finished;
+  $('rehearse').hidden = !v.line.length;  // no one to rehearse with
+  if (passFor === key && v.attempts.length !== (renderPass.tries || 0)) $('rehearsal').hidden = true;
+  renderPass.tries = v.attempts.length;
+  $('pTries').textContent = 'Try ' + Math.min(v.attempts.length + 1, v.tries) + ' of ' + v.tries + '.';
+  const hist = $('pHistory'); hist.innerHTML = '';
+  if (v.attempts.length > 1 || (finished && v.attempts.length)) {
+    hist.appendChild(Object.assign(document.createElement('h2'), {textContent: 'Your tries'}));
+    for (const [i, t] of v.attempts.entries()) {
+      const p = line('Try ' + (i + 1) + ': ' + quoted(t.message) + ' \u2192 ' + t.acted.map((a) => a.who + ' ' + (say[a.does] || a.does) + (a.ok ? ' \u2713' : ' \u2717')).join(', '));
+      hist.appendChild(p);
+    }
+  }
+  countPass();
+}
+// The Night Wire (cycle 119): the line as staff cards on a wire, each hop's
+// words as a strip of ticker tape with what changed in red pencil.
+let wireFor = null;
+function tape(text, before) {
+  const t = document.createElement('div'); t.className = 'tape';
+  if (before !== undefined && before !== null) t.appendChild(wordDiff(before, text || ''));
+  else t.textContent = text || '(nothing)';
+  return t;
+}
+function staff(d, name, role) {
+  const h = document.createElement('div'); h.className = 'staff';
+  h.appendChild(Object.assign(document.createElement('b'), {textContent: name}));
+  if (role) h.appendChild(Object.assign(document.createElement('i'), {textContent: ', ' + role}));
+  d.appendChild(h);
+}
+function wanted(v, who) { return (v.jobs || {})[v.goal[who]] || v.goal[who] || 'anything'; }
+function renderWire(v, finished) {
+  const jobs = v.jobs || {}, people = v.people || {}, say = v.say || {};
+  $('wCompany').textContent = (LOOK && LOOK.company) || '';
+  $('wTime').textContent = (v.time || '').toUpperCase();
+  $('wStars').textContent = starRules(v);
+  $('wTitle').textContent = (CHAPTERS[v.scenario] ? CHAPTERS[v.scenario] + '. ' : '') + v.title;
+  $('wTask').textContent = v.task;
+  $('wGoal').textContent = 'Wanted: ' + Object.keys(v.goal).map((w) => w + ' to ' + wanted(v, w)).join('; ') + '.';
+  const last = v.attempts.length ? v.attempts[v.attempts.length - 1] : null;
+  const box = $('wLine'); box.innerHTML = '';
+  const node = (cls) => { const d = document.createElement('div'); d.className = 'node ' + cls; box.appendChild(d); return d; };
+  const you = node('you'); staff(you, (LOOK && LOOK.you) || 'Your desk', '');
+  you.appendChild(line(last ? 'you sent:' : 'your message starts here', 'habit'));
+  if (last) you.appendChild(tape(last.message));
+  for (const [i, hop] of v.line.entries()) {
+    const d = node('relay'); staff(d, hop.who, (people[hop.who] || {}).character ? '' : (people[hop.who] || {}).role);
+    d.appendChild(line((people[hop.who] || {}).character || hop.passes, 'habit'));  // who they are (cycle 121)
+    const h = last && last.hops[i];
+    if (h) { d.appendChild(line('passed on:', 'cap')); d.appendChild(tape(h.said, h.heard)); }
+  }
+  const ends = node('ends');
+  for (const r of v.receivers) {
+    const p = people[r.who] || {};
+    const d = document.createElement('div'); d.className = 'end'; ends.appendChild(d);
+    staff(d, r.who, p.character ? '' : p.role);
+    d.appendChild(line(p.character || '', 'habit'));  // who they are: all the model is told (cycle 121)
+    d.appendChild(Object.assign(document.createElement('div'), {className: 'want', textContent: 'Wanted: ' + wanted(v, r.who)}));
+    const a = last && last.acted.find((x) => x.who === r.who);
+    if (a) {
+      d.appendChild(Object.assign(document.createElement('div'), {className: 'stamp ' + (a.ok ? 'good' : 'bad'),
+          textContent: (jobs[a.does] || a.does) + (a.ok ? ' \u2713' : ' \u2717')}));
+      if (a.why) d.appendChild(line(a.why, 'take'));  // how they took it, in their own way
+    }
+  }
+  const key = v.scenario + '|' + v.title;
+  if (wireFor !== key) {
+    wireFor = key;
+    $('wRehearsal').hidden = true;
+    const chips = $('wChips'); chips.innerHTML = '';
+    const add = (text) => { addWords(text, false, 'wmove'); countWire(); };
+    const keys = Object.values(say).concat(v.receivers.map((r) => r.who + ','), ["don't", 'STOP']);
+    for (const k of keys) {
+      const b = document.createElement('button'); b.className = 'key'; b.textContent = k;
+      b.onclick = () => add(k); chips.appendChild(b);
+    }
+    $('wmove').placeholder = 'Your message, up to ' + v.max_words + ' words';
+    const first = v.line.length ? v.line[0].who : v.receivers.map((r) => r.who).join(' and ');
+    $('wTo').textContent = 'To: ' + first;
+    $('wRehearse').textContent = ((LOOK && LOOK.rehearse) || 'Rehearse with {who}').replace('{who}', v.line.length ? v.line[0].who : '');
+  }
+  $('wControls').hidden = !!finished;
+  $('wRehearse').hidden = !v.line.length;
+  if (v.attempts.length !== (renderWire.tries || 0)) $('wRehearsal').hidden = true;
+  renderWire.tries = v.attempts.length;
+  $('wTries').textContent = 'Wire ' + Math.min(v.attempts.length + 1, v.tries) + ' of ' + v.tries;
+  const hist = $('wHistory'); hist.innerHTML = '';
+  if (v.attempts.length > 1 || (finished && v.attempts.length)) {
+    hist.appendChild(Object.assign(document.createElement('h2'), {textContent: 'Your wires tonight'}));
+    for (const [i, t] of v.attempts.entries()) {
+      const row = document.createElement('div');
+      row.appendChild(line('Wire ' + (i + 1) + ': ' + t.acted.map((a) => a.who + ' ' + (jobs[a.does] || a.does) + (a.ok ? ' \u2713' : ' \u2717')).join('; '), 'cap'));
+      row.appendChild(tape(t.message)); hist.appendChild(row);
+    }
+  }
+  countWire();
+}
+function countWire() {
+  if (mode !== 'wire' || !lastView) return;
+  const m = $('wmove');
+  if (/[\r\n]/.test(m.value)) m.value = m.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  const free = new Set(lastView.free_words || []);
+  const all = m.value.replace(/\u2019/g, "'").match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || [];
+  const words = all.filter((w) => !free.has(w)).length;  // as the toy counts: STOP is free
+  blocked = !words || words > lastView.max_words;
+  $('wCount').textContent = !words ? 'Empty: say something to send.'
+      : words + ' / ' + lastView.max_words + ' words \u00b7 ' + words + '\u00a2' + (all.length > words ? ' (STOP free)' : '')
+        + (words > lastView.max_words ? ' \u00b7 too long: shorten it to send' : '');
+  sendable();
+}
+function countPass() {
+  if (mode !== 'pass' || !lastView || lastView.kind !== 'passiton') return;
+  const m = $('pmove');
+  if (/[\r\n]/.test(m.value)) m.value = m.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  const words = (m.value.replace(/\u2019/g, "'").match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []).length;  // as the toy counts
+  const banned = (lastView.taboo || []).filter((w) => new RegExp('\\b' + w + '(?:s|es|ed|ing)?\\b', 'i').test(m.value));
+  blocked = !words || words > lastView.max_words || banned.length > 0;  // an empty message would waste a try
+  $('pCount').textContent = !words ? 'Empty: say something to send.'
+      : banned.length ? 'Not allowed here: ' + banned.join(', ') + '. Say it another way.'
+      : words + ' / ' + lastView.max_words + ' words' + (words > lastView.max_words ? ' \u00b7 too long: shorten it to send' : '');
+  $('pCount').className = banned.length ? 'meter banned' : 'meter';
+  sendable();
+}
+function whyLost(v) {  // the reason, in the board's own words
+  if (!v || v.free) return '';
+  if (v.kind === 'passiton') return ': no try got there; try again, or look at where the words changed';
+  if (v.kind === 'nightwire') return ': no wire got through; try again, or look at where the words changed';
+  if (v.damage >= v.wreck_at) return ': the ship was wrecked (' + v.damage + ' damage)';
+  if (v.goal === 'supplies') return ': ' + v.supplies + ' supplies of the ' + v.target + ' wanted';
+  if (v.goal === 'foresight') return ': ' + v.foresight + ' turns seen of the ' + v.target + ' wanted';
+  return ': ' + word('stocks', 'progress') + ' ' + v.progress + ' of ' + v.target + ' when time ran out';
+}
+function showResult(gm) {  // the end of a game, where the thumb is (cycle 117)
+  const box = $('resultDock');
+  if (!gm || !gm.finished) { box.hidden = true; document.body.style.paddingBottom = ''; return; }
+  const o = gm.outcome || {}, v = gm.view || {};
+  const won = !!o.winner;
+  box.className = won ? '' : 'lost';
+  let head, sub;
+  let strip = null;
+  if (v.kind === 'passiton') {
+    head = won ? 'Solved ' + stars(o.stars || 0) + ' in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
+               : 'Not solved in ' + (o.tries || 0) + ' tries';
+    sub = v.lesson || '';
+  } else if (v.kind === 'nightwire') {  // the morning's headline, as a telegram
+    head = won ? stars(o.stars || 0) + ' Got through in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
+               : 'The wire did not get through';
+    if (won && v.headline) strip = tape(v.headline);
+    if (!won && v.failure) { strip = tape(v.failure); strip.classList.add('lost'); }
+    sub = v.lesson || '';
+  } else {
+    head = won ? 'Won ' + stars(o.stars || 0) : 'Not won' + whyLost(v);
+    sub = v.lesson || '';
+  }
+  $('resultText').innerHTML = '';
+  $('resultText').append(head);
+  if (strip) $('resultText').appendChild(Object.assign(document.createElement('div'), {})).appendChild(strip);
+  if (sub) $('resultText').appendChild(Object.assign(document.createElement('small'), {textContent: sub}));
+  const after = nextLevel(v);
+  $('rNext').hidden = !(won && after);
+  $('rNext').onclick = () => start({toy: gm.toy, scenario: after});
+  $('rRetry').hidden = !lastStart;
+  $('rMenu').onclick = () => { box.hidden = true; $('toMenu').click(); };
+  box.hidden = false;
+  document.body.style.paddingBottom = (box.offsetHeight + 12) + 'px';
+}
+function goalLine(v) {
+  if (v.free) return 'Free play: no goal. Try orders and see how each member reads them.';
+  const turn = Math.min(v.turn, v.turns);
+  let g;
+  if (v.goal === 'supplies') g = 'Goal: ' + v.target + ' supplies at the end of turn ' + v.turns + ' (now ' + v.supplies + ')';
+  else if (v.goal === 'foresight') g = 'Goal: see ' + v.target + ' turns ahead within ' + v.turns + ' turns (seen ' + v.foresight + ')';
+  else g = 'Goal: raise the ' + word('stocks', 'progress') + ' to ' + v.target + ' by the end of turn ' + v.turns + ' (now ' + v.progress + ')';
+  return g + ' · turn ' + turn + ' of ' + v.turns + (v.calm ? '' : ' · ' + v.wreck_at + ' damage sinks the ship');
+}
+function addWords(text, replace, id) {
+  const m = $(id || 'move');
+  let cur = replace ? '' : m.value.trim();
+  const bareName = lastView && lastView.receivers && lastView.receivers.some((r) => new RegExp('\\b' + r.who + '$', 'i').test(cur));
+  if (bareName) cur += ',';  // "Bea" + "keep watch" is "Bea, keep watch"
+  else if (cur && !/[.;,:]$/.test(cur) && !/\bdon['\u2019]t$/i.test(cur)) cur += ';';  // "don't" leads into its verb
+  m.value = (cur ? cur + ' ' : '') + text;
+  countWords();
+}
+function effectOf(a) {
+  const parts = [];
+  for (const [k, n] of Object.entries(a.gives || {})) {
+    const w = k === 'damage' ? 'damage' : word('stocks', k);
+    parts.push((n > 0 ? '+' : '\u2212') + Math.abs(n) + ' ' + w);
+  }
+  for (const [k, n] of Object.entries(a.needs || {})) parts.push('uses ' + n + ' ' + (n === 1 ? 'supply' : 'supplies'));
+  if ((a.closes || []).includes('leak')) parts.push('closes a leak');
+  if ((a.spoiled_by || []).includes('storm')) parts.push('not in a storm');
+  const extra = LOOK && LOOK.effects && LOOK.effects[a.key];
+  if (extra) parts.push(extra);
+  return parts.join(', ');
+}
+let canFor = null;
+function renderCan(v) {
+  const key = (v.scenario || '') + '|' + v.title;
+  if (canFor === key) return;
+  canFor = key;
+  const say = (LOOK && LOOK.say) || {};
+  const acts = $('canActions'); acts.innerHTML = '';
+  for (const a of (v.menu || [])) {
+    const b = document.createElement('button'); b.className = 'chip';
+    b.append(g('actions', a.key), ' ' + (say[a.key] || a.key));
+    const s = document.createElement('small'); s.textContent = effectOf(a); b.appendChild(s);
+    b.onclick = () => addWords(say[a.key] || a.key);
+    acts.appendChild(b);
+  }
+  const names = $('canNames'); names.innerHTML = '';
+  if (v.crew.length > 1) {
+    names.append(Object.assign(document.createElement('div'), {className: 'cap', textContent: 'Name who should do it:'}));
+    for (const m of v.crew) {
+      const b = document.createElement('button'); b.className = 'chip'; b.textContent = m.name + ',';
+      b.onclick = () => addWords(m.name + ','); names.appendChild(b);
+    }
+  }
+  const phrases = $('canPhrases'); phrases.innerHTML = '';
+  const here = v.free ? Infinity : (CHAPTERS[v.scenario] || 1);
+  const shown = ((LOOK && LOOK.phrases) || []).filter((p) => (CHAPTERS[p.from] || 1) <= here);
+  if (shown.length) {
+    phrases.append(Object.assign(document.createElement('div'), {className: 'cap', textContent: 'Ways to say it (tap to use):'}));
+    for (const p of shown) {
+      const b = document.createElement('button'); b.className = 'chip';
+      b.textContent = '\u201c' + p.say + '\u201d';
+      const s = document.createElement('small'); s.textContent = p.means; b.appendChild(s);
+      b.onclick = () => addWords(p.say, true); phrases.appendChild(b);
+    }
+  }
+}
+let howFolded = false;  // folded after the first turn of that game
+function renderView(v, receipts) {
+  $('scene').textContent = v.title + (v.beat ? ' · ' + beatWord(v.beat) : '');
+  $('taskTitle').textContent = (v.free ? 'Free play' : v.title) + ': your task';
+  $('task').textContent = v.premise || (v.free ? 'Free play: give any order and watch how each member reads it. Nothing is at stake.' : '');
+  const qs = (LOOK && LOOK.quick_start) || {};
+  if (!$('howSteps').children.length) {
+    for (const line of (qs.steps || [])) { const li = document.createElement('li'); li.textContent = line; $('howSteps').appendChild(li); }
+  }
+  const key = (v.scenario || '') + '|' + v.title;
+  if (howFor !== key) {
+    howFor = key; howFolded = receipts.length > 0;
+    $('how').open = !howFolded && (qs.open_in || []).includes(v.scenario || (v.free ? 'free' : ''));
+  } else if (receipts.length && !howFolded) { howFolded = true; $('how').open = false; }  // read once
+  if (LOOK && LOOK.placeholder) $('move').placeholder = LOOK.placeholder;
+  $('goalLine').textContent = goalLine(v);
+  renderCan(v);
+  const caps = (LOOK && LOOK.captions) || {};
+  $('pointsCap').textContent = caps.points || '';
+  $('suppliesCap').textContent = caps.supplies || '';
+  $('hullCap').textContent = (caps.hull || '').replace('{wreck_at}', v.wreck_at);
+  $('seaCap').textContent = caps.sea || '';
+  // Only what the chapter uses: chapter 1 is Cy, the work and command.
+  const watches = (v.menu || []).some((a) => a.key === 'watch');
+  $('hullRow').hidden = v.calm && !v.damage && !v.leak_open;
+  $('seaBox').hidden = v.calm && !watches;
+  $('suppliesCell').hidden = !v.short_of_supplies && v.goal !== 'supplies';
+  $('starRules').textContent = starRules(v);
+  $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
+  label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));
+  $('points').textContent = v.points_cap > 10 ? v.points + ' ♦'
+      : '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points)) + ' ' + v.points + ' of ' + v.points_cap;
+  label($('suppliesLabel'), 'stocks', 'supplies', word('stocks', 'supplies'));
+  $('supplies').textContent = v.supplies;
+  const goalKey = v.goal === 'supplies' ? 'supplies' : (v.goal === 'foresight' ? 'foresight' : 'progress');
+  const goalNow = v.goal === 'foresight' ? v.foresight : v[v.goal];
+  label($('goalLabel'), 'stocks', goalKey, 'goal');
+  $('goal').textContent = v.free ? 'free play' : (goalNow + ' / ' + v.target);
+  label($('hullLabel'), 'stocks', 'damage', 'hull');
+  if (v.leak_open) $('hullLabel').append(' ', g('events', 'leak'), ' leak open');
+  $('hull').textContent = v.free ? v.damage + ' damage' : v.damage + ' damage of ' + v.wreck_at;
+  $('hullBar').style.width = Math.min(100, 100 * v.damage / v.wreck_at) + '%';
+  if (shownDamage !== null && v.damage > shownDamage) once($('hullBar').parentElement.parentElement, 'hit');
+  shownDamage = v.damage;
+  $('hullBar').style.background = 'var(--hull)';
+  label($('goalBarLabel'), 'stocks', goalKey, word('stocks', goalKey));
+  $('goalNum').textContent = v.free ? '' : goalNow + ' of ' + v.target;
+  $('goalBar').style.width = v.free ? '0%' : Math.min(100, 100 * goalNow / v.target) + '%';
+  $('goalBar').style.background = 'var(--' + (LOOK.stocks[goalKey] || {}).color + ')';
+  const ahead = $('ahead'); ahead.innerHTML = '';
+  const cells = [{label: 'now', event: v.now, off: v.off}, ...v.ahead.map(a => ({label: 'turn ' + a.turn, event: a.event || 'unseen', off: a.off}))];
+  for (const c of cells.slice(0, 3)) {
+    const d = document.createElement('div'); d.className = 'cell';
+    d.append(g('events', c.event), c.label + ': ' + word('events', c.event));
+    if (c.off && c.off.length) {
+      const o = document.createElement('div'); o.className = 'meter';
+      o.append(g('conditions', 'off_duty'), ' ' + c.off.join(', ') + ' off');
+      d.appendChild(o);
+    }
+    ahead.appendChild(d);
+  }
+  if (v.turn !== shownTurn && ahead.firstChild) { once(ahead.firstChild, 'arrive'); }
+  shownTurn = v.turn;
+  $('situation').textContent = v.situation;
+  const crew = $('crew'); crew.innerHTML = '';
+  for (const m of v.crew) {
+    const d = document.createElement('div'); d.className = 'cell'; d.dataset.name = m.name;
+    const head = document.createElement('div'); head.append(g('temperaments', m.temperament), ' ', m.name);
+    head.style.fontWeight = '700';
+    const t = document.createElement('div'); t.className = 'meter';
+    t.textContent = word('temperaments', m.temperament) + (v.bosun === m.name ? ' \u00b7 bosun' : '');
+    const means = LOOK && LOOK.temperaments && LOOK.temperaments[m.temperament] && LOOK.temperaments[m.temperament].means;
+    if (means) { const mm = document.createElement('div'); mm.className = 'meter muted'; mm.textContent = means; t.appendChild(mm); }
+    const cond = m.off ? 'off_duty' : m.condition;
+    const c = document.createElement('div'); c.append(g('conditions', cond), ' ' + word('conditions', cond));
+    const l = document.createElement('div'); l.className = 'meter';
+    if (m.last) l.append('did ', g('actions', m.last), ' ' + word('actions', m.last)); else l.textContent = 'no turn yet';
+    const w = document.createElement('div'); w.className = 'meter why'; w.hidden = !(m.last && m.why);
+    if (!w.hidden) w.textContent = m.why === 'none'
+        ? ((m.heard || v.order) ? 'nothing for ' + m.name + ' in the order: by temperament' : 'no order yet: by temperament')
+        : m.why === 'off duty' ? 'heard no order' : 'read \u201c' + m.why + '\u201d';
+    const n = document.createElement('div'); n.className = 'next'; n.hidden = true;
+    const act = PREDICTED && PREDICTED.actions[m.name];
+    if (act) {
+      n.hidden = false; n.append('next ', g('actions', act), ' ' + word('actions', act));
+      const why = PREDICTED.why && PREDICTED.why[m.name];
+      if (why && why !== 'none' && why !== 'off duty') n.append(' \u00b7 \u201c' + why + '\u201d');
+    }
+    const h = document.createElement('div'); h.className = 'meter'; h.hidden = m.heard === null || m.heard === undefined;
+    if (!h.hidden) h.textContent = (m.via_bosun ? 'heard \u201c' : m.carried ? 'only heard \u201c' : 'still on \u201c') + (m.heard || '(nothing)') + '\u201d';
+    d.append(head, t, c, l, w, h, n); crew.appendChild(d);
+  }
+  $('hold').textContent = v.order ? 'Hold' : 'Hold (no order)';
+  $('order').textContent = (v.order ? '“' + v.order + '”' : '(no order yet: the crew follow their temperaments)')
+      + (v.order_turn ? ' \u00b7 its turn ' + v.order_turn : '');
+  countWords();
+  const log = $('log');
+  if (log.children.length !== receipts.length) {
+    log.innerHTML = '';
+    for (const r of receipts.slice().reverse()) { const li = document.createElement('li'); li.textContent = r; log.appendChild(li); }
+    if (log.firstChild) {
+      log.firstChild.classList.add('fresh');
+      $('announce').textContent = log.firstChild.textContent;  // read the new turn aloud
+    }
+  }
+}
+function countWords() {
+  blocked = false;
+  if (!lastView) return;
+  const move = $('move');
+  if (/[\r\n]/.test(move.value)) move.value = move.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  const words = move.value.trim().split(/\s+/).filter(Boolean).length;
+  if (!words) {
+    $('count').textContent = lastView.order ? 'Empty: the standing order holds.'
+        : 'No order yet: holding leaves the crew to their temperaments. Name the work.';
+    sendable(); return;
+  }
+  const cost = 1 + Math.floor(words / lastView.per_words);
+  const over = words > lastView.max_words;
+  blocked = over || cost > lastView.points;
+  $('count').textContent = words + ' / ' + lastView.max_words + ' words · costs ' + cost + ' ♦' +
+      (over ? ' · too long: shorten it to send' : (cost > lastView.points ? ' · not enough command: shorten it or hold' : ''));
+  sendable();
+}
+function sendable() { $('send').disabled = !requestId || ((mode === 'board' || mode === 'pass' || mode === 'wire') && blocked); }
+$('move').addEventListener('input', countWords);
+$('pmove').addEventListener('input', countPass);
+$('wmove').addEventListener('input', countWire);
+$('wmove').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
+});
+$('wRehearse').onclick = async () => {
+  const text = $('wmove').value.trim(), b = $('wRehearse');
+  if (!text || b.disabled) return;
+  b.disabled = true; const was = b.textContent; b.textContent = 'Asking\u2026';
+  let r;
+  try { r = await api('api/preview', {text: text}); }
+  catch (e) { r = {summary: 'The rehearsal failed (' + e + ').'}; }
+  finally { b.disabled = false; b.textContent = was; }
+  const out = $('wRehearsal'); out.hidden = false; out.innerHTML = '';
+  if (r.rehearsal && r.rehearsal.said !== undefined) {
+    out.appendChild(line(r.rehearsal.who + ' would pass it on as:', 'cap'));
+    out.appendChild(tape(r.rehearsal.said, text));
+  } else out.appendChild(line(r.summary, 'meter'));
+};
+$('rehearse').onclick = async () => {
+  const text = $('pmove').value.trim(), b = $('rehearse');
+  if (!text || b.disabled) return;
+  b.disabled = true; const was = b.textContent; b.textContent = 'Asking\u2026';
+  let r;
+  try { r = await api('api/preview', {text: text}); }
+  catch (e) { r = {summary: 'The rehearsal failed (' + e + ').'}; }
+  finally { b.disabled = false; b.textContent = was; }
+  const out = $('rehearsal'); out.hidden = false; out.innerHTML = '';
+  if (r.rehearsal && r.rehearsal.said !== undefined) {
+    out.append(r.rehearsal.who + ' would pass it on as: ');
+    out.appendChild(wordDiff(text, r.rehearsal.said));
+  } else out.textContent = r.summary;
+};
+$('pmove').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
+});
+$('move').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
+});
+
+function render(state) {
+  if (!LOOK && state.look) {
+    LOOK = state.look; applyPalette();
+    $('title').textContent = LOOK.title; $('tagline').textContent = LOOK.tagline;
+    document.title = LOOK.title; $('foot').textContent = LOOK.title + ', a game on Google DeepMind\'s Concordia.';
+    if (LOOK.theme) document.body.classList.add(LOOK.theme);
+    if (LOOK.company) { $('company').textContent = LOOK.company; $('company').hidden = false; }
+    if (LOOK.levels) $('levelsHead').textContent = LOOK.levels;
+    if (LOOK.how_to_play) {
+      for (const line of LOOK.how_to_play) { const li = document.createElement('li'); li.textContent = line; $('howtolist').appendChild(li); }
+      $('howto').hidden = false;
+    }
+  }
+  renderMenu(state);
+  const gm = state.game;
+  if (!gm) {
+    if (requestId || !$('board').hidden || !$('plain').hidden) {
+      $('status').textContent = 'That game was lost (the server restarted). Pick a chapter to start again.';
+    }
+    requestId = null; $('send').disabled = true; $('dock').hidden = true;
+    $('board').hidden = true; $('plain').hidden = true; $('pass').hidden = true; $('wire').hidden = true;
+    $('menu').hidden = false;
+    return;
+  }
+  $('dock').hidden = !!gm.finished;  // Send only while a game can take an order
+  showResult(gm);
+  if (!gm.finished) $('menu').hidden = !menuOpen;
+  const req = gm.request;
+  mode = gm.view ? ({passiton: 'pass', nightwire: 'wire'}[gm.view.kind] || 'board') : 'plain';
+  $('board').hidden = mode !== 'board'; $('plain').hidden = mode !== 'plain'; $('pass').hidden = mode !== 'pass';
+  $('wire').hidden = mode !== 'wire';
+  $('send').textContent = mode === 'pass' ? 'Send up the line' : mode === 'wire' ? ((LOOK && LOOK.send) || 'Send') : 'Send';
+  if (mode === 'pass') { lastView = gm.view; renderPass(gm.view, gm.finished); }
+  else if (mode === 'wire') { lastView = gm.view; renderWire(gm.view, gm.finished); }
+  else if (gm.view) { lastView = gm.view; lastReceipts = gm.receipts; renderView(gm.view, gm.receipts); }
+  else {
+    const log = $('plainlog');
+    if (log.children.length !== gm.receipts.length) {
+      log.innerHTML = '';
+      for (const r of gm.receipts.slice().reverse()) { const li = document.createElement('li'); li.textContent = r; log.appendChild(li); }
+    }
+    $('question').textContent = req ? req.question : '';
+  }
+  $('again').hidden = true;  // shown again below only once a game is over
+  $('controls').hidden = gm.finished;  // nothing left to order
+  if (gm.finished) {
+    const o = gm.outcome || {};
+    $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won' + whyLost(gm.view)) + (gm.error ? ' (' + gm.error + ')' : '');
+    $('again').hidden = false; $('retry').hidden = !lastStart;
+    const lesson = gm.view && gm.view.lesson;
+    if (lesson) $('status').textContent += ' \u2014 ' + lesson;
+    const next = gm.view && gm.view.star_rules && gm.view.star_rules[String((o.stars || 0) + 1)];
+    if (o.winner && next) $('status').textContent += ' Next star: ' + starRule(next) + '.';
+    if (gm.view && (gm.view.kind === 'passiton' || gm.view.kind === 'nightwire') && o.winner) {
+      $('status').textContent = 'Solved ' + stars(o.stars || 0) + ' in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
+          + (o.tries > 1 ? ', try ' + o.tries : '') + ' \u2014 ' + (gm.view.lesson || '')
+          + (next ? ' Next star: ' + starRule(next) + '.' : '');
+    }
+    const after = nextLevel(gm.view);
+    $('nextLevel').hidden = !(o.winner && after);
+    $('nextLevel').onclick = () => start({toy: gm.toy, scenario: after});
+    if (gm.daily && gm.view) {
+      $('shareText').textContent = (LOOK ? LOOK.title : 'Twelve Words') + ' ' + gm.daily + ' \u00b7 ' + gm.view.title
+          + ' \u00b7 ' + stars(o.stars || 0) + ' \u00b7 ' + (o.words_spoken || 0) + ' words';
+      $('share').hidden = false;
+    }
+    $('menu').hidden = !menuOpen;
+    if (shownEnd !== gm.id) {
+      shownEnd = gm.id;
+      $('status').scrollIntoView({block: 'start', behavior: 'smooth'});
+    }
+  } else if (req && mode === 'pass') {
+    const n = gm.view.attempts.length;
+    $('status').textContent = n ? 'Not yet: see where it changed below, then try again (' + (gm.view.tries - n) + ' left).'
+        : 'Write your message and send it up the line.';
+  } else if (req && mode === 'wire') {
+    const n = gm.view.attempts.length;
+    $('status').textContent = n ? 'Not yet: see where the words changed below. ' + (gm.view.tries - n) + ' wire' + (gm.view.tries - n === 1 ? '' : 's') + ' left.'
+        : 'Write your wire below and send it.';
+  } else if (req) {
+    // The last turn's result, where the eye is, not only in the log below.
+    const last = gm.receipts.length ? gm.receipts[gm.receipts.length - 1] : '';
+    $('status').textContent = (last ? 'Last turn: ' + last + ' ' : '') + 'Your order, ' + gm.seat + '.';
+  } else {
+    $('status').textContent = 'The crew are at work…';
+  }
+  requestId = req ? req.id : null;
+  $('holdAll').textContent = autoHold ? 'Stop holding' : 'Hold to the end';
+  if (gm.finished) autoHold = false;
+  if (autoHold && req && req.id !== autoHeld) { autoHeld = req.id; setTimeout(() => { if (autoHold) send('hold'); }, 600); }
+  $('context').textContent = req ? req.context + '\n\n' + req.question : '';
+  $('reqerror').textContent = req && req.error ? 'Not accepted: ' + req.error : '';
+  sendable();
+  if ((req && req.question !== lastQuestion) || (!req && PREDICTED)) {
+    // A preview is for the order being asked: gone once it is sent.
+    lastQuestion = req ? req.question : ''; PREDICTED = null;
+    $('previewout').hidden = true; $('plainpreviewout').textContent = '';
+    if (lastView && mode === 'board') renderView(lastView, lastReceipts);  // only the crew board has previews
+  }
+}
+async function poll() {
+  try { render(await api('api/state')); } catch (e) { $('status').textContent = 'Offline: ' + e; }
+  setTimeout(poll, 1000);
+}
+async function doPreview() {
+  const text = mode === 'board' ? $('move').value : $('plainmove').value;
+  const button = mode === 'board' ? $('preview') : $('plainpreview');
+  if (button.disabled) return;
+  button.disabled = true; const was = button.textContent; button.textContent = 'Previewing…';
+  let r;
+  try { r = await api('api/preview', {text: text || 'hold'}); }
+  catch (e) { r = {ok: false, summary: 'The preview failed (' + e + '); try again.'}; }
+  finally { button.disabled = false; button.textContent = was; }
+  if (mode !== 'board') { $('plainpreviewout').textContent = 'If you send this: ' + r.summary; return; }
+  const out = $('previewout'); out.hidden = false; out.innerHTML = '';
+  out.append('If you send this' + (r.predicted ? ' (' + word('events', r.predicted.event) + '):' : ':'));
+  PREDICTED = r.predicted;
+  if (lastView) renderView(lastView, lastReceipts);
+  const p = document.createElement('p'); p.className = 'meter'; p.textContent = r.summary; out.appendChild(p);
+  if (r.forecast) { const f = document.createElement('p'); f.textContent = r.forecast; out.appendChild(f); }
+}
+async function send(text) {
+  if (!requestId) return;
+  $('status').textContent = 'Sent: ' + (text || 'hold');
+  const r = await api('api/answer', {id: requestId, text: text || 'hold'});
+  if (r.ok) { $('move').value = ''; $('plainmove').value = ''; $('pmove').value = ''; $('wmove').value = ''; countWords(); countPass(); countWire(); }
+}
+$('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
+$('retry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
+$('rRetry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
+$('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
+$('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
+$('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : mode === 'pass' ? $('pmove').value.trim()
+    : mode === 'wire' ? $('wmove').value.trim() : $('plainmove').value.trim());
+$('holdAll').onclick = () => { autoHold = !autoHold; $('holdAll').textContent = autoHold ? 'Stop holding' : 'Hold to the end'; if (autoHold && requestId) { autoHeld = requestId; send('hold'); } };
+$('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');
+$('menuToggle').onclick = () => {
+  menuOpen = !menuOpen; $('menu').hidden = !menuOpen;
+  if (menuOpen) $('menu').scrollIntoView({block: 'start', behavior: 'smooth'});
+};
+$('toMenu').onclick = () => {
+  menuOpen = true; $('menu').hidden = false;
+  $('menu').scrollIntoView({block: 'start', behavior: 'smooth'});
+};
+poll();
+</script>
+</body>
+</html>

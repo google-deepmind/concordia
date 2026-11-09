@@ -1,0 +1,181 @@
+# The orders toy's two interaction matrices (GUIDE.md, Phase 3).
+#
+# Every cell names its mechanism and what exercises it: a test (by function
+# name, in examples/crucible/**/*_test.py) or golden cases (below).
+# `python -m examples.crucible.audit` counts the cells and checks that every
+# test and golden case a cell names exists. List only cells that exist.
+
+systems:
+  command: Command (the standing order and its price)
+  crew: Crew (each member's reading of the order, and their action)
+  hazards: Hazards (leaks and storms)
+  stores: Stores (supplies)
+  project: Project (progress toward the target)
+  hull: Hull (damage; the wreck)
+  fatigue: Fatigue (wear and rest)
+  watch: Watch (what the commander knows of the turns ahead)
+  rota: Rota (who is off duty, turn by turn; cycle 19)
+
+# Row system affects column system by mechanism.
+cells:
+  - {from: command, to: crew, by: the standing order is what every member reads each turn, test: test_temperaments_read_the_same_order_differently}
+  - {from: command, to: command, by: a longer order costs more points; points come back a turn at a time, test: test_longer_orders_cost_more}
+  - {from: crew, to: stores, by: gathering adds supplies and building spends them, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: crew, to: project, by: building adds progress, test: test_effects_apply_in_the_fixed_crew_order}
+  - {from: crew, to: hull, by: repairing removes damage and closes a leak, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: crew, to: fatigue, by: work wears a member out and rest restores them, test: test_worn_out_builders_do_half}
+  - {from: crew, to: watch, by: a member on watch reveals the next turns, test: test_a_watch_reveals_the_next_turns}
+  - {from: hazards, to: hull, by: an open leak adds damage every turn, test: test_leak_bleeds_until_closed}
+  - {from: hazards, to: stores, by: a storm spoils gathering, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: hazards, to: crew, by: a leak makes conditional clauses apply and the cautious repair, golden: [g5, g12, g13]}
+  - {from: fatigue, to: crew, by: a worn-out cautious member stops to rest, golden: [g15]}
+  - {from: fatigue, to: project, by: a worn-out builder adds half the progress, test: test_worn_out_builders_do_half}
+  - {from: stores, to: crew, by: with no supply the sensible stop building and gather, golden: [g18]}
+  - {from: stores, to: project, by: every build spends a supply; one supply feeds one builder, test: test_effects_apply_in_the_fixed_crew_order}
+  - {from: watch, to: command, by: turns seen from the watch enter the commander's view and forecasts, test: test_the_future_is_hidden_until_someone_watches}
+  - {from: hull, to: project, by: ten damage wrecks the ship and ends the voyage unfinished, test: test_wreck_ends_the_game}
+  - {from: stores, to: command, by: when the goal is stores every build spends it, so the order must keep the crew from building (cycle 10), test: test_twist_the_habit_loses}
+  - {from: command, to: command, by: stars reward a short order that holds; an order too long for the points is refused and costs the scene (cycle 10), test: test_stars_reward_a_short_order}
+  - {from: hazards, to: hull, by: a squall strikes a ship no one watched the turn before (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
+  - {from: watch, to: hull, by: a squall seen coming is weathered without damage (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
+  - {from: fatigue, to: watch, by: a worn-out cautious watcher rests and the watch lapses; the bold and the literal keep watching (cycle 12), test: test_arc_two_twist_breaks_the_watch_habit}
+  - {from: watch, to: project, by: in Lookout the forecast itself is the goal (cycle 12), test: test_arc_two_isolate_and_develop}
+  - {from: fatigue, to: crew, by: a clause for someone goes to the freshest willing member, so who does it changes as they tire (cycle 18), test: test_someone_goes_to_the_freshest_willing}
+  - {from: crew, to: watch, by: '"someone keep watch" passes the watch between members as they tire, so it holds where a named watch lapses (cycle 18)', test: test_someone_keeps_the_watch_where_a_name_lapses}
+  - {from: rota, to: crew, by: an off-duty member rests and reads no order (cycle 19), test: test_off_duty_rests_and_reads_nothing}
+  - {from: rota, to: fatigue, by: an off-duty turn takes two fatigue off (cycle 19), test: test_off_duty_rests_and_reads_nothing}
+  - {from: rota, to: watch, by: a watcher named while off duty leaves the watch undone; a watch for someone passes to whoever is on (cycle 19), test: test_someone_covers_the_rota_where_a_name_lapses}
+  - {from: hazards, to: rota, by: an unwatched squall that injures hurts the most worn member on duty, off duty for two turns (cycle 21), test: test_unwatched_squall_hurts_the_most_worn}
+  - {from: fatigue, to: rota, by: the most worn is the one a squall hurts, so a rested crew loses less to it (cycle 21), test: test_unwatched_squall_hurts_the_most_worn}
+  - {from: watch, to: rota, by: a watch kept the turn before means the squall hurts no one; a hurt member's duties pass to someone (cycle 21), test: test_a_hurt_member_is_off_duty_and_someone_passes_over_them}
+  - {from: rota, to: command, by: an order given while a member is off duty does not reach them; they keep the last order they heard and the commander is told (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
+  - {from: command, to: crew, by: an order said again reaches those who missed it, at its price again (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
+  - {from: command, to: watch, by: only a member who heard a clause for someone can take it up (cycle 23), test: test_someone_needs_to_have_heard_it}
+  - {from: hazards, to: watch, by: a storm hides the horizon; a watch kept in a storm sees one turn ahead, not two (cycle 33), test: test_a_storm_shortens_the_watch}
+  - {from: command, to: crew, by: with a bosun the crew hear the order in the bosun's words; the bosun follows it as given (cycle 41), test: test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders}
+  - {from: rota, to: crew, by: with the bosun off duty an order goes out as the commander gave it (cycle 41), test: test_with_the_bosun_off_duty_the_order_goes_out_as_given}
+  - {from: hazards, to: command, by: an order given in a storm that garbles carries only its first clause; the vital clause must come first, or wait for the calm (cycle 51), test: test_an_order_given_in_a_storm_carries_only_its_first_clause}
+  - {from: hazards, to: crew, by: in a garbling storm the bosun relays only what the wind left (cycle 51), test: test_the_bosun_relays_what_the_wind_left}
+  - {from: command, to: command, by: in free play an order can name the bosun ('Bea is bosun') or end it ('no bosun') (cycle 57), test: test_free_play_names_a_bosun_by_order}
+  - {from: command, to: crew, by: an order's age decides which part of a timed order holds (cycle 62), test: test_a_timed_order_changes_with_its_age}
+  - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
+
+# What an order says (operator) against what holds now (property): the law
+# that resolves the cell, and the golden cases that check it.
+reading:
+  operators:
+    directive: an order that names an action for everyone
+    conditional: a clause with if, when, during or unless
+    named: a clause that names crew members
+    watch: an order to keep watch
+    silence: no clause that applies
+    negation: a clause that forbids an action (not, never, don't)
+    someone: a clause for someone, which asks one member only (cycle 18)
+    relay: an order passed on by the bosun, in their own words (cycle 41)
+    timed: an order with a span ("for two turns, then ...") (cycle 62)
+  properties:
+    quiet: a quiet turn
+    leak: a leak open in the hull
+    storm: a storm blowing
+    worn: the member is worn out
+    no_supplies: the stores are empty
+    bold: a bold member
+    cautious: a cautious member
+    literal: a literal member
+    contrary: a contrary member
+    off_duty: another member is off duty this turn (cycle 19)
+  cells:
+    - {operator: directive, property: quiet, law: members do the action the order names, golden: [g1, g2]}
+    - {operator: directive, property: storm, law: the sensible skip an action that cannot help now; the literal do it anyway, golden: [g3, g4]}
+    - {operator: directive, property: leak, law: the cautious repair an open leak unless named otherwise; the literal follow the order, golden: [g13, g14]}
+    - {operator: directive, property: worn, law: the worn-out cautious rest; the bold keep working, golden: [g15, g16]}
+    - {operator: directive, property: no_supplies, law: the sensible gather instead of building with nothing; the literal build anyway, golden: [g18, g19]}
+    - {operator: conditional, property: leak, law: a clause conditioned on a leak applies while one is open, and is the clause the member reports (cycle 17), golden: [g5], test: test_a_conditional_clause_is_read_only_while_it_holds}
+    - {operator: conditional, property: quiet, law: a conditional clause whose condition does not hold gives way to the plain clauses, golden: [g6]}
+    - {operator: conditional, property: storm, law: an "unless" clause applies only while its condition does not hold, golden: [g20, g21]}
+    - {operator: named, property: cautious, law: a clause naming a member applies to them and comes first, golden: [g7]}
+    - {operator: named, property: bold, law: a member not named in a clause reads only the other clauses, and reports the clause meant for everyone else (cycle 17), golden: [g8], test: test_each_member_says_which_clause_they_acted_on}
+    - {operator: named, property: literal, law: a literal member not named anywhere does what they do otherwise, golden: [g9]}
+    - {operator: watch, property: storm, law: an order to keep watch is obeyed in any weather, though in a storm it sees one turn ahead (cycle 33), golden: [g17], test: test_a_storm_shortens_the_watch}
+    - {operator: silence, property: literal, law: with no clause that applies the literal rest, golden: [g10]}
+    - {operator: silence, property: bold, law: with no clause that applies the bold build while there is a supply, golden: [g11]}
+    - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}
+    - {operator: watch, property: worn, law: a worn-out cautious member named to watch rests instead; a worn-out bold one keeps watch, golden: [g22, g23]}
+    - {operator: conditional, property: worn, law: a clause conditioned on tiredness applies to the worn out; its condition word is not itself an order (cycle 14), golden: [g24, g25]}
+    - {operator: directive, property: contrary, law: the contrary do the opposite of what applies; told to work they rest, told to rest they work (cycle 15), golden: [g26, g27]}
+    - {operator: negation, property: contrary, law: told not to do something, the contrary do it (cycle 15), golden: [g28]}
+    - {operator: negation, property: bold, law: a forbidden action is skipped and the bold do what they do otherwise (cycle 15), golden: [g29]}
+    - {operator: negation, property: literal, law: a clause that only forbids gives the literal nothing to do (cycle 15), golden: [g30]}
+    - {operator: named, property: contrary, law: a clause naming the contrary is reversed for them alone; the others read their own clauses (cycle 15), golden: [g31, g32]}
+    - {operator: silence, property: contrary, law: with no clause that applies the contrary rest (cycle 15), golden: [g33]}
+    - {operator: someone, property: bold, law: the bold take up a clause for someone, first in crew order on a tie (cycle 18), golden: [g34], test: test_someone_goes_to_the_freshest_willing}
+    - {operator: someone, property: cautious, law: the cautious take it up when they are the freshest willing, or when the one before them is named elsewhere; otherwise they read the other clauses (cycle 18), golden: [g35, g36, g39], test: test_preview_shows_who_takes_up_someone}
+    - {operator: someone, property: worn, law: a worn-out cautious member leaves it to the others; a worn-out bold one still takes it up (cycle 18), golden: [g37]}
+    - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
+    - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
+    - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
+    - {operator: relay, property: literal, law: a literal bosun passes the order on word for word (cycle 41), golden: [g45], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46, g49], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" unless a clause already says whether to repair (cycles 41, 83), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: contrary, law: a contrary bosun says "don't" before every clause (cycle 41), golden: [g48], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: timed, property: literal, law: 'a clause "for N turns" holds for the first N turns, counting the turn it is given; then what follows "then"; with nothing after it, nothing (cycle 62)', golden: [g50, g51, g53], test: test_a_timed_order_changes_with_its_age}
+    - {operator: timed, property: bold, law: 'once the span is over the bold read the part after "then" (cycle 62)', golden: [g52]}
+    - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40], test: test_no_one_willing_means_no_one_does_it}
+
+# Golden cases: one situation, one member, the actions the laws allow.
+# `hard` cases follow from a law a model must not break (names, conditions,
+# the literal); the rest measure agreement with the temperaments.
+golden:
+  - {id: g1, order: Build the lighthouse., event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g2, order: Build the lighthouse., event: quiet, member: Ash, expect: [build]}
+  - {id: g3, order: Gather supplies., event: storm, member: Cy, expect: [gather], hard: true}
+  - {id: g4, order: Gather supplies., event: storm, member: Ash, expect: [build]}
+  - {id: g5, order: 'Build; if a leak opens, repair it.', event: leak, member: Cy, expect: [repair], hard: true}
+  - {id: g6, order: 'Build; if a leak opens, repair it.', event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g7, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Bea, expect: [watch], hard: true}
+  - {id: g8, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Ash, expect: [build], hard: true}
+  - {id: g9, order: 'Ash, repair the hull.', event: quiet, member: Cy, expect: [rest]}
+  - {id: g10, order: '', event: quiet, member: Cy, expect: [rest]}
+  - {id: g11, order: '', event: quiet, member: Ash, expect: [build]}
+  - {id: g12, order: '', event: leak, member: Bea, expect: [repair]}
+  - {id: g13, order: Gather supplies., event: leak, member: Bea, expect: [repair]}
+  - {id: g14, order: Gather supplies., event: leak, member: Cy, expect: [gather], hard: true}
+  - {id: g15, order: Build., event: quiet, member: Bea, worn: true, expect: [rest]}
+  - {id: g16, order: Build., event: quiet, member: Ash, worn: true, expect: [build]}
+  - {id: g17, order: Keep watch., event: storm, member: Cy, expect: [watch], hard: true}
+  - {id: g18, order: Build., event: quiet, member: Ash, supplies: 0, expect: [gather]}
+  - {id: g19, order: Build., event: quiet, member: Cy, supplies: 0, expect: [build], hard: true}
+  - {id: g20, order: 'Unless there is a storm, gather supplies.', event: storm, member: Cy, expect: [rest]}
+  - {id: g21, order: 'Unless there is a storm, gather supplies.', event: quiet, member: Cy, expect: [gather], hard: true}
+  - {id: g22, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Bea, worn: true, expect: [rest]}
+  - {id: g23, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Ash, worn: true, expect: [watch]}
+  - {id: g24, order: 'If tired, build.', event: quiet, member: Cy, worn: true, expect: [build], hard: true}
+  - {id: g25, order: 'If tired, build.', event: quiet, member: Cy, expect: [rest]}
+  - {id: g26, order: Build the lighthouse., event: quiet, member: Dex, expect: [rest], hard: true}
+  - {id: g27, order: Rest., event: quiet, member: Dex, expect: [build], hard: true}
+  - {id: g28, order: "Don't build.", event: quiet, member: Dex, expect: [build], hard: true}
+  - {id: g29, order: "Don't build.", event: quiet, member: Ash, expect: [gather]}
+  - {id: g30, order: "Don't build.", event: quiet, member: Cy, expect: [rest], hard: true}
+  - {id: g31, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Dex, expect: [repair], hard: true}
+  - {id: g32, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Ash, expect: [build], hard: true}
+  - {id: g33, order: '', event: quiet, member: Dex, expect: [rest]}
+  - {id: g34, order: 'Someone keep watch; everyone else build.', event: quiet, member: Ash, expect: [watch], hard: true}
+  - {id: g35, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, expect: [build]}
+  - {id: g36, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, fatigue: {Ash: 2}, expect: [watch], hard: true}
+  - {id: g37, order: 'Someone keep watch; everyone else build.', event: quiet, member: Ash, fatigue: {Ash: 4, Bea: 3}, expect: [watch], hard: true}
+  - {id: g38, order: 'Someone repair the hull.', event: quiet, member: Cy, expect: [rest], hard: true}
+  - {id: g39, order: 'Ash, build; someone keep watch.', event: quiet, member: Bea, expect: [watch], hard: true}
+  - {id: g40, order: 'Someone keep watch.', event: quiet, member: Dex, crew: [Cy, Dex], expect: [rest]}
+  - {id: g41, order: 'Someone keep watch; everyone else build.', event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g42, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [watch], hard: true}
+  - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Cy, off_duty: [Ash], expect: [build], hard: true}
+  - {id: g44, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build]}
+  - {id: g45, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Cy, expect: [watch], hard: true}
+  - {id: g46, order: 'Build; Cy, keep watch.', event: quiet, member: Cy, bosun: Ash, expect: [build], hard: true}
+  - {id: g47, order: 'Gather supplies.', event: leak, member: Ash, bosun: Bea, expect: [repair, gather]}
+  - {id: g48, order: 'Build.', event: quiet, member: Cy, bosun: Dex, expect: [rest], hard: true}
+  - {id: g49, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Ash, expect: [build]}
+  - {id: g50, order: 'Build for two turns, then repair.', event: quiet, member: Cy, age: 0, expect: [build], hard: true}
+  - {id: g51, order: 'Build for two turns, then repair.', event: quiet, member: Cy, age: 2, expect: [repair], hard: true}
+  - {id: g52, order: 'Keep watch for one turn, then build.', event: quiet, member: Ash, age: 1, expect: [build], hard: true}
+  - {id: g53, order: 'Repair for one turn.', event: quiet, member: Cy, age: 1, expect: [rest], hard: true}
