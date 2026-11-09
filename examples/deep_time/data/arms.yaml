@@ -1,0 +1,91 @@
+# Arms (stage 6, C3), where conquest is played (each world lists the kinds its
+# age knows: `civilization.arms`). Each kind is raised by a
+# recipe like any good, with labour that farms and forges compete for, and
+# each needs know-how with a civilian face (dual use): the iron tools that
+# clear fields also make spears; the horses that pull the iron plough also
+# carry riders; the steel that lays rails also makes rifles.
+#
+# A unit takes two hands' work a turn to raise (three for a rider and its
+# horse). Raised arms join the garrison of the people's capital. Every unit
+# eats grain each turn (`upkeep`); a people that cannot feed its arms sees
+# some of them desert. `strength` is what a unit counts for in a fight, `speed`
+# how many legs of a road it marches a turn (C4).
+kinds:
+  levies: {label: levies, strength: 1.0, speed: 1, upkeep: 0.3, from: iron tools}
+  riders: {label: riders, strength: 1.5, speed: 2, upkeep: 0.6, from: the plough's horses}
+  guns: {label: riflemen, strength: 3.0, speed: 1, upkeep: 0.4, from: steel}
+  bows: {label: archers, strength: 1.3, speed: 1, upkeep: 0.3, from: coppiced staves}
+  axes: {label: axemen, strength: 1.2, speed: 1, upkeep: 0.3, from: iron axes}
+recipes:
+  - key: arm_levies
+    label: arm levies with spears
+    labor: 2.0
+    inputs: {tools: 0.5, grain: 0.5}
+    outputs: {levies: 1.0}
+  - key: arm_riders
+    label: breed horses and train riders
+    labor: 3.0
+    inputs: {grain: 2.0}
+    outputs: {riders: 1.0}
+    requires: iron_plough
+  - key: arm_bows
+    label: cut bows and train archers
+    labor: 2.0
+    inputs: {wood: 1.0, grain: 0.5}
+    outputs: {bows: 1.0}
+    requires: coppicing
+  - key: arm_axes
+    label: forge axes and muster axemen
+    labor: 2.0
+    inputs: {iron: 0.5, grain: 0.5}
+    outputs: {axes: 1.0}
+    requires: iron_axes
+  - key: arm_guns
+    label: forge rifles and drill riflemen
+    labor: 2.0
+    inputs: {steel: 1.0, tools: 0.5}
+    outputs: {guns: 1.0}
+    requires: steelmaking
+# Marches and their aftermath (stage 6, C4). An army is a town's garrison
+# sent along the cheapest road (by sea where it must) to take or raze
+# another people's town.
+war:
+  march_tiles: 8          # tiles an army covers a turn at speed 1
+  militia: 1.5            # what a town's own people count for, unarmed
+  capital_militia: 3.0    # ... in a capital
+  walls_bonus: 0.5        # each level of walls adds this share to defenders
+  taken_loyalty: 0.35     # how a town holds to the people that took it
+  hold_need: 3.0          # garrison strength that settles a restless town
+  loyalty_step: 0.05      # a turn's settling (held) or unrest (not held)
+  rise_at: 0.2            # below this a won town rises (warned a turn first)
+  # Winning a town over (C5): carts of grain with envoys. A town joins the
+  # people whose regard it holds when that reaches its loyalty to its holder
+  # (and never less than `win_floor`); capitals hold to their own people.
+  gift_grain: 5.0         # grain a cart of gifts (or a feast) takes
+  gift_regard: 0.15       # regard a cart wins (doubled while the holder's people go hungry)
+  regard_fade: 0.04       # a turn's fading of regard not renewed
+  win_floor: 0.5          # the least regard a town joins at (one cart never wins a fresh conquest)
+  win_loyalty: 0.6        # how a town won over holds to its new people (it grows content)
+  feast_loyalty: 0.15     # a feast in a people's own town: loyalty gained, and others' regard lost
+  # A leader (C7): a people holding this share of all towns is named to every
+  # people, once, and on each people's sheet while it holds it.
+  leader_share: 0.5
+  # Conquest (C8): a people holding this share of all towns conquers the map
+  # and the game ends (founding alone never reaches it).
+  conquest_share: 0.75
+# Peace (stage 6, C7): a treaty any two peoples may make where conquest is
+# played (no tech needed), offered and answered like the others. A march on
+# the other's towns breaks it at once, for all to see.
+peace:
+  cap: 0.0
+  requires: []
+  name: peace pact
+  plural: peace pacts
+  metric: marches
+  unit: marches
+  terms: "marches on none of the other's towns"
+  proposal: >-
+    The {proposer} offer the {partner} a peace pact: for {duration}
+    generations neither marches on the other's towns. Whoever breaks it
+    loses the other's trade for a while, and every people will know.
+

@@ -81,6 +81,53 @@ class PageScriptTest(absltest.TestCase):
             f'{name}: {declared}',
         )
 
+  def test_the_page_leaves_out_comment_lines_only(self):
+    script = '\n'.join([
+        '// A comment line.',
+        'const a = 1;  // Kept: code before it.',
+        '/**',
+        ' * A doc block.',
+        ' */',
+        'const b = `two',
+        '// inside a template: kept',
+        '${a} /* still the template */`;',
+        "const c = '//not a comment';",
+        'const d = /\\/\\/[/]/g;',
+        '/* a block */',
+        '/* opens',
+        '   closes */ const e = 5;',
+        'const f = a / 2 / 1;',
+        '  // Indented comment.',
+    ])
+    self.assertEqual(
+        server_lib.lean(script).split('\n'),
+        [
+            'const a = 1;  // Kept: code before it.',
+            'const b = `two',
+            '// inside a template: kept',
+            '${a} /* still the template */`;',
+            "const c = '//not a comment';",
+            'const d = /\\/\\/[/]/g;',
+            ' const e = 5;',
+            'const f = a / 2 / 1;',
+        ],
+    )
+
+  @unittest.skipIf(NODE is None, 'Node is not installed')
+  def test_the_served_script_parses(self):
+    html = server_lib.page().decode('utf-8')
+    script = html[html.index('<script>') + 8 : html.rindex('</script>')]
+    path = os.path.join(self.create_tempdir().full_path, 'page.js')
+    with open(path, 'w', encoding='utf-8') as f:
+      f.write(script)
+    result = subprocess.run(
+        [str(NODE), '--check', path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
   def test_every_module_on_disk_is_served(self):
     on_disk = sorted(
         f for f in os.listdir(server_lib.SCRIPTS) if f.endswith('.js')

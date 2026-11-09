@@ -95,8 +95,8 @@ class ServerTest(absltest.TestCase):
     campaign = json.loads(self._get('/api/campaign')[1])
     self.assertEqual(campaign['build'], server_lib.BUILD)
     self.assertLen(campaign['changes'], 2)  # The newest, for the card.
-    self.assertEqual(campaign['changes'][0]['world'], 'great_acceleration')
     newest = data.load('changes.yaml')['changes'][0]
+    self.assertEqual(campaign['changes'][0]['world'], newest['world'])
     self.assertEqual(campaign['changes'][0]['when'], newest['when'])
 
   def test_each_world_has_a_thumbnail_for_its_card(self):
@@ -112,6 +112,8 @@ class ServerTest(absltest.TestCase):
   def test_the_page_is_self_contained_and_light(self):
     _, page = self._get('/')
     self.assertLess(len(page), 500_000)  # No page over 500 KB.
+    # The stage's guard: lighter than stage 4's page (266 KB).
+    self.assertLess(len(page), 266_000)
     self.assertNotRegex(page, rb'<script[^>]+src=')  # No external scripts.
     self.assertNotRegex(page, rb'<link[^>]+href=["\']?https?:')
     self.assertNotIn(b'fetch("/', page)  # Relative URLs only (tailnet path).

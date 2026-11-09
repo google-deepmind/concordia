@@ -98,3 +98,10 @@ test('the start screen says what is new, with a way to play it, and the build', 
   assert.equal(whatsNewHtml([], null), '');
   assert.match(whatsNewHtml(null, {commit: 'abc1234', when: 'now'}), /^<p class="small muted">Build abc1234/);
 });
+
+test("a change about a people's role is played as that role", () => {
+  const html = whatsNewHtml(
+    [{when: '19 Oct', world: 'fire_and_iron', role: 'Basalt clans', text: 'War comes.'}],
+    null, {fire_and_iron: 'Fire and Iron'});
+  assert.match(html, /data-role="Basalt clans">Play Fire and Iron as the Basalt clans</);
+});
