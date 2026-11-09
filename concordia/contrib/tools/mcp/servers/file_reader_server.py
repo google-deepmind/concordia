@@ -21,11 +21,10 @@ to read files and list directories during simulations.
 import pathlib
 from typing import Optional
 
-# pyrefly: ignore [missing-module-attribute]
-from mcp.server import fastmcp
+from mcp.server import mcpserver
 
 # Initialize MCP server
-mcp = fastmcp.FastMCP("file-reader")
+mcp = mcpserver.MCPServer("file-reader")
 
 
 @mcp.tool()
