@@ -116,6 +116,28 @@ class TestGeminiModel:
     model = _make_text_model(_text_response('```json\n{"a": 1}\n```'))
     assert model.sample_text('prompt') == '{"a": 1}'
 
+  def test_answer_after_an_empty_part_is_kept(self):
+    model = _make_text_model(
+        _response_with_parts([types.Part(text=None), types.Part(text='Answer')])
+    )
+    assert model.sample_text('prompt') == 'Answer'
+
+  def test_thought_parts_are_left_out(self):
+    model = _make_text_model(
+        _response_with_parts(
+            [types.Part(text='hidden', thought=True), types.Part(text='Answer')]
+        )
+    )
+    assert model.sample_text('prompt') == 'Answer'
+
+  def test_text_parts_are_joined(self):
+    model = _make_text_model(
+        _response_with_parts(
+            [types.Part(text='Jake is '), types.Part(text='a dog.')]
+        )
+    )
+    assert model.sample_text('prompt') == 'Jake is a dog.'
+
   @pytest.mark.parametrize('name', EMPTY_RESPONSE_NAMES)
   def test_response_without_text_gives_empty_string(self, name):
     model = _make_text_model(_empty_responses()[name]())

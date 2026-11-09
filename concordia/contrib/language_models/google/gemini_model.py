@@ -238,7 +238,11 @@ class GeminiModel(language_model.LanguageModel):
 
     try:
       # pyrefly: ignore [missing-attribute, unsupported-operation]
-      response = sample.candidates[0].content.parts[0].text or ''
+      parts = sample.candidates[0].content.parts
+      # The answer can follow a thought part or an empty part.
+      response = ''.join(
+          part.text for part in parts if part.text and not part.thought
+      )
     except (ValueError, IndexError, AttributeError, TypeError) as e:
       logging.error('An error occurred: %s', e)
       logging.debug('prompt: %s', prompt)
