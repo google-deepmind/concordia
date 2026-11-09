@@ -41,12 +41,16 @@ class AsyncLogCollector:
 
   Entity threads emit RawLogEvent instances via emit(). The expensive
   finalization (nested dict iteration, filtering empty values) only happens
-  when materialize() is called — typically on pause or at simulation end.
+  when materialize() is called: on pause, at simulation end, and by the
+  asynchronous engine whenever a batch of events is waiting. Batches are
+  appended to the log in the order the events were emitted.
   """
 
   def __init__(self):
     self._buffer: list[RawLogEvent] = []
     self._lock = threading.Lock()
+    # Held while a batch is finalized and appended, so batches keep order.
+    self._materialize_lock = threading.Lock()
 
   def emit(self, event: RawLogEvent) -> None:
     with self._lock:
@@ -58,10 +62,16 @@ class AsyncLogCollector:
     Args:
       log: The raw_log list to append finalized entries to.
     """
-    with self._lock:
-      events = list(self._buffer)
-      self._buffer.clear()
+    with self._materialize_lock:
+      with self._lock:
+        events = list(self._buffer)
+        self._buffer.clear()
+      self._append_finalized(events, log)
 
+  def _append_finalized(
+      self, events: list[RawLogEvent], log: list[Mapping[str, Any]]
+  ) -> None:
+    """Finalizes events and appends them to the log, in order."""
     for event in events:
       game_master_finalized_log = {}
       for segment_key, segment_log in event.game_master_log.items():
