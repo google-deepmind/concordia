@@ -36,6 +36,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
           types.MappingProxyType({})
       ),
       measurements: measurements_lib.Measurements | None = None,
+      component_factory: entity_agent.ComponentFactory | None = None,
   ):
     """Initializes the agent.
 
@@ -52,30 +53,38 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_components: The ContextComponents that will be used by the agent.
       measurements: Optional measurements instance to use for logging. Defaults
         to a standard Measurements().
+      component_factory: Optional. Rebuilds components added with a spec
+        (`add_component`) when `set_state` restores a state that has them.
     """
-    super().__init__(
-        agent_name=agent_name,
-        act_component=act_component,
-        context_components=context_components,
-    )
     self._component_logging = (
         measurements
         if measurements is not None
         else measurements_lib.Measurements()
     )
+    super().__init__(
+        agent_name=agent_name,
+        act_component=act_component,
+        context_components=context_components,
+        component_factory=component_factory,
+    )
 
     for component_name, component in self._context_components.items():
-      if isinstance(component, entity_component.ComponentWithLogging):
-        channel_name = component_name
-        component.set_logging_channel(
-            lambda datum, ch=channel_name: self._component_logging.publish_datum(
-                ch, datum, capture_key=self._active_capture_key
-            )
-        )
+      self._component_added(component_name, component)
     if isinstance(act_component, entity_component.ComponentWithLogging):
       act_component.set_logging_channel(
           lambda datum: self._component_logging.publish_datum(
               '__act__', datum, capture_key=self._active_capture_key
+          )
+      )
+
+  def _component_added(
+      self, name: str, component: entity_component.ContextComponent
+  ) -> None:
+    """Logs the component's data on a channel of its name."""
+    if isinstance(component, entity_component.ComponentWithLogging):
+      component.set_logging_channel(
+          lambda datum, ch=name: self._component_logging.publish_datum(
+              ch, datum, capture_key=self._active_capture_key
           )
       )
 
