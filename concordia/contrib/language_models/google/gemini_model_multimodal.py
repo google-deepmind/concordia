@@ -48,7 +48,6 @@ from concordia.utils import text as text_utils
 from google import genai
 from google.genai import types
 
-
 _IMAGE_PATTERN = re.compile(
     r'!\[([^\]]*)\]\(data:(image/[a-zA-Z0-9.\-]+);base64,([^)]+)\)'
 )
@@ -248,7 +247,7 @@ class GeminiModelVision(language_model.LanguageModel):
           temperature=temperature,
           seed=seed,
       )
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
       except ValueError:

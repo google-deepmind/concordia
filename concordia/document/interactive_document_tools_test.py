@@ -23,7 +23,7 @@ from concordia.document import document
 from concordia.document import interactive_document_tools
 from concordia.document import tool as tool_module
 from concordia.language_model import language_model
-
+import numpy as np
 
 # Content factories for testing
 DEBUG = functools.partial(document.Content, tags=frozenset({'debug'}))
@@ -64,6 +64,97 @@ class MockTool(tool_module.Tool):
 
 
 class InteractiveDocumentWithToolsTest(parameterized.TestCase):
+
+  @parameterized.parameters(False, True)
+  def test_empty_choices_still_delegate_to_model(self, with_tools):
+    model = mock.create_autospec(language_model.LanguageModel, instance=True)
+    model.sample_text.return_value = 'No options.'
+    model.sample_choice.side_effect = language_model.InvalidResponseError(
+        'empty'
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[MockTool('search', 'Search', 'result')] if with_tools else [],
+    )
+    with self.assertRaises(language_model.InvalidResponseError):
+      doc.multiple_choice_question('Choose?', [], randomize_choices=False)
+    model.sample_choice.assert_called_once()
+    self.assertEqual(model.sample_choice.call_args.kwargs['responses'], [])
+
+  @parameterized.product(
+      count_and_label=((26, 'z'), (27, 'aa'), (53, 'ba'), (703, 'aaa')),
+      randomize=(False, True),
+      path=('direct', 'tool', 'forced', 'fallback', 'no_tools'),
+  )
+  def test_multiple_choice_extended_labels(
+      self, count_and_label, randomize, path
+  ):
+    count, label = count_and_label
+    model = mock.create_autospec(language_model.LanguageModel, instance=True)
+    model.sample_choice.return_value = (count - 1, label, {})
+    tool = MockTool('search', 'Search', 'result')
+    call = '{"tool": "search", "args": {"query": "fixture"}}'
+    model.sample_text.side_effect = {
+        'direct': [f' ({label.upper()}) '],
+        'tool': [call, label],
+        'forced': [call],
+        'fallback': ['Based on the evidence, choose the final option.'],
+        'no_tools': [],
+    }[path]
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[] if path == 'no_tools' else [tool],
+        rng=np.random.default_rng(42),
+        max_tool_calls_per_question=1 if path == 'forced' else 5,
+    )
+    indices = (
+        np.random.default_rng(42).permutation(count)
+        if randomize
+        else range(count)
+    )
+    result = doc.multiple_choice_question(
+        'Choose?', [f'option {i}' for i in range(count)], randomize
+    )
+    self.assertEqual(result, indices[-1])
+    self.assertIn(f'  ({label}) option {indices[-1]}\n', doc.text())
+    self.assertIn(f'({label})\n', doc.view().text())
+    self.assertEqual(tool.call_count, int(path in ('tool', 'forced')))
+    if path in ('forced', 'fallback', 'no_tools'):
+      model.sample_choice.assert_called_once()
+      responses = model.sample_choice.call_args.kwargs['responses']
+      self.assertLen(responses, count)
+      self.assertEqual(responses[-1], label)
+    else:
+      model.sample_choice.assert_not_called()
+
+  @parameterized.parameters(
+      'a or aa',
+      "don't)",
+      'non-aa)',
+      'a. or (aa)',
+      '(a) or aa.',
+      '(a) or (aa)',
+      '(aa) or (b)',
+      'aardvark)',
+      '(aardvark)',
+      'I have a preference.',
+      'aaah',
+      '(not aa)',
+  )
+  def test_multiple_choice_extended_ambiguity_uses_fallback(self, answer):
+    model = mock.create_autospec(language_model.LanguageModel, instance=True)
+    model.sample_text.return_value = answer
+    model.sample_choice.return_value = (26, 'aa', {})
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[MockTool('search', 'Search', 'result')]
+    )
+    self.assertEqual(
+        doc.multiple_choice_question(
+            'Choose?', [str(i) for i in range(27)], randomize_choices=False
+        ),
+        26,
+    )
+    model.sample_choice.assert_called_once()
 
   def test_open_question_no_tools(self):
     """Without tools, should behave like base InteractiveDocument."""
@@ -465,7 +556,8 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     )
 
     result = doc.multiple_choice_question(
-        'Which city was searched?', ['Paris', 'London'],
+        'Which city was searched?',
+        ['Paris', 'London'],
         randomize_choices=False,
     )
 
