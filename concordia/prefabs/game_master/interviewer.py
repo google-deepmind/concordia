@@ -68,7 +68,7 @@ class GameMaster(prefab_lib.Prefab):
 
     # Questionnaire component
     questionnaire_component_instance = (
-        gm_components.questionnaire.Questionnaire(
+        gm_components.asynchronous_questionnaire.AsynchronousQuestionnaire(
             questionnaires=questionnaires,
             player_names=player_names,
         )
@@ -99,7 +99,7 @@ class GameMaster(prefab_lib.Prefab):
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,
-        entity_names=[player_names],
+        entity_names=player_names,
     )
 
     game_master_agent = entity_agent_with_logging.EntityAgentWithLogging(
