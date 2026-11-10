@@ -105,6 +105,12 @@ class InterviewerTest(absltest.TestCase):
           [answer['question'] for answer in answers[name]],
           ['How does {player_name} feel?', 'How did {player_name} sleep?'],
       )
+      for answer in answers[name]:
+        # Each answer matches exactly one of the offered choices.
+        self.assertEqual(
+            [choice['similarity'] for choice in answer['choices']].count(1),
+            1,
+        )
 
 
 if __name__ == '__main__':
