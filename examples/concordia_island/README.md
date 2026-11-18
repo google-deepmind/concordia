@@ -262,7 +262,7 @@ These commands use the Brecksville places (`brecksville_1000`). The bundled pape
 
 ### Example 2: Fiscal-Policy Runs with the Nightly Marketplace
 
-To run the nightly `marketplace_rules` Game Master after each day (where every agent plays up to `--marketplace_rounds` rounds of `BID` / `SAVE` / `WITHDRAW` / `PASS` before returning to `island rules` at 7:00 AM), enable `--enable_nighttime_marketplace=True` and choose the policy arm with `--fiscal_config`: `control` (weekly payroll and rent only) or `ubi` (adds a \$125/week cash transfer). Any other value raises an error:
+To run the nightly `marketplace_rules` Game Master after each day (where every agent plays up to `--marketplace_rounds` rounds of `BID` / `SAVE` / `WITHDRAW` / `PASS` before returning to `island rules` at 7:00 AM), enable `--enable_nighttime_marketplace=True` and choose the policy arm with `--fiscal_config`: `control` (weekly payroll and rent only) or `ubi` (adds a \$500/month cash transfer, paid as one lump sum at 9:00 AM on Thursday, January 8th, two days after the Day-6 layoff, and then on the 8th of each following month). Any other value raises an error:
 
 ```bash
 mkdir -p local_runs
@@ -281,6 +281,12 @@ python -m examples.concordia_island.run \
   --poll=False \
   --output_dir=./local_runs/ohio_ubi_marketplace
 ```
+
+Household economics in these runs:
+
+- **Wages and rent** (`sim/economic_profile.py`): each agent's economic class (from its home) maps onto a quintile of income before taxes in the BLS Consumer Expenditure Survey, 2023 (`lower_middle` = Q1 … `elite` = Q5; values and their BLS sources are in `BLS_ANNUAL_VALUES`). The weekly wage is that quintile's mean income before taxes / 52 and the weekly rent is its mean Shelter expenditure / 52. Agents with no workplace receive 40% of their class's weekly income. Brecksville settings use Midwest values, all other settings national values.
+- **Schedule** (`sim/fiscal_configs.py`): payroll every Monday at 9:00 AM; rent every Friday at 3:00 PM, taken from checking and, for any shortfall, from savings (rent arrears only when both are short).
+- **Food** (`sim/food_consumption.py`): each household eats its daily food need once per calendar day, at the first step at or after 9:00 AM (after the night's marketplace). A partly stocked pantry is eaten as a small meal, and the agent is told so.
 
 ### Example 3: Running Daytime `island rules` + Nightly `X` + Nightly `Marketplace`
 

@@ -318,7 +318,9 @@ _FISCAL_CONFIG = flags.DEFINE_enum(
     "control",
     ["control", "ubi"],
     "Fiscal policy arm (see sim/fiscal_configs.py). 'control' runs weekly "
-    "payroll and rent only; 'ubi' adds a $125/week cash transfer.",
+    "payroll and rent only; 'ubi' adds a $500/month cash transfer paid as a "
+    "lump sum from Thursday 2026-01-08, 9:00 AM (then on the 8th of each "
+    "month).",
 )
 
 

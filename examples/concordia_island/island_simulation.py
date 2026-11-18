@@ -105,6 +105,7 @@ def create_island_config(
         food_min_daily=food_min_daily,
         laid_off_agents=laid_off_agents,
         starting_food_units=starting_food_units,
+        bls_region=econ_prof_lib.bls_region_for_setting(setting),
     )
 
   # "persistent" is the ESA prefab's former name; runs recorded before the
@@ -333,6 +334,7 @@ class IslandConcordiaSimulation:
           food_min_daily=food_min_daily,
           laid_off_agents=laid_off_agents,
           starting_food_units=starting_food_units,
+          bls_region=econ_prof_lib.bls_region_for_setting(setting),
       )
     self._economic_profiles = economic_profiles
 

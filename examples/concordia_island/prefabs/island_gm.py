@@ -1999,6 +1999,7 @@ class IslandGameMaster(prefab_lib.Prefab):
           food_min_daily=food_min_daily,
           laid_off_agents=laid_off_names,
           starting_food_units=starting_food_units,
+          bls_region=economic_profile.bls_region_for_setting(setting),
       )
 
     if economic_profiles:
@@ -2013,6 +2014,7 @@ class IslandGameMaster(prefab_lib.Prefab):
           clock_key=clock_key,
           make_observation_key=make_observation_key,
           world_state=world_state_obj,
+          fiscal_scheduler_key="fiscal_scheduler",
       )
       fiscal_scheduler_comp = fiscal_scheduler.FiscalScheduler(
           fiscal_events=fiscal_events,
@@ -2021,8 +2023,10 @@ class IslandGameMaster(prefab_lib.Prefab):
           make_observation_key=make_observation_key,
           world_state=world_state_obj,
       )
-      components_of_game_master["food_consumption"] = food_consumption_comp
+      # FoodConsumption applies the FiscalScheduler's due events itself before
+      # each meal (components run pre_act in parallel; order is not guaranteed).
       components_of_game_master["fiscal_scheduler"] = fiscal_scheduler_comp
+      components_of_game_master["food_consumption"] = food_consumption_comp
 
     if extra_components:
       components_of_game_master.update(extra_components)

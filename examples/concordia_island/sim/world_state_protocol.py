@@ -86,6 +86,23 @@ class WorldState(Protocol):
     """
     ...
 
+  def apply_debits_checking_then_savings(
+      self,
+      debits: Mapping[str, float],
+  ) -> dict[str, tuple[float, float, float, float]]:
+    """Atomically debits checking, then savings for any shortfall.
+
+    Neither balance goes below zero; anything not covered by both is unpaid.
+
+    Args:
+      debits: agent id -> amount (>= 0).
+
+    Returns:
+      agent id -> (checking before, checking after, savings before, savings
+      after), as seen and committed inside the atomic section.
+    """
+    ...
+
   def get_wallet(self, agent_id: str) -> float | None:
     """Returns the checking balance, or None if the agent has no wallet."""
     ...
@@ -119,6 +136,33 @@ class WorldState(Protocol):
 
     Args:
       inventory: agent id -> {item_name: quantity}.
+    """
+    ...
+
+  def apply_inventory_deltas(
+      self,
+      deltas: Mapping[str, Mapping[str, int]],
+  ) -> dict[str, dict[str, tuple[int, int]]]:
+    """Atomically adds item deltas; returns `(before, after)` per item.
+
+    The inventory counterpart of `apply_wallet_deltas`, with the same rule:
+    a component that changes a quantity another game master may also change
+    (food is bought by the marketplace, eaten by FoodConsumption and handed out
+    by fiscal food credits) must send a delta, never an absolute value computed
+    from its own copy.
+    Quantities are floored at zero.
+
+    Args:
+      deltas: agent id -> {item_name: delta}. Deltas may be negative. Missing
+        rows start from 0.
+
+    Returns:
+      agent id -> {item_name: (quantity before, quantity after)}, as seen and
+      committed inside the atomic section. Callers need "before" because the
+      floor means the amount actually removed is only knowable from there.
+
+    Raises:
+      Implementation-defined. Callers MUST NOT swallow it.
     """
     ...
 

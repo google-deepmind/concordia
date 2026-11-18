@@ -18,9 +18,15 @@ from examples.concordia_island.sim import economic_profile
 
 FiscalEvent = economic_profile.FiscalEvent
 
+# First day of the policy arms: Thursday, two days after the 2026-01-06 layoff
+# in configs/job_loss_events.py. Policy events start at 9:00 AM that day.
+POLICY_START_DATE = "2026-01-08"
+# Monthly Universal Basic Income, paid as one lump sum per month.
+UBI_MONTHLY_AMOUNT = 500.0
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Control Experiment (Baseline Economy)
-#    - Monday 7:00 AM (Tick 0): Weekly payroll deposit for employed workers
+#    - Monday 9:00 AM (Tick 1): Weekly payroll deposit for employed workers
 #    - Friday 3:00 PM (Tick 4): Weekly housing rent deduction
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -31,12 +37,12 @@ CONTROL_FISCAL_EVENTS = [
         target_account="liquid",
         amount_source="wage",
         day_of_week=0,  # Monday
-        tick_of_day=0,  # 7:00 AM
+        tick_of_day=1,  # 9:00 AM
         observation_template=(
-            "// bank [{day_name}, 7:00 AM]: PAYROLL DEPOSIT: Your weekly"
-            " paycheck of ${amount:.2f} has been deposited into your account."
-            " Current balance: ${balance:.2f}. REMINDER: Your weekly housing"
-            " rent of ${rent:.2f} is due this Friday."
+            "// bank [{day_name}, {date}, 9:00 AM]: PAYROLL DEPOSIT: Your"
+            " weekly paycheck of ${amount:.2f} has been deposited into your"
+            " account. Current balance: ${balance:.2f}. REMINDER: Your weekly"
+            " housing rent of ${rent:.2f} is due this Friday."
         ),
         condition="is_employed",
     ),
@@ -45,18 +51,19 @@ CONTROL_FISCAL_EVENTS = [
         event_type="debit",
         target_account="liquid",
         amount_source="rent",
+        savings_fallback=True,
         day_of_week=4,  # Friday
         tick_of_day=4,  # 3:00 PM
         observation_template=(
-            "// bank [{day_name}, 3:00 PM]: RENT PAYMENT: ${amount:.2f} has"
-            " been automatically deducted for your weekly housing rent."
+            "// bank [{day_name}, {date}, 3:00 PM]: RENT PAYMENT: ${amount:.2f}"
+            " has been automatically deducted for your weekly housing rent."
             " Remaining balance: ${balance:.2f}."
         ),
         arrears_template=(
-            "// bank [{day_name}, 3:00 PM]: RENT WARNING: You had insufficient"
-            " funds to pay your full rent of ${amount:.2f}. Only ${paid:.2f}"
-            " was deducted. Balance: $0.00. You are in rent arrears and face"
-            " housing risk."
+            "// bank [{day_name}, {date}, 3:00 PM]: RENT WARNING: You had"
+            " insufficient funds to pay your full rent of ${amount:.2f}. Only"
+            " ${paid:.2f} was deducted. Balance: $0.00. You are in rent arrears"
+            " and face housing risk."
         ),
     ),
 ]
@@ -64,7 +71,8 @@ CONTROL_FISCAL_EVENTS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Universal Basic Income (UBI)
 #    - Weekly payroll for employed workers
-#    - Weekly unconditional cash transfer ($125/week = $500/month)
+#    - Monthly unconditional cash transfer ($500/month, one lump sum) from
+#      POLICY_START_DATE, on that day of each month
 #    - Standard rent deduction
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -75,10 +83,10 @@ UBI_FISCAL_EVENTS = [
         target_account="liquid",
         amount_source="wage",
         day_of_week=0,
-        tick_of_day=0,
+        tick_of_day=1,
         observation_template=(
-            "// bank [{day_name}, 7:00 AM]: PAYROLL DEPOSIT: Your weekly"
-            " paycheck of ${amount:.2f} has been deposited. Balance:"
+            "// bank [{day_name}, {date}, 9:00 AM]: PAYROLL DEPOSIT: Your"
+            " weekly paycheck of ${amount:.2f} has been deposited. Balance:"
             " ${balance:.2f}."
         ),
         condition="is_employed",
@@ -88,13 +96,19 @@ UBI_FISCAL_EVENTS = [
         event_type="credit",
         target_account="liquid",
         amount_source="fixed",
-        amount_value=125.0,  # $500/month / 4 weeks
-        day_of_week=0,
-        tick_of_day=0,
+        amount_value=UBI_MONTHLY_AMOUNT,
+        # The full month's payment is deposited as one lump sum at 9:00 AM on
+        # POLICY_START_DATE (after the 2026-01-06 layoff), then on the same day
+        # of each following month (the last day of a shorter month), so short
+        # and long runs both receive "$N a month". Earlier versions paid $125
+        # every Monday from day 1, i.e. before the layoff.
+        start_date=POLICY_START_DATE,
+        monthly=True,
+        tick_of_day=1,
         observation_template=(
-            "// bank [{day_name}, 7:00 AM]: UBI DEPOSIT: Your weekly Universal"
-            " Basic Income payment of ${amount:.2f} has been deposited."
-            " Current balance: ${balance:.2f}."
+            "// bank [{day_name}, {date}, 9:00 AM]: UBI DEPOSIT: Your monthly"
+            " Universal Basic Income payment of ${amount:.2f} has been"
+            " deposited. Current balance: ${balance:.2f}."
         ),
     ),
     FiscalEvent(
@@ -102,15 +116,17 @@ UBI_FISCAL_EVENTS = [
         event_type="debit",
         target_account="liquid",
         amount_source="rent",
+        savings_fallback=True,
         day_of_week=4,
         tick_of_day=4,
         observation_template=(
-            "// bank [{day_name}, 3:00 PM]: RENT PAYMENT: ${amount:.2f}"
+            "// bank [{day_name}, {date}, 3:00 PM]: RENT PAYMENT: ${amount:.2f}"
             " deducted. Remaining balance: ${balance:.2f}."
         ),
         arrears_template=(
-            "// bank [{day_name}, 3:00 PM]: RENT WARNING: Insufficient funds"
-            " for rent of ${amount:.2f}. Paid: ${paid:.2f}. Balance: $0.00."
+            "// bank [{day_name}, {date}, 3:00 PM]: RENT WARNING: Insufficient"
+            " funds for rent of ${amount:.2f}. Paid: ${paid:.2f}. Balance:"
+            " $0.00."
         ),
     ),
 ]

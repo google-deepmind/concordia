@@ -14,6 +14,7 @@
 
 """Generalized fiscal scheduler component for Concordia Island."""
 
+import calendar
 from collections.abc import Mapping
 import datetime
 import threading
@@ -65,6 +66,11 @@ def _get_datetime_from_clock(clock: Any) -> datetime.datetime | None:
   return None
 
 
+def _parse_date(iso_date: str) -> datetime.date:
+  """Parses a FiscalEvent ISO date bound. Raises ValueError if malformed."""
+  return datetime.date.fromisoformat(iso_date)
+
+
 class FiscalScheduler(
     entity_component.ContextComponent,
     entity_component.ComponentWithLogging,
@@ -91,6 +97,7 @@ class FiscalScheduler(
 
     self._simulation_day: int = 0
     self._last_seen_calendar_day: int = -1
+    self._first_date: datetime.date | None = None
     self._fired_events: set[str] = set()
 
   def _get_clock(self):
@@ -101,6 +108,7 @@ class FiscalScheduler(
 
   def _inject_observation(self, agent_name: str, text: str):
     """Queue an observation for the specific agent."""
+    logging.info("FiscalScheduler for %s: %s", agent_name, text[:150])
     try:
       make_obs = self.get_entity().get_component(
           self._make_observation_key,
@@ -113,7 +121,6 @@ class FiscalScheduler(
           " component not found.",
           agent_name,
       )
-    logging.info("FiscalScheduler for %s: %s", agent_name, text[:150])
 
   def _condition_met(
       self,
@@ -239,6 +246,107 @@ class FiscalScheduler(
     )
     return applied
 
+  def _commit_debits_with_savings(
+      self,
+      debits: dict[str, float],
+      event_name: str,
+  ) -> dict[str, tuple[float, float, float, float]]:
+    """Debits checking first, then savings for any shortfall. Atomic.
+
+    Used for rent when `FiscalEvent.savings_fallback` is set. Taking rent
+    from checking only put agents into arrears while they still had enough
+    in savings; covering the shortfall from savings means arrears only when
+    the household genuinely cannot pay.
+
+    Args:
+      debits: agent name -> amount to debit.
+      event_name: The fiscal event being applied, for logging.
+
+    Returns:
+      agent name -> (checking before, checking after, savings before,
+      savings after), as committed.
+    """
+    if not debits:
+      return {}
+    if self._world_state is None:
+      out = {}
+      for name, amount in debits.items():
+        p = self._profiles[name]
+        cb, sb = p.liquid_balance, p.savings_balance
+        from_checking = min(amount, max(0.0, cb))
+        from_savings = min(amount - from_checking, max(0.0, sb))
+        p.liquid_balance = round(cb - from_checking, 2)
+        p.savings_balance = round(sb - from_savings, 2)
+        out[name] = (cb, p.liquid_balance, sb, p.savings_balance)
+      return out
+    # Let this raise: a lost debit is silent data corruption.
+    committed = self._world_state.apply_debits_checking_then_savings(debits)
+    for name, (_, ca, _, sa) in committed.items():
+      p = self._profiles.get(name)
+      if p is not None:
+        p.liquid_balance = ca
+        p.savings_balance = sa
+    logging.info(
+        "FiscalScheduler: committed %d checking-then-savings debits for %s",
+        len(committed),
+        event_name,
+    )
+    return committed
+
+  def _commit_food_deltas(
+      self,
+      food_deltas: dict[str, int],
+      event_name: str,
+  ) -> dict[str, int]:
+    """Credits food units and returns each agent's committed pantry count.
+
+    With a world state configured, the shared pantry lives there and the
+    next morning's FoodConsumption re-reads it, so a credit added only to
+    this game master's in-memory profile would be lost before anyone could
+    eat it. The credit is an atomic delta on the shared inventory, like
+    money.
+
+    Args:
+      food_deltas: agent name -> food units to add (may be negative).
+      event_name: The fiscal event being applied, for logging.
+
+    Returns:
+      agent name -> food units after the credit, as committed.
+
+    Raises:
+      RuntimeError: If a food credit is not committed for any agent.
+    """
+    if not food_deltas:
+      return {}
+    if self._world_state is None:
+      out = {}
+      for name, delta in food_deltas.items():
+        profile = self._profiles[name]
+        profile.food_balance = max(0, profile.food_balance + delta)
+        out[name] = profile.food_balance
+      return out
+    # Let this raise: a lost food credit is the bug this method fixes.
+    committed = self._world_state.apply_inventory_deltas(
+        {name: {"food_units": delta} for name, delta in food_deltas.items()}
+    )
+    out = {
+        name: items["food_units"][1]
+        for name, items in committed.items()
+        if "food_units" in items
+    }
+    missing = set(food_deltas) - set(out)
+    if missing:
+      raise RuntimeError(
+          f"FiscalScheduler: event {event_name} food credit was not committed"
+          f" for {sorted(missing)}."
+      )
+    logging.info(
+        "FiscalScheduler: committed %d food credits for event %s",
+        len(out),
+        event_name,
+    )
+    return out
+
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     """Evaluate scheduled fiscal events for the current tick."""
     if action_spec.output_type not in (
@@ -255,15 +363,37 @@ class FiscalScheduler(
     if dt is None:
       return ""
 
+    self.process_due_events(dt)
+    return ""
+
+  def process_due_events(self, dt: datetime.datetime) -> None:
+    """Fires every event due at `dt` that has not fired yet. Idempotent.
+
+    Game master components run `pre_act` in parallel, so a component that
+    needs today's fiscal events applied first (FoodConsumption reports the
+    checking balance and eats any food credited today) calls this directly
+    instead of relying on component order.
+
+    Args:
+      dt: The current simulated datetime.
+    """
     with self._lock:
-      if dt.day != self._last_seen_calendar_day:
-        self._last_seen_calendar_day = dt.day
-        self._simulation_day += 1
+      # Day N is counted from the calendar, not by counting the day changes
+      # this process happens to observe: a day on which this game master
+      # served nobody used to leave every later `start_day`/`one_time_day`
+      # one day late.
+      if self._first_date is None:
+        self._first_date = dt.date()
+      self._last_seen_calendar_day = dt.day
+      self._simulation_day = (dt.date() - self._first_date).days + 1
 
       # 7:00 AM is tick 0, 9:00 AM is tick 1, ..., 21:00 (9PM) is tick 7
       tick_of_day = max(0, min(7, (dt.hour - 7) // 2))
       weekday = dt.weekday()
       day_name = DAY_NAMES[weekday]
+      # Dated, so identical texts on different days (e.g. a weekly paycheck)
+      # are not de-duplicated away in agent memory.
+      date_label = f"{dt.strftime('%B')} {dt.day}"
 
       for event in self._events:
         event_key = (
@@ -279,18 +409,49 @@ class FiscalScheduler(
         ):
           continue
 
+        # Calendar bounds. These are what the policy configs use, so that a
+        # policy starts on a fixed calendar date (e.g. after its announcement)
+        # regardless of how days are counted.
+        today = dt.date()
+        if event.start_date is not None and today < _parse_date(
+            event.start_date
+        ):
+          continue
+        if event.end_date is not None and today > _parse_date(event.end_date):
+          continue
+
+        # An event is due from its tick onwards, not only *at* its tick. This
+        # only runs when the game master resolves a step; matching the tick
+        # exactly meant an event was skipped for the whole day if no step
+        # happened to fall in that one tick. `_fired_events` still guarantees
+        # at most one firing per day.
+        if tick_of_day < event.tick_of_day:
+          continue
+
         # Check schedule trigger
         if event.one_time_day is not None:
-          if (
-              self._simulation_day != event.one_time_day
-              or event.tick_of_day != tick_of_day
-          ):
+          if self._simulation_day != event.one_time_day:
             continue
-        else:
-          if event.day_of_week is not None and event.day_of_week != weekday:
+        elif event.monthly:
+          if event.start_date is None:
+            raise ValueError(
+                f"FiscalEvent {event.name!r} is monthly without start_date."
+            )
+          anchor = _parse_date(event.start_date).day
+          last_day = calendar.monthrange(today.year, today.month)[1]
+          if today.day != min(anchor, last_day):
             continue
-          if event.tick_of_day != tick_of_day:
+        elif event.interval_days is not None:
+          if event.start_date is None:
+            raise ValueError(
+                f"FiscalEvent {event.name!r} sets interval_days without"
+                " start_date."
+            )
+          elapsed = (today - _parse_date(event.start_date)).days
+          if elapsed % event.interval_days != 0:
             continue
+        elif event.day_of_week is not None and event.day_of_week != weekday:
+          continue
 
         # Event triggers now!
         self._fired_events.add(event_key)
@@ -307,6 +468,7 @@ class FiscalScheduler(
         # profiles and writing the result back. See `_commit_deltas`.
         liquid_savings_deltas: dict[str, tuple[float, float]] = {}
         food_deltas: dict[str, int] = {}
+        fallback_debits: dict[str, float] = {}
         amounts: dict[str, float] = {}
 
         for name, profile in self._profiles.items():
@@ -328,7 +490,9 @@ class FiscalScheduler(
             elif event.target_account == "food":
               food_deltas[name] = int(amount)
           elif event.event_type == "debit":
-            if event.target_account == "liquid":
+            if event.target_account == "liquid" and event.savings_fallback:
+              fallback_debits[name] = amount
+            elif event.target_account == "liquid":
               liquid_delta = -amount
             else:
               # Historically only liquid debits were implemented; anything
@@ -345,23 +509,27 @@ class FiscalScheduler(
             liquid_savings_deltas[name] = (liquid_delta, savings_delta)
 
         applied = self._commit_deltas(liquid_savings_deltas, event.name)
+        applied.update(
+            self._commit_debits_with_savings(fallback_debits, event.name)
+        )
+        food_after = self._commit_food_deltas(food_deltas, event.name)
 
         for name, amount in amounts.items():
           profile = self._profiles[name]
 
-          if name in food_deltas:
-            profile.food_balance = max(
-                0, profile.food_balance + food_deltas[name]
-            )
+          if name in food_after:
+            profile.food_balance = food_after[name]
 
-          before_liquid, after_liquid, _, after_savings = applied.get(
-              name,
-              (
-                  profile.liquid_balance,
-                  profile.liquid_balance,
-                  profile.savings_balance,
-                  profile.savings_balance,
-              ),
+          before_liquid, after_liquid, before_savings, after_savings = (
+              applied.get(
+                  name,
+                  (
+                      profile.liquid_balance,
+                      profile.liquid_balance,
+                      profile.savings_balance,
+                      profile.savings_balance,
+                  ),
+              )
           )
 
           if event.event_type == "credit":
@@ -375,6 +543,7 @@ class FiscalScheduler(
                       savings=after_savings,
                       rent=profile.weekly_rent,
                       day_name=day_name,
+                      date=date_label,
                   ),
               )
 
@@ -384,32 +553,40 @@ class FiscalScheduler(
             # The delta was floored at zero inside the transaction, so the
             # amount actually taken is the difference the transaction saw --
             # not something this process can compute on its own.
-            paid = round(before_liquid - after_liquid, 2)
+            from_savings = round(before_savings - after_savings, 2)
+            if not event.savings_fallback:
+              from_savings = 0.0
+            paid = round(before_liquid - after_liquid + from_savings, 2)
             in_arrears = paid + 1e-9 < amount
             template = event.observation_template
             if in_arrears:
               template = event.arrears_template or event.observation_template
             if template:
-              self._inject_observation(
-                  name,
-                  template.format(
-                      name=name,
-                      amount=amount,
-                      paid=paid,
-                      balance=after_liquid,
-                      savings=after_savings,
-                      rent=profile.weekly_rent,
-                      day_name=day_name,
-                  ),
+              text = template.format(
+                  name=name,
+                  amount=amount,
+                  paid=paid,
+                  balance=after_liquid,
+                  savings=after_savings,
+                  rent=profile.weekly_rent,
+                  day_name=day_name,
+                  date=date_label,
               )
-
-    return ""
+              if from_savings > 0:
+                text += (
+                    f" Checking did not cover it, so ${from_savings:.2f} was"
+                    f" taken from savings (savings now ${after_savings:.2f})."
+                )
+              self._inject_observation(name, text)
 
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
       return {
           "simulation_day": self._simulation_day,
           "last_seen_calendar_day": self._last_seen_calendar_day,
+          "first_date": (
+              self._first_date.isoformat() if self._first_date else ""
+          ),
           "fired_events": list(self._fired_events),
           "balances": {
               name: {
@@ -429,7 +606,10 @@ class FiscalScheduler(
       self._last_seen_calendar_day = component_state.as_int(
           state, "last_seen_calendar_day", self._last_seen_calendar_day
       )
-      self._fired_events = component_state.as_str_set(state, "fired_events")
+      first_date = state.get("first_date")
+      if isinstance(first_date, str) and first_date:
+        self._first_date = datetime.date.fromisoformat(first_date)
+      self._fired_events |= component_state.as_str_set(state, "fired_events")
       saved_balances = state.get("balances")
       if isinstance(saved_balances, Mapping):
         for name, bals in saved_balances.items():

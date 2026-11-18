@@ -1271,7 +1271,7 @@ __EVENT_OPTIONS__
             <label class="cfg-label">Fiscal Policy Arm</label>
             <select class="cfg-select" id="cfgFiscal" onchange="markCustom()">
               <option value="control" selected>Control (payroll + rent only)</option>
-              <option value="ubi">UBI ($125/week transfer)</option>
+              <option value="ubi">UBI ($500/month transfer from Jan 8)</option>
             </select>
           </div>
           <div>

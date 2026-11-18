@@ -170,6 +170,9 @@ class IslandMarketPlace(MarketPlace):
     # because the island GM's FiscalScheduler may move the same money; see
     # `world_state_protocol.WorldState.apply_wallet_deltas`.
     self._pending_wallet_deltas: dict[str, list[float]] = {}
+    # Pantry/possession changes made this round, persisted as atomic deltas
+    # (see `_flush_inventory_deltas`).
+    self._pending_inventory_deltas: dict[str, dict[str, int]] = {}
     # Cumulative units purchased per agent per good, across the whole run.
     # Food is consumed each day, so the live inventory does not show what an
     # agent has bought over time; this does. It is reported in the action
@@ -361,6 +364,66 @@ class IslandMarketPlace(MarketPlace):
         agent.cash = new_liquid
     logging.info(
         "Marketplace: committed wallet deltas for %d agents: %s",
+        len(committed),
+        deltas,
+    )
+
+  def _record_inventory_delta(
+      self, agent_name: str, item_name: str, delta: int
+  ) -> None:
+    """Notes an inventory change, to be persisted at the end of the round."""
+    if not delta:
+      return
+    items = self._pending_inventory_deltas.setdefault(agent_name, {})
+    items[item_name] = items.get(item_name, 0) + int(delta)
+
+  def _flush_inventory_deltas(self) -> None:
+    """Commits this round's inventory changes as atomic deltas.
+
+    The marketplace used to write every agent's absolute pantry count from
+    its own in-process copy, which restores a stale count if another game
+    master (FoodConsumption's daily meal, a fiscal food credit) changed it in
+    the meantime. Deltas compose with those changes. Errors raise: a lost
+    purchase is silent data corruption.
+    """
+    if self._world_state is None or not self._pending_inventory_deltas:
+      self._pending_inventory_deltas = {}
+      return
+    deltas = self._pending_inventory_deltas
+    # Clear before the calls so a failed commit is never re-applied later.
+    self._pending_inventory_deltas = {}
+    # Rows the world state does not have yet (e.g. the starting pantry or
+    # starting possessions, which exist only in the profile until first
+    # written) are seeded with the pre-purchase quantity, or the delta would
+    # start from 0.
+    unseeded: dict[str, dict[str, int]] = {}
+    for name, items in deltas.items():
+      prof = self._profiles.get(name)
+      if prof is None:
+        continue
+      inv = self._world_state.get_inventory(name) or {}
+      for item_name, delta in items.items():
+        if item_name in inv:
+          continue
+        if item_name == "food_units":
+          current = prof.food_balance
+        else:
+          current = prof.inventory.get(item_name, 0)
+        unseeded.setdefault(name, {})[item_name] = max(0, current - delta)
+    if unseeded:
+      self._world_state.upsert_inventory_batch(unseeded)
+    committed = self._world_state.apply_inventory_deltas(deltas)
+    for name, items in committed.items():
+      prof = self._profiles.get(name)
+      if prof is None:
+        continue
+      for item_name, (_, after) in items.items():
+        if item_name == "food_units":
+          prof.food_balance = after
+        else:
+          prof.inventory[item_name] = after
+    logging.info(
+        "Marketplace: committed inventory deltas for %d agents: %s",
         len(committed),
         deltas,
     )
@@ -985,6 +1048,9 @@ Ensure total purchase spending <= checking cash (${liquid:.2f}). Return ONLY the
             if is_food:
               food_units_added = self._food_units_map[good_id] * qty_to_buy
               buyer_profile.food_balance += food_units_added
+              self._record_inventory_delta(
+                  buyer.name, "food_units", food_units_added
+              )
               logging.info(
                   "Food purchase: %s bought %dx %s (+%d food units, new total:"
                   " %d)",
@@ -998,6 +1064,7 @@ Ensure total purchase spending <= checking cash (${liquid:.2f}). Return ONLY the
               buyer_profile.inventory[good_id] = (
                   buyer_profile.inventory.get(good_id, 0) + qty_to_buy
               )
+              self._record_inventory_delta(buyer.name, good_id, qty_to_buy)
               logging.info(
                   "Item purchase: %s bought %dx %s (new inventory: %s)",
                   buyer.name,
@@ -1087,26 +1154,9 @@ Ensure total purchase spending <= checking cash (${liquid:.2f}). Return ONLY the
     # corrupts the experiment rather than degrading it.
     self._flush_wallet_deltas()
 
-    # Inventory is still an absolute write: the marketplace is its only writer
-    # during the night, and FoodConsumption only touches food_units at 7 AM.
-    if self._world_state is not None:
-      try:
-        inventory = {}
-        for name, profile in self._profiles.items():
-          # Always write food_units, including 0, so that a depleted pantry is
-          # not left reading as a stale non-zero value in the world state.
-          agent_inv = {"food_units": max(0, profile.food_balance)}
-          for item_name, qty in profile.inventory.items():
-            agent_inv[item_name] = qty
-          inventory[name] = agent_inv
-        if inventory:
-          self._world_state.upsert_inventory_batch(inventory)
-          logging.info(
-              "World state sync: %d inventory entries persisted.",
-              len(inventory),
-          )
-      except Exception as e:  # pylint: disable=broad-except
-        logging.warning("Failed to sync inventory to world state: %s", e)
+    # Inventory changes are persisted as atomic deltas, only for what was
+    # bought this round. Deliberately not wrapped in try/except.
+    self._flush_inventory_deltas()
 
     # Only advance the round counter once ALL acting agents have resolved this
     # round.

@@ -103,12 +103,40 @@ class _FakeWorldState:
       committed[agent_id] = (new_liquid, new_savings)
     return committed
 
+  def apply_debits_checking_then_savings(
+      self, debits: dict[str, float]
+  ) -> dict[str, tuple[float, float, float, float]]:
+    """Mirrors WorldState.apply_debits_checking_then_savings."""
+    out = {}
+    for agent_id, amount in debits.items():
+      cb, sb = self.wallets.get(agent_id, (0.0, 0.0))
+      from_checking = min(amount, max(0.0, cb))
+      from_savings = min(amount - from_checking, max(0.0, sb))
+      ca, sa = round(cb - from_checking, 2), round(sb - from_savings, 2)
+      self.wallets[agent_id] = (ca, sa)
+      out[agent_id] = (cb, ca, sb, sa)
+    return out
+
   def get_inventory(self, agent_id: str) -> dict[str, int]:
     return dict(self.inventories.get(agent_id, {}))
 
   def upsert_inventory_batch(self, inventories: dict[str, dict[str, int]]):
     for name, inv in inventories.items():
       self.inventories.setdefault(name, {}).update(inv)
+
+  def apply_inventory_deltas(
+      self, deltas: dict[str, dict[str, int]]
+  ) -> dict[str, dict[str, tuple[int, int]]]:
+    """Mirrors WorldState.apply_inventory_deltas, including the zero floor."""
+    committed = {}
+    for name, items in deltas.items():
+      inv = self.inventories.setdefault(name, {})
+      out = committed.setdefault(name, {})
+      for item, delta in items.items():
+        before = int(inv.get(item, 0))
+        inv[item] = max(0, before + int(delta))
+        out[item] = (before, inv[item])
+    return committed
 
   def record_order(self, order_id: str, **fields) -> None:
     self.orders[order_id] = dict(fields)
@@ -118,7 +146,154 @@ class _FakeWorldState:
       self.observations.setdefault(name, []).extend(obs)
 
 
+_HOMES_BY_CLASS = {
+    "lower_middle": "millbrook_apts_unit_1",
+    "middle": "brecksville_commons_unit_5",
+    "upper_middle": "palm_heights_3",
+    "upper": "ocean_view_estates_1",
+    "elite": "timber_creek_unit_2",
+}
+
+
 class EconomicProfileTest(absltest.TestCase):
+
+  def _expected_rent(
+      self, quintile: str, region: str = economic_profile.DEFAULT_BLS_REGION
+  ) -> float:
+    annual = economic_profile.BLS_ANNUAL_VALUES[region][
+        economic_profile.BLS_RENT_CATEGORY
+    ][quintile]
+    return round(annual / 52, 2)
+
+  def _expected_income(self, quintile: str, region: str) -> float:
+    annual = economic_profile.BLS_ANNUAL_VALUES[region][
+        economic_profile.BLS_INCOME_CATEGORY
+    ][quintile]
+    return round(annual / 52, 2)
+
+  def test_bls_constants_cover_every_region_category_and_quintile(self):
+    self.assertCountEqual(
+        economic_profile.BLS_ANNUAL_VALUES, ["midwest", "us"]
+    )
+    self.assertCountEqual(
+        economic_profile.CLASS_TO_BLS_QUINTILE,
+        economic_profile.TIER_CONFIG,
+    )
+    self.assertCountEqual(
+        economic_profile.CLASS_TO_BLS_QUINTILE.values(),
+        ["Q1", "Q2", "Q3", "Q4", "Q5"],
+    )
+    for region, categories in economic_profile.BLS_ANNUAL_VALUES.items():
+      self.assertEqual(
+          sorted(categories), ["income_before_taxes", "shelter"], region
+      )
+      for category, by_quintile in categories.items():
+        with self.subTest(region=region, category=category):
+          self.assertEqual(sorted(by_quintile), ["Q1", "Q2", "Q3", "Q4", "Q5"])
+          values = [by_quintile[q] for q in sorted(by_quintile)]
+          self.assertTrue(all(v > 0 for v in values))
+          # Both rise with the income quintile.
+          self.assertEqual(values, sorted(values))
+
+  def test_us_values_are_whole_dollars_as_published_in_table_1101(self):
+    for category, by_quintile in economic_profile.BLS_ANNUAL_VALUES[
+        "us"
+    ].items():
+      for quintile, value in by_quintile.items():
+        with self.subTest(category=category, quintile=quintile):
+          self.assertEqual(value, round(value))
+
+  def test_weekly_rent_and_wage_are_annual_over_52_rounded_to_cents(self):
+    for region in ("us", "midwest"):
+      for (
+          econ_class,
+          quintile,
+      ) in economic_profile.CLASS_TO_BLS_QUINTILE.items():
+        with self.subTest(region=region, econ_class=econ_class):
+          self.assertEqual(
+              economic_profile.bls_weekly_rent(econ_class, region=region),
+              self._expected_rent(quintile, region),
+          )
+          self.assertEqual(
+              economic_profile.bls_weekly_income(econ_class, region=region),
+              self._expected_income(quintile, region),
+          )
+
+  def test_build_economic_profiles_honors_region(self):
+    configs = [_MockAgentConfig(name="Eve", home_place="palm_heights_3")]
+    for region in ("us", "midwest"):
+      profiles = economic_profile.build_economic_profiles(
+          configs, bls_region=region
+      )
+      self.assertEqual(
+          profiles["Eve"].weekly_rent, self._expected_rent("Q3", region)
+      )
+
+  def test_employed_rent_share_matches_bls_by_quintile(self):
+    """Employed agents' rent / wage equals BLS Shelter / income per quintile."""
+    for region in ("us", "midwest"):
+      values = economic_profile.BLS_ANNUAL_VALUES[region]
+      for (
+          econ_class,
+          quintile,
+      ) in economic_profile.CLASS_TO_BLS_QUINTILE.items():
+        with self.subTest(region=region, econ_class=econ_class):
+          configs = [
+              _MockAgentConfig(
+                  name="A",
+                  home_place=_HOMES_BY_CLASS[econ_class],
+                  work_place="cafe",
+              )
+          ]
+          profile = economic_profile.build_economic_profiles(
+              configs, bls_region=region
+          )["A"]
+          self.assertEqual(profile.economic_class, econ_class)
+          self.assertEqual(
+              profile.weekly_wage, self._expected_income(quintile, region)
+          )
+          self.assertAlmostEqual(
+              profile.weekly_rent / profile.weekly_wage,
+              values["shelter"][quintile]
+              / values["income_before_taxes"][quintile],
+              places=3,
+          )
+
+  def test_bls_region_for_setting(self):
+    for setting, expected in (
+        ("brecksville_1000", "midwest"),
+        ("brecksville", "midwest"),
+        ("Brecksville_1000", "midwest"),
+        ("island", "us"),
+        ("kerala", "us"),
+        ("", "us"),
+        (None, "us"),
+    ):
+      with self.subTest(setting=setting):
+        self.assertEqual(
+            economic_profile.bls_region_for_setting(setting), expected
+        )
+
+  def test_build_economic_profiles_requires_region(self):
+    configs = [_MockAgentConfig(name="Eve", home_place="palm_heights_3")]
+    with self.assertRaises(TypeError):
+      getattr(economic_profile, "build_economic_profiles")(configs)
+
+  def test_unknown_region_raises(self):
+    with self.assertRaises(KeyError):
+      economic_profile.bls_weekly_rent("middle", region="atlantis")
+    with self.assertRaises(KeyError):
+      economic_profile.bls_weekly_income("middle", region="atlantis")
+
+  def test_unknown_class_raises(self):
+    with self.assertRaises(KeyError):
+      economic_profile.bls_weekly_rent("aristocrat")
+    with self.assertRaises(KeyError):
+      economic_profile.bls_weekly_income("aristocrat", region="midwest")
+
+  def test_unknown_category_raises(self):
+    with self.assertRaises(KeyError):
+      economic_profile.bls_weekly_rent("middle", category="housing")
 
   def test_build_economic_profiles(self):
     configs = [
@@ -143,36 +318,57 @@ class EconomicProfileTest(absltest.TestCase):
     ]
 
     profiles = economic_profile.build_economic_profiles(
-        configs, food_min_daily=3, starting_food_units=None
+        configs,
+        food_min_daily=3,
+        starting_food_units=None,
+        bls_region="midwest",
     )
 
-    # Alice: lower_middle, single, cafe (0.85x)
+    # Alice: lower_middle, single, employed
     self.assertEqual(profiles["Alice"].economic_class, "lower_middle")
     self.assertEqual(profiles["Alice"].family_size, 1)
     self.assertEqual(profiles["Alice"].daily_food_needed, 3)
     self.assertEqual(profiles["Alice"].food_balance, 3)
     self.assertEqual(profiles["Alice"].liquid_balance, 500.0)
-    self.assertEqual(profiles["Alice"].weekly_rent, 200.0)
-    self.assertEqual(profiles["Alice"].weekly_wage, 510.0)  # 600 * 0.85
+    self.assertEqual(
+        profiles["Alice"].weekly_rent, self._expected_rent("Q1", "midwest")
+    )
+    self.assertEqual(
+        profiles["Alice"].weekly_wage, self._expected_income("Q1", "midwest")
+    )
     self.assertEqual(profiles["Alice"].inventory, {"white t-shirt": 1})
 
-    # Bob: middle, married, office_floor_tech (1.20x)
+    # Bob: middle, married, employed (no occupation multiplier)
     self.assertEqual(profiles["Bob"].economic_class, "middle")
     self.assertEqual(profiles["Bob"].family_size, 2)
     self.assertEqual(profiles["Bob"].daily_food_needed, 6)
     self.assertEqual(profiles["Bob"].food_balance, 6)
     self.assertEqual(profiles["Bob"].liquid_balance, 1000.0)
-    self.assertEqual(profiles["Bob"].weekly_rent, 350.0)
-    self.assertEqual(profiles["Bob"].weekly_wage, 1080.0)  # 900 * 1.20
+    self.assertEqual(
+        profiles["Bob"].weekly_rent, self._expected_rent("Q2", "midwest")
+    )
+    self.assertEqual(
+        profiles["Bob"].weekly_wage, self._expected_income("Q2", "midwest")
+    )
 
-    # David: elite, single, unemployed (0.40x welfare)
+    # David: elite, single, no workplace (welfare)
     self.assertEqual(profiles["David"].economic_class, "elite")
     self.assertEqual(profiles["David"].family_size, 1)
     self.assertEqual(profiles["David"].daily_food_needed, 3)
     self.assertEqual(profiles["David"].food_balance, 3)
     self.assertEqual(profiles["David"].liquid_balance, 15000.0)
-    self.assertEqual(profiles["David"].weekly_rent, 1500.0)
-    self.assertEqual(profiles["David"].weekly_wage, 1600.0)  # 4000 * 0.40
+    self.assertEqual(
+        profiles["David"].weekly_rent, self._expected_rent("Q5", "midwest")
+    )
+    # No workplace: welfare at NO_WORKPLACE_INCOME_FRACTION of class income.
+    self.assertEqual(
+        profiles["David"].weekly_wage,
+        round(
+            self._expected_income("Q5", "midwest")
+            * economic_profile.NO_WORKPLACE_INCOME_FRACTION,
+            2,
+        ),
+    )
 
 
 class FoodConsumptionTest(absltest.TestCase):
@@ -202,7 +398,7 @@ class FoodConsumptionTest(absltest.TestCase):
     clock = fixed_clock.FixedIntervalClock(
         tick_interval_minutes=120,
     )
-    clock._current_dt = datetime.datetime(2026, 1, 1, 7, 0)
+    clock._current_dt = datetime.datetime(2026, 1, 1, 9, 0)
     make_obs = _MockMakeObservation()
 
     food_comp = food_consumption.FoodConsumptionComponent(
@@ -238,6 +434,9 @@ class FoodConsumptionTest(absltest.TestCase):
     bob_queue = make_obs._observation_queue.get("Bob", [])
     self.assertNotEmpty(bob_queue)
     self.assertIn("wakes up feeling weak and hungry", bob_queue[0])
+    # Bob's 2 units were eaten as a small meal, not discarded.
+    self.assertIn("only 2 of the 6 food units", bob_queue[0])
+    self.assertIn("[Thursday, January 1, 9:00 AM]", bob_queue[0])
 
 
 class FiscalSchedulerTest(absltest.TestCase):
@@ -267,7 +466,7 @@ class FiscalSchedulerTest(absltest.TestCase):
     clock = fixed_clock.FixedIntervalClock(
         tick_interval_minutes=120,
     )
-    clock._current_dt = datetime.datetime(2026, 1, 5, 7, 0)
+    clock._current_dt = datetime.datetime(2026, 1, 5, 9, 0)
     make_obs = _MockMakeObservation()
 
     scheduler = fiscal_scheduler.FiscalScheduler(
@@ -292,7 +491,7 @@ class FiscalSchedulerTest(absltest.TestCase):
         output_type=entity_lib.OutputType.RESOLVE,
     )
 
-    # Monday 7:00 AM -> Payroll fires!
+    # Monday 9:00 AM -> Payroll fires!
     scheduler.pre_act(action_spec)
     # Alice: 100 + 600 = 700
     self.assertEqual(profiles["Alice"].liquid_balance, 700.0)
@@ -387,6 +586,399 @@ class FiscalSchedulerTest(absltest.TestCase):
     self.assertNotEqual(
         world_state.wallets["Tara Lee"][0], tara_starting_balance - tara_rent
     )
+
+
+def _employed_profile(name: str) -> economic_profile.AgentEconomicProfile:
+  return economic_profile.AgentEconomicProfile(
+      name=name,
+      economic_class="lower_middle",
+      weekly_wage=600.0,
+      weekly_rent=200.0,
+      family_size=1,
+      liquid_balance=100.0,
+      is_employed=True,
+  )
+
+
+def _economic_gm(events, profiles, world_state, clock, food=None):
+  """Builds a minimal island GM with a FiscalScheduler (+ FoodConsumption).
+
+  Args:
+    events: Fiscal events to schedule.
+    profiles: Mapping of agent name to AgentEconomicProfile.
+    world_state: Shared world state instance, or None.
+    clock: FixedIntervalClock instance.
+    food: Optional FoodConsumptionComponent instance.
+
+  Returns:
+    (fiscal scheduler, MakeObservation stand-in holding the observations).
+  """
+  make_obs = _MockMakeObservation()
+  fiscal = fiscal_scheduler.FiscalScheduler(
+      fiscal_events=events,
+      profiles=profiles,
+      clock_key="clock",
+      make_observation_key="make_observation",
+      world_state=world_state,
+  )
+  components = {
+      "clock": clock,
+      "make_observation": make_obs,
+      "fiscal_scheduler": fiscal,
+  }
+  if food is not None:
+    components["food_consumption"] = food
+  _ = entity_agent_with_logging.EntityAgentWithLogging(
+      agent_name="island rules",
+      act_component=actor_components.constant.Constant(state=""),
+      context_components=components,
+  )
+  return fiscal, make_obs
+
+
+def _observations(make_obs: _MockMakeObservation, name: str) -> list[str]:
+  return make_obs._observation_queue.get(name, [])
+
+
+_RESOLVE = entity_lib.ActionSpec(
+    call_to_action="", output_type=entity_lib.OutputType.RESOLVE
+)
+
+
+class PolicyTimingTest(absltest.TestCase):
+  """Policy arms start on 2026-01-08, after the Day-6 layoff, not on day 1."""
+
+  def _run(self, events, profiles, world_state, times):
+    clock = fixed_clock.FixedIntervalClock(tick_interval_minutes=120)
+    clock._current_dt = times[0]
+    fiscal, make_obs = _economic_gm(events, profiles, world_state, clock)
+    for t in times:
+      clock._current_dt = t
+      fiscal.pre_act(_RESOLVE)
+    return make_obs
+
+  def test_ubi_is_a_monthly_lump_sum_from_policy_start(self):
+    profiles = {"Alice": _employed_profile("Alice")}
+    profiles["Alice"].is_employed = False
+    profiles["Alice"].weekly_wage = 0.0
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    start = datetime.date(2026, 1, 1)
+    times = []
+    for d in range(45):
+      for h in (7, 9, 15):
+        times.append(
+            datetime.datetime.combine(
+                start + datetime.timedelta(days=d), datetime.time(h)
+            )
+        )
+    clock = fixed_clock.FixedIntervalClock(tick_interval_minutes=120)
+    clock._current_dt = times[0]
+    fiscal, make_obs = _economic_gm(
+        fiscal_configs.UBI_FISCAL_EVENTS, profiles, world_state, clock
+    )
+    received = []
+    for t in times:
+      before = world_state.wallets["Alice"][0]
+      clock._current_dt = t
+      fiscal.pre_act(_RESOLVE)
+      after = world_state.wallets["Alice"][0]
+      if after > before:
+        received.append((t, round(after - before, 2)))
+    self.assertEqual(
+        received,
+        [
+            (
+                datetime.datetime(2026, 1, 8, 9),
+                fiscal_configs.UBI_MONTHLY_AMOUNT,
+            ),
+            (
+                datetime.datetime(2026, 2, 8, 9),
+                fiscal_configs.UBI_MONTHLY_AMOUNT,
+            ),
+        ],
+    )
+    ubi = [o for o in _observations(make_obs, "Alice") if "UBI DEPOSIT" in o]
+    self.assertLen(ubi, 2)
+    self.assertStartsWith(ubi[0], "// bank [Thursday, January 8, 9:00 AM]")
+
+  def test_monthly_event_clamps_to_month_end(self):
+    event = dataclasses.replace(
+        fiscal_configs.UBI_FISCAL_EVENTS[1], start_date="2026-01-31"
+    )
+    profile = _employed_profile("Alice")
+    profile.is_employed = False
+    world_state = _FakeWorldState(wallets={"Alice": 0.0})
+    self._run(
+        [event],
+        {"Alice": profile},
+        world_state,
+        [
+            datetime.datetime(2026, 1, 31, 9),
+            datetime.datetime(2026, 2, 27, 9),
+            datetime.datetime(2026, 2, 28, 9),  # Last day of February.
+            datetime.datetime(2026, 3, 30, 9),
+            datetime.datetime(2026, 3, 31, 9),
+        ],
+    )
+    self.assertEqual(
+        world_state.wallets["Alice"][0],
+        3 * fiscal_configs.UBI_MONTHLY_AMOUNT,
+    )
+
+  def test_ubi_not_paid_before_policy_start(self):
+    profiles = {"Alice": _employed_profile("Alice")}
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    # Monday Jan 5: payday only. Previously UBI was also paid here.
+    self._run(
+        fiscal_configs.UBI_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        [datetime.datetime(2026, 1, 5, 9)],
+    )
+    self.assertEqual(world_state.wallets["Alice"][0], 700.0)
+
+  def test_morning_events_wait_for_9am(self):
+    profiles = {"Alice": _employed_profile("Alice")}
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    self._run(
+        fiscal_configs.CONTROL_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        [datetime.datetime(2026, 1, 5, 7)],
+    )
+    self.assertEqual(world_state.wallets["Alice"][0], 100.0)
+
+  def test_missed_tick_still_fires_later_that_day(self):
+    profiles = {"Alice": _employed_profile("Alice")}
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    # No step at 9:00 AM on payday; the first one is at 1 PM.
+    make_obs = self._run(
+        fiscal_configs.CONTROL_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        [datetime.datetime(2026, 1, 5, 13), datetime.datetime(2026, 1, 5, 15)],
+    )
+    self.assertEqual(world_state.wallets["Alice"][0], 700.0)
+    paychecks = [o for o in _observations(make_obs, "Alice") if "PAYROLL" in o]
+    self.assertLen(paychecks, 1)
+    self.assertStartsWith(paychecks[0], "// bank [Monday, January 5, 9:00 AM]")
+
+  def test_rent_shortfall_is_taken_from_savings(self):
+    profiles = {"Alice": _employed_profile("Alice")}  # rent 200
+    world_state = _FakeWorldState()
+    world_state.wallets["Alice"] = (50.0, 500.0)
+    make_obs = self._run(
+        fiscal_configs.CONTROL_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        [datetime.datetime(2026, 1, 9, 15)],
+    )
+    self.assertEqual(world_state.wallets["Alice"], (0.0, 350.0))
+    obs = _observations(make_obs, "Alice")[-1]
+    self.assertIn("RENT PAYMENT", obs)
+    self.assertIn("$150.00 was taken from savings (savings now $350.00)", obs)
+
+  def test_rent_shortfall_from_savings_without_world_state(self):
+    profile = _employed_profile("Alice")  # rent 200
+    profile.liquid_balance = 50.0
+    profile.savings_balance = 500.0
+    make_obs = self._run(
+        fiscal_configs.CONTROL_FISCAL_EVENTS,
+        {"Alice": profile},
+        None,
+        [datetime.datetime(2026, 1, 9, 15)],
+    )
+    self.assertEqual(profile.liquid_balance, 0.0)
+    self.assertEqual(profile.savings_balance, 350.0)
+    self.assertIn(
+        "$150.00 was taken from savings", _observations(make_obs, "Alice")[-1]
+    )
+
+  def test_rent_arrears_only_when_checking_and_savings_both_short(self):
+    profiles = {"Alice": _employed_profile("Alice")}  # rent 200
+    world_state = _FakeWorldState()
+    world_state.wallets["Alice"] = (50.0, 100.0)
+    make_obs = self._run(
+        fiscal_configs.CONTROL_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        [datetime.datetime(2026, 1, 9, 15)],
+    )
+    self.assertEqual(world_state.wallets["Alice"], (0.0, 0.0))
+    obs = _observations(make_obs, "Alice")[-1]
+    self.assertIn("RENT WARNING", obs)
+    self.assertIn("Only $150.00 was deducted", obs)
+
+  def test_food_credit_is_an_inventory_delta(self):
+    event = economic_profile.FiscalEvent(
+        name="food_credit",
+        event_type="credit",
+        target_account="food",
+        amount_source="profile_field",
+        profile_field="daily_food_needed",
+        start_date="2026-01-08",
+        tick_of_day=1,
+        observation_template=(
+            "// home [{day_name}, {date}, 9:00 AM]: {amount} food units."
+        ),
+    )
+    profile = _employed_profile("Alice")
+    profile.food_balance = 0
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    world_state.inventories["Alice"] = {"food_units": 4}
+    self._run(
+        [event],
+        {"Alice": profile},
+        world_state,
+        [datetime.datetime(2026, 1, 7, 9), datetime.datetime(2026, 1, 8, 9)],
+    )
+    # Added to the shared pantry, not written from this GM's copy (0).
+    self.assertEqual(
+        world_state.inventories["Alice"]["food_units"],
+        4 + profile.daily_food_needed,
+    )
+    self.assertEqual(profile.food_balance, 4 + profile.daily_food_needed)
+
+
+class MorningMealTest(absltest.TestCase):
+  """The meal is processed once per day, after the night marketplace."""
+
+  def _gm(self, profiles, world_state, fiscal_events=None):
+    clock = fixed_clock.FixedIntervalClock(tick_interval_minutes=120)
+    food = food_consumption.FoodConsumptionComponent(
+        profiles=profiles,
+        clock_key="clock",
+        make_observation_key="make_observation",
+        world_state=world_state,
+        fiscal_scheduler_key="fiscal_scheduler",
+    )
+    _, make_obs = _economic_gm(
+        fiscal_events or fiscal_configs.CONTROL_FISCAL_EVENTS,
+        profiles,
+        world_state,
+        clock,
+        food=food,
+    )
+    return food, clock, make_obs
+
+  def _meals(self, make_obs, name):
+    return [
+        o for o in _observations(make_obs, name) if o.startswith("// home [")
+    ]
+
+  def test_partial_pantry_is_eaten_and_reported_truthfully(self):
+    profile = _employed_profile("Alice")
+    profile.food_min_daily = 3
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    world_state.inventories["Alice"] = {"food_units": 2}
+    food, clock, make_obs = self._gm({"Alice": profile}, world_state)
+    clock._current_dt = datetime.datetime(2026, 1, 8, 9)
+    food.pre_act(_RESOLVE)
+    obs = self._meals(make_obs, "Alice")[-1]
+    self.assertIn("feeling weak and hungry", obs)
+    self.assertIn("only 2 of the 3 food units", obs)
+    self.assertIn("ate a small meal", obs)
+    self.assertNotIn("nothing to eat", obs)
+    # Dated, so a repeat a week later is not de-duplicated in memory.
+    self.assertStartsWith(obs, "// home [Thursday, January 8, 9:00 AM]")
+    self.assertEqual(world_state.inventories["Alice"]["food_units"], 0)
+
+  def test_hungry_streak_is_reported(self):
+    profile = _employed_profile("Alice")
+    profile.food_balance = 0
+    food, _, make_obs = self._gm({"Alice": profile}, None)
+    food.process_due(datetime.datetime(2026, 1, 8, 9))
+    food.process_due(datetime.datetime(2026, 1, 9, 9))
+    meals = self._meals(make_obs, "Alice")
+    self.assertLen(meals, 2)
+    self.assertIn("the pantry is empty and there is nothing to eat.", meals[0])
+    self.assertIn("(day 2 in a row without enough food at home)", meals[1])
+
+  def test_first_meal_uses_starting_pantry_when_world_state_has_no_row(self):
+    profile = _employed_profile("Alice")
+    profile.food_min_daily = 3
+    profile.food_balance = 12
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    food, clock, make_obs = self._gm({"Alice": profile}, world_state)
+    clock._current_dt = datetime.datetime(2026, 1, 1, 9)
+    food.pre_act(_RESOLVE)
+    meals = self._meals(make_obs, "Alice")
+    self.assertLen(meals, 1)
+    self.assertIn("prepares a meal", meals[0])
+    self.assertIn("(9 food units left at home)", meals[0])
+    self.assertEqual(world_state.inventories["Alice"]["food_units"], 9)
+
+  def test_meal_waits_for_marketplace_and_reports_fresh_balance(self):
+    profile = _employed_profile("Alice")
+    profile.food_min_daily = 3
+    world_state = _FakeWorldState(wallets={"Alice": 100.0})
+    world_state.inventories["Alice"] = {"food_units": 0}
+    food, clock, make_obs = self._gm({"Alice": profile}, world_state)
+    # Monday 7:00 AM: the night marketplace may still be running. No meal.
+    clock._current_dt = datetime.datetime(2026, 1, 5, 7)
+    food.pre_act(_RESOLVE)
+    self.assertEmpty(self._meals(make_obs, "Alice"))
+    # The marketplace then sells Alice 5 units for $20.
+    world_state.apply_wallet_deltas({"Alice": (-20.0, 0.0)})
+    world_state.apply_inventory_deltas({"Alice": {"food_units": 5}})
+    # 9:00 AM: payroll (+$600) is applied before the meal, which eats the
+    # food bought last night and reports the balance after both.
+    clock._current_dt = datetime.datetime(2026, 1, 5, 9)
+    food.pre_act(_RESOLVE)
+    meals = self._meals(make_obs, "Alice")
+    self.assertLen(meals, 1)
+    self.assertIn("(2 food units left at home)", meals[0])
+    self.assertIn("Checking account balance: $680.00", meals[0])
+    self.assertEqual(world_state.inventories["Alice"]["food_units"], 2)
+    # Once per day.
+    clock._current_dt = datetime.datetime(2026, 1, 5, 11)
+    food.pre_act(_RESOLVE)
+    self.assertLen(self._meals(make_obs, "Alice"), 1)
+
+  def test_meal_once_per_calendar_day_across_months(self):
+    profile = _employed_profile("Alice")
+    profile.food_balance = 100
+    food, _, make_obs = self._gm({"Alice": profile}, None)
+    food.process_due(datetime.datetime(2026, 1, 8, 9))
+    food.process_due(datetime.datetime(2026, 1, 8, 15))
+    # Same day of the month, next month: a new day, so a new meal.
+    food.process_due(datetime.datetime(2026, 2, 8, 9))
+    self.assertLen(self._meals(make_obs, "Alice"), 2)
+    self.assertEqual(profile.food_balance, 100 - 2 * profile.daily_food_needed)
+
+  def test_checkpoint_restore_does_not_make_the_meal_due_again(self):
+    profile = _employed_profile("Alice")
+    profile.food_balance = 12
+    food, _, make_obs = self._gm({"Alice": profile}, None)
+    food.process_due(datetime.datetime(2026, 1, 13, 9))
+    stale_checkpoint = food.get_state()
+    food.process_due(datetime.datetime(2026, 1, 14, 9))
+    self.assertLen(self._meals(make_obs, "Alice"), 2)
+    # Restoring a checkpoint written before today's meal.
+    food.set_state(stale_checkpoint)
+    self.assertEqual(
+        food.get_state()["last_processed_day"],
+        datetime.date(2026, 1, 14).toordinal(),
+    )
+    food.process_due(datetime.datetime(2026, 1, 14, 15))
+    self.assertLen(self._meals(make_obs, "Alice"), 2)
+    # The next day is eaten normally.
+    food.process_due(datetime.datetime(2026, 1, 15, 9))
+    self.assertLen(self._meals(make_obs, "Alice"), 3)
+
+  def test_world_state_failure_raises(self):
+    class _BrokenWorldState(_FakeWorldState):
+
+      def get_inventory(self, agent_id):
+        raise ConnectionError("world state unavailable")
+
+    profile = _employed_profile("Alice")
+    food, _, make_obs = self._gm(
+        {"Alice": profile}, _BrokenWorldState(wallets={"Alice": 100.0})
+    )
+    with self.assertRaisesRegex(ConnectionError, "world state unavailable"):
+      food.process_due(datetime.datetime(2026, 1, 8, 9))
+    self.assertEmpty(self._meals(make_obs, "Alice"))
 
 
 class MarketplaceNightGMTest(absltest.TestCase):
@@ -780,6 +1372,49 @@ class MarketplaceNightGMTest(absltest.TestCase):
         context_components={"marketplace": market},
     )
     return market, profiles, agent
+
+  def test_purchase_composes_with_concurrent_meal(self):
+    """The marketplace's old absolute pantry write could undo a meal."""
+    market, profiles, agent = self._build_single_agent_market()
+    del agent
+
+    class _ConcurrentMealWorldState(_FakeWorldState):
+      """Applies a morning meal mid-resolve."""
+
+      def get_clock(self):
+        return (0, 112, 0)
+
+      def enqueue_observations(self, observations):
+        super().enqueue_observations(observations)
+        # Another game master eats 3 units after the marketplace read the
+        # pantry and before it persisted the purchase.
+        self.apply_inventory_deltas({"Alice": {"food_units": -3}})
+
+    world_state = _ConcurrentMealWorldState(wallets={"Alice": 500.0})
+    world_state.inventories["Alice"] = {"food_units": 10}
+    market._world_state = world_state
+    market.pre_observe(
+        '[putative_event] Alice: {"action": "bid", "good": "Panera Soup and'
+        ' Sandwich Meal", "price": 17.0, "qty": 2}'
+    )
+    market._resolve()
+    # 10 - 3 (meal) + 2 (purchase). The old absolute write left 12.
+    self.assertEqual(world_state.inventories["Alice"]["food_units"], 9)
+    self.assertEqual(profiles["Alice"].food_balance, 9)
+
+  def test_purchase_seeds_missing_inventory_rows(self):
+    market, profiles, _ = self._build_single_agent_market()
+    profiles["Alice"].food_balance = 4
+    world_state = _FakeWorldState(wallets={"Alice": 500.0})
+    world_state.get_clock = lambda: (0, 112, 0)
+    market._world_state = world_state
+    market.pre_observe(
+        '[putative_event] Alice: {"action": "bid", "good": "Panera Soup and'
+        ' Sandwich Meal", "price": 17.0, "qty": 2}'
+    )
+    market._resolve()
+    # The pantry the world state did not have yet starts from the profile.
+    self.assertEqual(world_state.inventories["Alice"]["food_units"], 6)
 
   def test_call_to_action_examples_are_valid_json(self):
     """Every JSON example in the prompt must actually parse.
