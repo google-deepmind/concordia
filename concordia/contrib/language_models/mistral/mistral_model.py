@@ -24,9 +24,9 @@ from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import mistralai
+
 # pyrefly: ignore [missing-module-attribute]
 from mistralai import models
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _MAX_CHAT_ATTEMPTS = 20
@@ -280,11 +280,11 @@ class MistralLanguageModel(language_model.LanguageModel):
       else:
         sample = self._chat_text(
             prompt,
-            max_tokens=3,
+            max_tokens=max(3, max(map(len, responses), default=1) + 2),
             temperature=temperature,
             seed=seed,
         )
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
       except ValueError:

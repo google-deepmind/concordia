@@ -16,6 +16,7 @@
 
 from collections.abc import Collection, Mapping, Sequence
 import importlib
+import itertools
 import json
 import os
 import threading
@@ -366,7 +367,9 @@ class GenaiLanguageModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
     del seed
-    choice_labels = [chr(ord('a') + i) for i in range(len(responses))]
+    choice_labels = list(
+        itertools.islice(sampling.choice_labels(), len(responses))
+    )
     formatted_choices = '\n'.join(
         f'({label}) {response}'
         for label, response in zip(choice_labels, responses)
@@ -377,7 +380,7 @@ class GenaiLanguageModel(language_model.LanguageModel):
         f'{prompt}\n\nChoices:\n{formatted_choices}\n\nAnswer:'
     )
     sample = self.sample_text(question, max_tokens=16, terminators=())
-    answer = sampling.extract_choice_response(sample)
+    answer = sampling.extract_choice_response(sample, responses=choice_labels)
     if answer is not None and answer in choice_labels:
       idx = choice_labels.index(answer)
       return idx, responses[idx], {}

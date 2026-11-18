@@ -1259,6 +1259,7 @@ class AdventureTest(absltest.TestCase):
     fake_module = types.SimpleNamespace(
         language_model_setup=mock.MagicMock(return_value=fake_lm)
     )
+
     def fake_import(name: str):
       if name == 'concordia.contrib.language_models':
         return fake_module
@@ -1315,6 +1316,28 @@ class AdventureTest(absltest.TestCase):
       out = lm.sample_text('Hello')
       self.assertEqual(out, 'Recovered response')
       self.assertEqual(lm._model_name, runner.DEFAULT_MODEL_NAME)
+
+  def test_genai_choice_labels_beyond_z(self):
+    model = object.__new__(runner.GenaiLanguageModel)
+    for count, label in ((26, 'z'), (27, 'aa'), (53, 'ba'), (703, 'aaa')):
+      with self.subTest(count=count):
+        responses = [f'option {i}' for i in range(count)]
+        with mock.patch.object(
+            model, 'sample_text', return_value=f'({label})'
+        ) as sample:
+          self.assertEqual(
+              model.sample_choice('Choose?', responses)[:2],
+              (count - 1, responses[-1]),
+          )
+        self.assertIn(f'({label}) option {count - 1}', sample.call_args.args[0])
+
+  def test_genai_ambiguous_choices_keep_existing_fallback(self):
+    model = object.__new__(runner.GenaiLanguageModel)
+    with mock.patch.object(model, 'sample_text', return_value='(a) or (aa)'):
+      self.assertEqual(
+          model.sample_choice('Choose?', [str(i) for i in range(27)])[:2],
+          (0, '0'),
+      )
 
   def test_extract_director_text_model_and_genai_client(self):
     genai_client = types.SimpleNamespace(

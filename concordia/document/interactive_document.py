@@ -21,6 +21,7 @@ import re
 
 from concordia.document import document
 from concordia.language_model import language_model
+from concordia.utils import sampling
 import numpy as np
 
 DEFAULT_MAX_CHARACTERS = 200
@@ -37,11 +38,6 @@ INTERACTIVE_TAGS = frozenset(
 
 
 _YESNO = ['No', 'Yes']
-
-
-def _letters():
-  """Yields the letters from a to z."""
-  yield from (chr(ord('a') + i) for i in range(26))
 
 
 class InteractiveDocument(document.Document):
@@ -323,7 +319,10 @@ class InteractiveDocument(document.Document):
       original_indices = self._rng.permutation(len(answers))
     else:
       original_indices = range(len(answers))
-    options = {key: answers[i] for key, i in zip(_letters(), original_indices)}
+    options = {
+        key: answers[i]
+        for key, i in zip(sampling.choice_labels(), original_indices)
+    }
     self._question(f'Question: {question}\n')
     for key, option in options.items():
       self._question(f'  ({key}) {option}\n')

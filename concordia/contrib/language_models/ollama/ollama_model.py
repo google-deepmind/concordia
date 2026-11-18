@@ -23,7 +23,6 @@ from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import ollama
 
-
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
 _DEFAULT_TERMINATORS = ()
@@ -154,7 +153,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
         if isinstance(sample, str) and sample:
           sample = sample.strip()
 
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
       except ValueError:

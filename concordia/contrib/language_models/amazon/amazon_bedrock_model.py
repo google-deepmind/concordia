@@ -22,7 +22,6 @@ from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 
-
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
 MODEL_MAX_OUTPUT_TOKENS_LIMITS = {
@@ -198,7 +197,7 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
           prompt,
           temperature=temperature,
       )
-      answer = sampling.extract_choice_response(sample)
+      answer = sampling.extract_choice_response(sample, responses=responses)
       try:
         idx = responses.index(answer)
       except ValueError:
