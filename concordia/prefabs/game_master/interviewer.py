@@ -99,7 +99,7 @@ class GameMaster(prefab_lib.Prefab):
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,
-        entity_names=[player_names],
+        entity_names=player_names,
     )
 
     game_master_agent = entity_agent_with_logging.EntityAgentWithLogging(

@@ -16,7 +16,7 @@
 
 import collections
 from collections.abc import Sequence
-import json
+import copy
 import re
 import threading
 from typing import Any, Dict, List, Optional, Tuple
@@ -62,7 +62,7 @@ class Questionnaire(entity_component.ContextComponent):
     self._questionnaires: Dict[str, base_questionnaire.QuestionnaireBase] = {
         questionnaire.name: questionnaire for questionnaire in questionnaires
     }
-    self._lock = threading.Lock()
+    self._lock = threading.RLock()
 
     # q_id -> (questionnaire_type, question_data)
     self._questions_by_id: Dict[
@@ -88,20 +88,41 @@ class Questionnaire(entity_component.ContextComponent):
         self._all_question_ids.append(q_id)
         self._questions_by_id[q_id] = (qn_name, question)
 
+  def _next_unanswered_question_id(self, player_name: str) -> str | None:
+    """Returns the next unanswered question ID for `player_name`, or None."""
+    if player_name not in self._answered_mask:
+      return None
+    for q_id in self._all_question_ids:
+      if not self._answered_mask[player_name].get(q_id, False):
+        return q_id
+    return None
+
+  def _find_player_in_prompt(self, text: str) -> str:
+    """Extracts the target player name from an engine prompt."""
+    stripped = text.strip()
+    if stripped in self._player_names:
+      return stripped
+    for player in sorted(self._player_names, key=len, reverse=True):
+      if re.search(rf'(?<!\w){re.escape(player)}(?!\w)', text):
+        return player
+    return ''
+
   def reset(self) -> None:
     """Resets the component to its initial state."""
-    self._answers = {name: {} for name in self._player_names}
-    self._answered_mask = {
-        name: {qid: False for qid in self._all_question_ids}
-        for name in self._player_names
-    }
+    with self._lock:
+      self._answers = {name: {} for name in self._player_names}
+      self._answered_mask = {
+          name: {qid: False for qid in self._all_question_ids}
+          for name in self._player_names
+      }
 
   def is_done(self, player_name: str | None = None) -> bool:
-    if player_name:
-      if player_name not in self._player_names:
-        return True
-      return all(self._answered_mask[player_name].values())
-    else:
+    """Returns True if the questionnaire is finished."""
+    with self._lock:
+      if player_name:
+        if player_name not in self._player_names:
+          return True
+        return self._next_unanswered_question_id(player_name) is None
       return all(self.is_done(name) for name in self._player_names)
 
   def _get_action_spec_str(self, player_name: str, question_id: str) -> str:
@@ -150,54 +171,74 @@ class Questionnaire(entity_component.ContextComponent):
       return _TERMINATE_SIGNAL if self.is_done() else ''
 
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      return ','.join(self._player_names)
+      candidates = action_spec.options or tuple(self._player_names)
+      with self._lock:
+        acting_players = [
+            player
+            for player in candidates
+            if player in self._player_names and not self.is_done(player)
+        ]
+      return ','.join(acting_players)
 
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
-      action_specs_list = []
-      player_names = action_spec.call_to_action.split(',')
-      for player in player_names:
-        if player in self._player_names:
-          for q_id in self._all_question_ids:
-            if not self._answered_mask[player][q_id]:
-              spec_str = self._get_action_spec_str(player, q_id)
-              action_specs_list.append({
-                  'player_name': player,
-                  'question_id': q_id,
-                  'action_spec_str': spec_str,
-              })
-      return json.dumps(action_specs_list)
+      player_name = self._find_player_in_prompt(action_spec.call_to_action)
+      if not player_name:
+        return ''
+      with self._lock:
+        q_id = self._next_unanswered_question_id(player_name)
+        if q_id is None:
+          return ''
+        return self._get_action_spec_str(player_name, q_id)
+
+    if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
+      return ''
+
+    if action_spec.output_type == entity_lib.OutputType.RESOLVE:
+      return action_spec.call_to_action
 
     return ''
 
   def pre_observe(self, observation: str) -> str:
-    try:
-      # Escape the brackets in the tag
-      tag_pattern = re.escape(PUTATIVE_EVENT_TAG)
-      # Improved regex to handle colons in the answer text
-      pattern = re.compile(
-          rf'{tag_pattern}\s*([^:]+):\s*([^:]+):\s*(.*)', re.DOTALL
-      )
-      match = pattern.match(observation)
-      if match:
-        player_name, q_id, answer_text = match.groups()
-        player_name = player_name.strip()
-        q_id = q_id.strip()
-        answer_text = answer_text.strip()
-        if (
-            player_name in self._player_names
-            and q_id in self._questions_by_id
-            and not self._answered_mask[player_name][q_id]
-        ):
-          self._process_answer(player_name, q_id, answer_text)
-          self._answered_mask[player_name][q_id] = True
-        else:
-          logging.warning(
-              'No match or already answered for %s, %s', player_name, q_id
-          )
-      else:
-        logging.warning('No regex match for observation: %s', observation)
-    except re.error as e:
-      logging.error('Error processing observation: %s on %s', e, observation)
+    if not observation.startswith(PUTATIVE_EVENT_TAG):
+      return ''
+    payload = observation[len(PUTATIVE_EVENT_TAG) :].lstrip()
+    with self._lock:
+      player_name = ''
+      rest = ''
+      for candidate in sorted(self._player_names, key=len, reverse=True):
+        prefix = f'{candidate}:'
+        if payload.startswith(prefix):
+          player_name = candidate
+          rest = payload[len(prefix) :].strip()
+          break
+      if not player_name:
+        logging.warning('No player match for observation: %s', observation)
+        return ''
+
+      q_id = None
+      answer_text = rest
+      if ':' in rest:
+        candidate_qid, candidate_answer = rest.split(':', 1)
+        candidate_qid = candidate_qid.strip()
+        if candidate_qid in self._questions_by_id:
+          if self._answered_mask.get(player_name, {}).get(candidate_qid, False):
+            logging.warning(
+                'Question already answered for %s, %s',
+                player_name,
+                candidate_qid,
+            )
+            return ''
+          q_id = candidate_qid
+          answer_text = candidate_answer.strip()
+
+      if q_id is None:
+        q_id = self._next_unanswered_question_id(player_name)
+        if q_id is None:
+          logging.warning('All questions already answered for %s', player_name)
+          return ''
+
+      self._process_answer(player_name, q_id, answer_text)
+      self._answered_mask[player_name][q_id] = True
     return ''
 
   def _process_answer(
@@ -224,7 +265,8 @@ class Questionnaire(entity_component.ContextComponent):
 
   def get_answers(self) -> dict[str, dict[str, Any]]:
     """Returns the answers."""
-    return self._answers
+    with self._lock:
+      return copy.deepcopy(self._answers)
 
   def get_aggregated_results(self) -> dict[str, dict[str, float]]:
     """Returns the aggregated results by player and dimension.
@@ -232,19 +274,20 @@ class Questionnaire(entity_component.ContextComponent):
     Returns:
       A dictionary mapping player names to a dictionary of dimension scores.
     """
-    player_names = list(self._answers)
-    all_player_results = {}
+    with self._lock:
+      player_names = list(self._answers)
+      all_player_results = {}
 
-    for player in player_names:
-      player_results = {}
-      for q_name, questionnaire in self._questionnaires.items():
-        if q_name in self._answers[player]:
-          player_q_answers = self._answers[player][q_name]
-          aggregated = questionnaire.aggregate_results(player_q_answers)
-          player_results.update(aggregated)
-      all_player_results[player] = player_results
+      for player in player_names:
+        player_results = {}
+        for q_name, questionnaire in self._questionnaires.items():
+          if q_name in self._answers[player]:
+            player_q_answers = self._answers[player][q_name]
+            aggregated = questionnaire.aggregate_results(player_q_answers)
+            player_results.update(aggregated)
+        all_player_results[player] = player_results
 
-    return all_player_results
+      return all_player_results
 
   def get_questionnaires_results(self) -> pd.DataFrame | None:
     """Aggregates questionnaires results by player and dimension.
@@ -254,19 +297,20 @@ class Questionnaire(entity_component.ContextComponent):
       columns,
       or None if no results are found.
     """
-    all_player_results_dict = self.get_aggregated_results()
+    with self._lock:
+      all_player_results_dict = self.get_aggregated_results()
 
-    if not all_player_results_dict:
-      logging.warning('No questionnaire results found to aggregate.')
-      return None
+      if not all_player_results_dict:
+        logging.warning('No questionnaire results found to aggregate.')
+        return None
 
-    player_names = list(self._answers)
-    all_player_results_list = [
-        all_player_results_dict[name] for name in player_names
-    ]
+      player_names = list(self._answers)
+      all_player_results_list = [
+          all_player_results_dict[name] for name in player_names
+      ]
 
-    df = pd.DataFrame(all_player_results_list, index=player_names)
-    return df
+      df = pd.DataFrame(all_player_results_list, index=player_names)
+      return df
 
   def plot_all_results(
       self,
@@ -285,12 +329,14 @@ class Questionnaire(entity_component.ContextComponent):
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {
-        'answers': self._answers,
-        'answered_mask': self._answered_mask,
-    }
+    with self._lock:
+      return {
+          'answers': copy.deepcopy(self._answers),
+          'answered_mask': copy.deepcopy(self._answered_mask),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._answers = state['answers']  # pyrefly: ignore[bad-assignment]
-    self._answered_mask = state['answered_mask']  # pyrefly: ignore[bad-assignment]
+    with self._lock:
+      self._answers = copy.deepcopy(state['answers'])  # pyrefly: ignore[bad-assignment]
+      self._answered_mask = copy.deepcopy(state['answered_mask'])  # pyrefly: ignore[bad-assignment]
