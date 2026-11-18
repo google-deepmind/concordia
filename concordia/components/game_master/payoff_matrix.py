@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A component for computing pressure created through labor collective action."""
+"""A component that scores games from the players' joint actions."""
 
 from collections.abc import Callable, Mapping, Sequence
 import copy
@@ -64,22 +64,23 @@ class PayoffMatrix(
 
     Args:
       model: a language model
-      acting_player_names: sequence of names of players whos actions influence
+      acting_player_names: sequence of names of players whose actions influence
         the payoff.
       action_to_scores: function that maps a dictionary of actions by players to
         a dictionary of scores for each player
-      scores_to_observation: function that maps a dictionary of scores for each
-        player to a dictionary of observations for each player.
+      scores_to_observation: function that maps a dictionary of each player's
+        cumulative score (summed over all stages played so far) to a dictionary
+        of observations for each player.
       event_resolution_component_key: The key of the event resolution component.
       observation_component_key: The key of the observation component to send
         observations to players. If None, no observations will be sent.
-      memory_component_key: The key of the memory component to the observations
-        by players. If None, no observations will be added to the memory.
+      memory_component_key: The key of the game master's memory component. Each
+        observation is added to it as "<player> learned that <observation>". If
+        None, no observations will be added to the memory.
       scene_tracker_component_key: The key of the scene tracker component, so
         that only participants in the current scene need to act.
-      pre_act_label: Prefix to add to the output of the component when called in
-        `pre_act`.
-      verbose: whether to print the full update chain of thought or not
+      pre_act_label: Label for this component in its logs.
+      verbose: whether to print the joint actions and scores.
     """
     self._pre_act_label = pre_act_label
 
