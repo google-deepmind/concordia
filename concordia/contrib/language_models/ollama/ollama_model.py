@@ -21,6 +21,7 @@ from typing import override
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
+from concordia.utils import text
 import ollama
 
 
@@ -49,6 +50,8 @@ class OllamaLanguageModel(language_model.LanguageModel):
       system_message: str = _DEFAULT_SYSTEM_MESSAGE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      think: bool | None = None,
+      timeout: float | None = None,
   ) -> None:
     """Initializes the instance.
 
@@ -59,14 +62,27 @@ class OllamaLanguageModel(language_model.LanguageModel):
           model.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
+        think: Whether a thinking model (e.g. qwen3) thinks before it answers.
+          None leaves the model's default, but then its reply opens with its
+          thinking and a newline terminator (as in
+          `InteractiveDocument.open_question`) ends it before any answer, so
+          the reply is empty. With True the thinking is kept apart and the
+          terminators apply to the answer alone; with False there is none.
+        timeout: Seconds the client waits for a reply before raising (so a
+          retry wrapper can try again). None waits indefinitely, as before;
+          a thinking model's replies are unbounded, so set one with it.
     """
     self._model_name = model_name
-    self._client = ollama.Client()
+    if timeout is None:
+      self._client = ollama.Client()
+    else:
+      self._client = ollama.Client(timeout=timeout)
     self._system_message = system_message
     self._terminators = []
 
     self._measurements = measurements
     self._channel = channel
+    self._think = think
 
   @override
   def sample_text(
@@ -81,24 +97,34 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
     terminators = self._terminators + list(terminators)
 
+    options = {
+        # The server would stop on a terminator inside the thinking too,
+        # so a thinking model's terminators are applied to its answer.
+        'stop': [] if self._think else terminators,
+        'temperature': temperature,
+        'top_p': top_p,
+        'top_k': top_k,
+    }
+    if not self._think:
+      # Ollama counts kept-apart thinking towards `num_predict` as well, so
+      # with think=True a bound could end the thinking before any answer.
+      options['num_predict'] = max_tokens
     response = self._client.generate(
         model=self._model_name,
         prompt=prompt_with_system_message,
-        options={
-            'stop': terminators,
-            'temperature': temperature,
-            'top_p': top_p,
-            'top_k': top_k,
-        },
+        options=options,
         keep_alive='10m',
+        think=self._think,
     )
     result = response['response']
+    if self._think:
+      result = text.truncate(result, delimiters=terminators)
 
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -135,6 +161,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
           options={'stop': (), 'temperature': temperature},
           format='json',
           keep_alive='10m',
+          think=self._think,
       )
       try:
         json_data_response = json.loads(response['response'])
