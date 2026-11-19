@@ -1,0 +1,54 @@
+# Toy A, "claims": argument physics. Every number and word of the toy lives
+# here, so tuning never needs a code change.
+
+physics:
+  gain: 0.15         # share of an agreeing claim's weight that lifts a claim
+  drag: 0.15         # share of a conflicting claim's weight that drags it
+  fall_below: 0.35   # a claim whose settled weight ends below this falls
+  cap: 2.0           # no claim weighs more than this
+  iterations: 200
+  damping: 0.5       # settle smoothly to the fixed point
+
+rules:
+  max_words: 12      # longest claim
+  ink: 40            # words each side may write in a game
+  moves_each: 6      # moves per side
+  thesis_base: 1.0   # a thesis stands on its own
+  fact_base: 1.0     # so does a claim the board starts with
+  claim_base: 0.3    # a new claim starts below the line: it stands only if
+                     # something standing supports it
+  restate_bonus: 0.1 # restating a standing claim adds this to its base
+  max_base: 1.5      # ...up to this
+
+actors: [Player, Rival]
+first: Rival       # who moves first
+
+premise: >-
+  Two sides argue over a public question. Each side has a thesis on the
+  board. On your move you add one claim of at most 12 words, or pass. Each
+  new claim is read against every standing claim: claims that agree lift
+  each other, claims that conflict drag each other down, and a claim whose
+  weight falls below the line is gone for good, which can bring down the
+  claims that leaned on it. You win if your thesis stands at the end and
+  your rival's has fallen.
+
+scenarios:
+  sandbox:
+    theses:
+      Player: The old bridge is safe to cross.
+      Rival: The old bridge will collapse soon.
+    board:
+      - The river is rising this week.
+      - Engineers inspected the bridge last spring.
+      - Heavy carts cross the bridge every day.
+      - Cracks have appeared in the bridge's stone piers.
+      - The town cannot afford a new bridge.
+
+lexicon:
+  negations: [not, 'no', never, nothing, none, nobody, cannot, 'false', untrue, neither, nor, without]
+  stopwords: [a, an, the, is, are, was, were, be, been, being, to, of, in, 'on', at, by, for, with, and, or, but, it, its, this, that, these, those, will, would, can, could, should, may, might, must, has, have, had, do, does, did, every, each, some, any, all, very, so, soon, last, this, week, day, days, year, now, then, than, there, here, as, from, into, over, under, also, indeed, just, only, still, yet, our, their, his, her, they, we, you, i, he, she, them, us, more, most, much, many, which, who, what, when, why, how, 'true', truly, certainly, surely]
+  poles:
+    safety: [safe, sound, secure, sturdy, solid, strong, reliable, -unsafe, -dangerous, -risky, -hazard, -threat, -threaten, -weak, -fragile, -unstable, -rotten]
+    standing: [stand, hold, endure, survive, -collapse, -fall, -crumble, -fail, -break, -sink, -give]
+    damage: [repair, repaired, fixed, -crack, -cracked, -damage, -damaged, -erode, -eroded, -decay]
+    afford: [afford, cheap, -costly, -expensive]

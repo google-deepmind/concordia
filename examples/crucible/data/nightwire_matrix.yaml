@@ -1,0 +1,126 @@
+# The Night Wire's interaction matrices (cycle 120; GUIDE.md, Phase 3).
+#
+# Every cell names its mechanism and what exercises it: a test (by function
+# name, in examples/crucible/**/*_test.py) or golden cases (below).
+# `python -m examples.crucible.audit nightwire` counts the cells and checks
+# that every test and golden case a cell names exists.
+
+systems:
+  message: Message (the player's wire, at most 12 words; STOP free)
+  relay: Relay (how Edith and Wilf pass words on)
+  line: Line (who it goes through, and who is at the end of it)
+  reading: Reading (what each person at the end makes of what reached them)
+  people: People (each one's way of relaying, of reading, and their own work)
+  verdict: Verdict (each goal checked, wires, stars)
+  story: Story (the hour, the task, the morning's headline)
+
+# Row system affects column system by mechanism.
+cells:
+  - {from: message, to: relay, by: the first in line hear the player's words as written, test: test_wilf_says_the_opposite_and_keeps_the_names}
+  - {from: relay, to: reading, by: the end of the line read only what the relayer passed on, test: test_the_end_of_the_line_hears_only_what_wilf_said}
+  - {from: people, to: relay, by: how a relayer passes words on is their own law, test: test_edith_sends_exactly_what_she_is_given}
+  - {from: line, to: reading, by: everyone at the end hears the same words and is told who else did, golden: [n7, n8], test: test_everyone_at_the_end_is_told_who_else_heard}
+  - {from: people, to: reading, by: with nothing for them a person does their own work or stays put, golden: [n10, n11], test: test_told_only_not_to_do_their_work_they_stay_put}
+  - {from: reading, to: verdict, by: each person's act is checked against what was wanted of them, test: test_the_obvious_message_works_only_where_meant}
+  - {from: message, to: verdict, by: the solving wire's words set the stars and STOP costs nothing, test: test_stop_ends_a_sentence_as_on_a_real_wire}
+  - {from: verdict, to: message, by: three wires a chapter, test: test_three_tries_and_a_headline_only_when_solved}
+  - {from: verdict, to: story, by: a solved hour prints the morning's headline, test: test_three_tries_and_a_headline_only_when_solved}
+
+# How a person at the end reads a message, and how a relayer passes one on:
+# an operator (a form of words or a way of relaying) against a property (the
+# reader, or the form of the part being relayed).
+reading:
+  operators:
+    plain: a part that names no one
+    named: a part naming the reader
+    others_named: parts naming someone else, beside a plain part
+    negated: a part that forbids
+    silence: nothing for this reader
+    stop: STOP between the parts, as on a wire
+    flips: relayed by Wilf (the opposite of each part)
+    word_for_word: relayed by Edith (exactly as given)
+    adds: relayed by Mrs. Pruitt (her own "Go to the church hall, everyone!" added)
+    two_asks: two parts asking a reader for different things
+  properties:
+    literal: a literal reader (the miller, the stationmaster, the doctor)
+    contrary: the contrary mayor
+    own_work: a reader with work of their own to fall back on (the miller)
+    several: three people at the end of the line
+    one_part: one part
+    negated_part: a part that forbids
+    named_part: a part naming someone
+    two_parts: two parts
+    contrary_reader: a part for the contrary mayor
+    stopped: parts ended with STOP
+    left_out: a reader the message leaves out
+    flipped_part: words Wilf has already turned round
+    added_part: Mrs. Pruitt's own sentence
+  cells:
+    - {operator: plain, property: literal, law: a literal reader does the plain part, golden: [n1]}
+    - {operator: plain, property: contrary, law: told to do something the mayor stays put, golden: [n5]}
+    - {operator: named, property: literal, law: a part naming the reader replaces the plain part for them, golden: [n4]}
+    - {operator: others_named, property: literal, law: a reader not named takes the plain part, golden: [n2, n3, n8]}
+    - {operator: named, property: contrary, law: named and told not to the mayor does it; named and told to he stays put, golden: [n7, n15]}
+    - {operator: negated, property: contrary, law: told not to ring the bell the mayor rings it, golden: [n6]}
+    - {operator: negated, property: literal, law: told only what not to do a literal reader stays put, golden: [n9]}
+    - {operator: silence, property: literal, law: with nothing for them the stationmaster stays put, golden: [n10]}
+    - {operator: silence, property: own_work, law: with nothing for him the miller keeps the wheel turning, golden: [n11]}
+    - {operator: silence, property: several, law: with two others named the doctor stays put, golden: [n12]}
+    - {operator: stop, property: literal, law: STOP ends a part and asks for nothing, golden: [n13, n14]}
+    - {operator: flips, property: one_part, law: Wilf puts "don't" before a part that asks, golden: [w1]}
+    - {operator: flips, property: negated_part, law: Wilf passes a forbidding part on without its "don't", golden: [w2]}
+    - {operator: flips, property: named_part, law: Wilf keeps the name a part is for, golden: [w4]}
+    - {operator: flips, property: two_parts, law: Wilf flips each part on its own, golden: [w3]}
+    - {operator: flips, property: contrary_reader, law: flipped twice (Wilf then the mayor) a part arrives done as said, golden: [w7]}
+    - {operator: word_for_word, property: two_parts, law: Edith passes every part on as it is, golden: [w5]}
+    - {operator: word_for_word, property: negated_part, law: Edith passes a forbidding part on as it is, golden: [w6]}
+    - {operator: word_for_word, property: stopped, law: Edith keeps the STOPs, test: test_edith_sends_exactly_what_she_is_given}
+    - {operator: adds, property: left_out, law: her word sends anyone left out to the church hall, golden: [n18], test: test_her_word_reaches_only_those_left_out}
+    - {operator: adds, property: named_part, law: a reader named in the message ignores her word, golden: [a2]}
+    - {operator: adds, property: flipped_part, law: after Wilf her word comes the right way round, test: test_mrs_pruitt_adds_her_word_after_whatever_she_is_given}
+    - {operator: flips, property: added_part, law: before Wilf her word is turned round too, golden: [n20]}
+    - {operator: two_asks, property: literal, law: asked for two things a reader does the first, golden: [n16, n17]}
+
+# Golden cases. A read case asks the model what `reader` does with
+# `message` (with the others in `with` at the end of the line too); a relay
+# case asks the model how `relayer` passes `message` on, then reads the
+# result for `probe` by the laws (the mock), so it tests the relay alone.
+# `chapter` gives the jobs on offer.
+golden:
+  - {id: n1, kind: read, chapter: the_sluice, reader: Harlan, message: Open the sluice., expect: [open_sluice], hard: true}
+  - {id: n2, kind: read, chapter: the_station, reader: Cyrus, with: [Harlan], message: 'Hold the train; Harlan, open the sluice.', expect: [hold_train], hard: true}
+  - {id: n3, kind: read, chapter: the_station, reader: Harlan, with: [Cyrus], message: 'Open the sluice; Cyrus, hold the train.', expect: [open_sluice], hard: true}
+  - {id: n4, kind: read, chapter: the_station, reader: Cyrus, with: [Harlan], message: 'Open the sluice; Cyrus, hold the train.', expect: [hold_train], hard: true}
+  - {id: n5, kind: read, chapter: the_mayor, reader: Dexter, message: Ring the bell., expect: [stay_put], hard: true}
+  - {id: n6, kind: read, chapter: the_mayor, reader: Dexter, message: "Don't ring the bell.", expect: [ring_bell], hard: true}
+  - {id: n7, kind: read, chapter: the_council, reader: Dexter, with: [Harlan], message: "Sandbag the bridge; Dexter, don't ring the bell.", expect: [ring_bell], hard: true}
+  - {id: n8, kind: read, chapter: the_council, reader: Harlan, with: [Dexter], message: "Sandbag the bridge; Dexter, don't ring the bell.", expect: [sandbag], hard: true}
+  - {id: n9, kind: read, chapter: wilf, reader: Penrose, message: "Don't go to the mill.", expect: [stay_put], hard: true}
+  - {id: n10, kind: read, chapter: say_less, reader: Cyrus, with: [Harlan], message: 'Harlan, open the sluice.', expect: [stay_put], hard: true}
+  - {id: n11, kind: read, chapter: say_less, reader: Harlan, with: [Cyrus], message: 'Cyrus, stay put.', expect: [grind], hard: true}
+  - {id: n12, kind: read, chapter: the_night, reader: Penrose, with: [Harlan, Dexter], message: "Harlan, sandbag the bridge; Dexter, don't ring the bell.", expect: [stay_put], hard: true}
+  - {id: n13, kind: read, chapter: the_station, reader: Harlan, with: [Cyrus], message: Open sluice STOP Cyrus hold train STOP, expect: [open_sluice], hard: true}
+  - {id: n14, kind: read, chapter: the_station, reader: Cyrus, with: [Harlan], message: Open sluice STOP Cyrus hold train STOP, expect: [hold_train], hard: true}
+  - {id: n15, kind: read, chapter: the_council, reader: Dexter, with: [Harlan], message: 'Harlan, sandbag the bridge; Dexter, ring the bell.', expect: [stay_put], hard: true}
+  - {id: w1, kind: relay, chapter: wilf, relayer: Wilf, message: Go to the mill., probe: Penrose, expect: [stay_put], hard: true}
+  - {id: w2, kind: relay, chapter: wilf, relayer: Wilf, message: "Don't go to the mill.", probe: Penrose, expect: [fetch_doctor], hard: true}
+  - {id: w3, kind: relay, chapter: two_doors, relayer: Wilf, message: "Penrose, don't go to the mill; Cyrus, don't hold the train.", probe: Cyrus, expect: [hold_train], hard: true}
+  - {id: w4, kind: relay, chapter: say_less, relayer: Wilf, message: "Harlan, don't open the sluice.", probe: Harlan, expect: [open_sluice], hard: true}
+  - {id: w5, kind: relay, chapter: the_station, relayer: Edith, message: 'Open the sluice; Cyrus, hold the train.', probe: Cyrus, expect: [hold_train], hard: true}
+  - {id: w6, kind: relay, chapter: the_mayor, relayer: Edith, message: "Don't ring the bell.", probe: Dexter, expect: [ring_bell], hard: true}
+  - {id: w7, kind: relay, chapter: the_night, relayer: Wilf, message: "Harlan, don't sandbag the bridge; Dexter, ring the bell.", probe: Dexter, expect: [ring_bell], hard: true}
+  # w8 (Edith relays "Open sluice STOP Cyrus hold train STOP" to the
+  # stationmaster) cut in cycle 121: in character he held the train two runs
+  # in three; the same words read directly (n14) held 3/3.
+  # After the crest (cycle 120): Mrs. Pruitt and the first of two asks.
+  # Cut in cycle 121 (a1: the stationmaster left out, Pruitt's advice; a3,
+  # n19: the mayor told not to ring and to go to the hall): in character, a
+  # stickler ignores a gossip's advice and a contrary mayor told two things
+  # may defy either. Her act is to be rebuilt on who she is.
+  - {id: a2, kind: relay, chapter: the_party_line, relayer: Pruitt, message: 'Harlan, take the boats out; Cyrus, stay put.', probe: Cyrus, expect: [stay_put], hard: true}
+  # a4 (Wilf relays Mrs. Pruitt's word to the mayor) cut in cycle 121 with
+  # her act: one run in two the mayor stayed put.
+  - {id: n16, kind: read, chapter: the_party_line, reader: Cyrus, with: [Harlan], message: 'Stay put; Harlan, take the boats out. Go to the church hall, everyone!', expect: [stay_put], hard: true}
+  - {id: n17, kind: read, chapter: through_wilf, reader: Harlan, with: [Dexter], message: "Take the boats out; Dexter, don't ring the bell. Go to the church hall, everyone!", expect: [launch_boats], hard: true}
+  - {id: n18, kind: read, chapter: gossip, reader: Penrose, with: [Harlan, Cyrus, Dexter], message: "Harlan, take boats out; Cyrus, stay put; don't ring bell. Go to the church hall, everyone!", expect: [go_to_hall], hard: true}
+  - {id: n20, kind: read, chapter: pruitt_first, reader: Dexter, with: [Harlan, Penrose], message: "Harlan, take the boats out; don't go to the church hall, everyone!", expect: [go_to_hall], hard: true}
