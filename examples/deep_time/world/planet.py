@@ -390,8 +390,15 @@ class Planet:
           {k: p.regions for k, p in self.civ.polities.items()},
           {k: p.home for k, p in self.civ.polities.items()},
           {k: p.name for k, p in self.civ.polities.items()},
-          data.load('settlements.yaml'),
+          # A world may set its own (e.g. a poorer age's founding cost).
+          {
+              **data.load('settlements.yaml'),
+              **scenario['civilization'].get('settlements', {}),
+          },
           trade=self.trade is not None,
+          conquest=bool(scenario['civilization'].get('conquest')),
+          arms=(civ_config or {}).get('arms'),
+          war=(civ_config or {}).get('war'),
       )
       self.settlements.update(
           {k: p.population for k, p in self.civ.polities.items()}
@@ -452,6 +459,8 @@ class Planet:
     )
     self.outcome: str | None = None
     self.outcome_reason = ''
+    # Where conquest is played: the people that conquered the map, if one did.
+    self.winner = ''
     self.history: list[dict[str, Any]] = []
     # The life on each tile at the last few ticks: a role
     # sees the map's life as its own census saw it, as late as that.
@@ -692,9 +701,14 @@ class Planet:
           self.civ.polities[key].local = factors
       for text in self._step_civ():
         events.append(WorldEvent(CIV_EVENTS, text))
+      for text in self._muster():  # Arms join their garrisons and eat.
+        events.append(WorldEvent(CIV_EVENTS, text))
+      events.extend(self._wars())  # Armies march, fight, towns rise.
       if self.settlements is not None and self.pollution is not None:
         for text in self.settlements.update(
-            {k: p.population for k, p in self.civ.polities.items()}
+            {k: p.population for k, p in self.civ.polities.items()},
+            # Where conquest is played, only a people's move founds a town.
+            found=not self.settlements.conquest,
         ):
           events.append(
               WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text))
@@ -914,6 +928,131 @@ class Planet:
       self.colony.site = target
     return where
 
+  def founding_cost(self) -> dict[str, float]:
+    """What founding a town costs a people (where conquest is played)."""
+    if self.settlements is None:
+      return {}
+    return {
+        k: float(v)
+        for k, v in (self.settlements.config.get('founding') or {}).items()
+    }
+
+  def can_found(self, polity: str) -> str:
+    """Why a people cannot found a town now ('' if it can)."""
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.conquest:
+      return 'they found no towns by choice here'
+    if towns.founded(polity) >= int(towns.config['max_settlements']):
+      return (
+          f'they have founded {towns.founded(polity)} towns, the most they can'
+      )
+    people = civ.polities[polity].population
+    # As growth founds them: a town for each `town_population` people, and
+    # a capital (one more town's settlers were asked before c182).
+    need = float(towns.config['town_population']) * len(towns.places[polity])
+    if people < need:
+      return (
+          f'they are {people:.1f} people in {len(towns.places[polity])} towns;'
+          f' settlers for one more need {need:g}'
+      )
+    if not towns.has_site(polity):
+      return 'there is no free site left in their lands'
+
+    short = [
+        f'{amount:g} {good}'
+        for good, amount in self.founding_cost().items()
+        if civ.stock(polity, good) < amount
+    ]
+    if short:
+      return f'it takes {" and ".join(short)}, which they lack'
+    return ''
+
+  def found_town(self, polity: str, actor: str) -> str:
+    """A people founds a town: where it was aimed, or its best free site.
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+
+    Returns:
+      What happened, or why not.
+    """
+    target = self.targets.pop(actor, None)
+    assert self.civ is not None
+    name = self.civ.polities[polity].name
+    why = self.can_found(polity)
+    if why:
+      return f'{name} found no town: {why}.'
+    assert self.settlements is not None
+    place, why = self.settlements.found_at(polity, target)
+    if place is None:
+      return f'{name} found no town: {why}.'
+    for good, amount in self.founding_cost().items():
+      self.civ.ledger.withdraw(polity, good, amount, 'a new town')
+    return news_lib.located(
+        f'{name} found a town {self.settlements.where(place)}.',
+        (place.row, place.col),
+    )
+
+  def change_hands(
+      self,
+      town: int,
+      taker: str,
+      *,
+      stay: float,
+      loyalty: float,
+      how: str = 'take',
+  ) -> WorldEvent:
+    """A town passes to another people, with its share of the people.
+
+    The town's people are its holder's population split across the
+    holder's towns by the farmland each works (`Settlements.shares`); the
+    holder loses that share, and the taker gains the part that stays.
+
+    Args:
+      town: The town's id.
+      taker: The people that takes or wins it.
+      stay: The share of the town's people that stays under the taker.
+      loyalty: Its loyalty to the taker.
+      how: 'take' (by arms), 'win' (won over) or 'rise' (back to its
+        founder).
+
+    Returns:
+      The news, for every people (where it happened).
+    """
+    if self.settlements is None or self.civ is None:
+      raise ValueError('No towns to change hands.')
+    found = self.settlements.find(town)
+    if found is None:
+      raise KeyError(town)
+    holder = found[1]
+    share = self.settlements.shares(holder)[town]
+    moved = self.civ.polities[holder].population * share
+    self.civ.polities[holder].population -= moved
+    self.civ.polities[taker].population += moved * stay
+    # What a people's numbers are measured against (its collapse) moves with
+    # the town: losing towns is not a famine.
+    base = self.civ.start_population[holder] * share
+    self.civ.start_population[holder] -= base
+    self.civ.start_population[taker] += base * stay
+    text = self.settlements.change_hands(town, taker, loyalty, how)
+    where = news_lib.place_of(text)
+    gone = self._gone(holder)
+    if gone and where is not None:  # Its last town: it is gone, told there.
+      text = news_lib.located(text + gone, where)
+    return WorldEvent(CIV_EVENTS, text, where=where)
+
+  def _gone(self, people: str) -> str:
+    """' They are gone from the map.' if a people lost its last town."""
+    if self.settlements is None or self.civ is None:
+      return ''
+    if self.settlements.places.get(people):
+      return ''
+    return (
+        f' The {self.civ.polities[people].name} hold no town any more: they'
+        ' are gone from the map.'
+    )
+
   def queue_adaptation(self, species: str, answer: str) -> str:
     """Queues the adaptation named in a slow mind's answer.
 
@@ -969,6 +1108,454 @@ class Planet:
         )
     self.pending_adaptations = still_pending
     return events
+
+  def war_topic(self, polity: str) -> str:
+    """Where a people hears of its own wars at once (`civ.<key>.war`)."""
+    return f'civ.{polity}.war'
+
+  def march(
+      self, polity: str, actor: str, intent: str, origin: int | None = None
+  ) -> tuple[str, str]:
+    """A people marches a town's garrison on another people's town.
+
+    The town nearest where the move was aimed (by a person on the map), or
+    nearest the people's capital (a model's move).
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+      intent: 'take' or 'raze'.
+      origin: The town of its own that marches (its capital if None).
+
+    Returns:
+      Where the army goes and when it arrives, or why not; and the people
+      whose town it marches on ('' if none).
+    """
+    target = self.targets.pop(actor, None)
+    towns, civ = self.settlements, self.civ
+    assert towns is not None and civ is not None
+    name = civ.polities[polity].name
+    found = towns.nearest_town(polity, target)
+    if found is None:
+      return f'{name} march nowhere: there is no town of another people.', ''
+    town, holder = found
+    army, why = towns.march(polity, town.id, intent, self.tick, origin)
+    if army is None:
+      return f'{name} march nowhere: {why}.', ''
+    kinds = ' and '.join(
+        f'{n:.1f} {towns.arms[k]["label"]}'
+        for k, n in sorted(army.units.items())
+    )
+    held_by = civ.polities[holder].name
+    broke = ''
+    if self.treaties is not None and self.treaties.break_pact(
+        polity, holder, self.tick
+    ):  # Its word is broken for all to see.
+      broke = (
+          f' So they break their peace pact with the {held_by}: trade between'
+          f' them stops for {self.treaties.embargo_ticks} generations.'
+      )
+    defend, odds = towns.odds(army)
+    return (
+        news_lib.located(
+            f'{name} march {kinds} on a town of the {held_by}'
+            f' {towns.where(town)}, to {intent} it; they arrive in turn'
+            f' {army.arrives}. The town stands {defend:.1f} strong with its'
+            f' people and walls (odds about {odds:.0%}).{broke}',
+            (town.row, town.col),
+        ),
+        holder,
+    )
+
+  def send_envoys(
+      self, polity: str, actor: str
+  ) -> tuple[str, dict[str, str], str]:
+    """A people sends a cart of grain and envoys to another people's town.
+
+    To the town nearest where the move was aimed (by a person on the map),
+    or the town nearest to joining it (a model's move). The townsfolk eat
+    the grain; the town's regard for the giver grows (twice as much while
+    its holder's people go hungry), and it joins the giver when its regard
+    reaches what it needs (`Settlements.need`).
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+
+    Returns:
+      What happened, or why not; the words each side hears at once (by
+      people); and the news for every people if the town joined ('' if
+      not).
+    """
+    target = self.targets.pop(actor, None)
+    towns, civ = self.settlements, self.civ
+    assert towns is not None and civ is not None
+    name = civ.polities[polity].name
+    cost = float(towns.war.get('gift_grain', 3.0))
+    if civ.stock(polity, 'grain') < cost:
+      return (
+          (
+              f'{name} send no envoys: a cart takes {cost:g} grain, which they'
+              ' lack.'
+          ),
+          {},
+          '',
+      )
+    found = towns.best_court(polity, target)
+    if found is None:
+      return f'{name} send no envoys: there is no town to court.', {}, ''
+    town, holder = found
+    held_by, where = civ.polities[holder].name, towns.where(town)
+    if town.capital:
+      return (
+          (
+              f'{name} send no envoys: the town {where} is the capital of the'
+              f' {held_by}, which holds to its own people.'
+          ),
+          {},
+          '',
+      )
+    if town.heard.get(polity) == self.tick:  # Once a turn, whatever it sends.
+      return (
+          (
+              f'{name} send no more envoys to the town {where}: it heard theirs'
+              ' this turn already.'
+          ),
+          {},
+          '',
+      )
+    last, town.heard[polity] = town.heard.get(polity), self.tick
+    civ.ledger.withdraw(polity, 'grain', cost, 'envoys')
+    hungry = civ.polities[holder].food_ratio < 1.0 - 1e-9
+    gain = float(towns.war.get('gift_regard', 0.15)) * (2.0 if hungry else 1.0)
+    regard = towns.court(town.id, polity, gain)
+    need = towns.need(town)
+    why = f' (twice as warm: the {held_by} go hungry)' if hungry else ''
+    # Turns skipped since their last envoys: the town cooled meanwhile.
+    gap = self.tick - last if last is not None else 0
+    cooled = (
+        f' It had cooled since their envoys {gap} turns ago: each cart'
+        f' raises its regard by {gain:g}, and it fades by'
+        f' {float(towns.war.get("regard_fade", 0.02)):g} each turn none'
+        ' comes.'
+        if gap > 1
+        else ''
+    )
+    if regard < need - 1e-9:
+      to_go = towns.to_go(town, polity)
+      return (
+          news_lib.located(
+              f'{name} send {cost:g} grain and envoys to a town of the'
+              f' {held_by} {where}: its regard for them is {regard:.2f} of'
+              f' the {need:.2f} it needs ({to_go:.0%} to go){why}.{cooled}',
+              (town.row, town.col),
+          ),
+          {
+              holder: (
+                  f'The {name} sent grain and envoys to our town {where}: its'
+                  f' regard for them is {regard:.2f} of the {need:.2f} it'
+                  f' needs to leave us ({to_go:.0%} to go).'
+              )
+          },
+          '',
+      )
+    units = dict(town.garrison)
+    joined = self.change_hands(
+        town.id,
+        polity,
+        stay=1.0,
+        loyalty=float(towns.war.get('win_loyalty', 0.6)),
+        how='win',
+    )
+    towns.come_home(holder, units)
+    home = (
+        ' Its garrison of '
+        + ' and '.join(
+            f'{n:.1f} {towns.arms[k]["label"]}'
+            for k, n in sorted(units.items())
+        )
+        + ' walked home.'
+        if units
+        else ''
+    )
+    return (
+        news_lib.located(
+            f'{name} send {cost:g} grain and envoys to a town of the'
+            f' {held_by} {where}: its regard for them reaches {regard:.2f}'
+            f'{why}, and it joins them.',
+            (town.row, town.col),
+        ),
+        {
+            holder: (
+                f'Our town {where} was won over by the grain and envoys of'
+                f' the {name} and left us.{home}'
+            ),
+            polity: (
+                f'A town of the {held_by} {where} was won over by our grain'
+                ' and envoys and joined us.'
+            ),
+        },
+        joined.text,
+    )
+
+  def feast(
+      self, polity: str, actor: str, town: int | None = None
+  ) -> tuple[str, dict[str, str]]:
+    """A people feasts one of its own towns with a cart of grain.
+
+    The town given (its own order), else the town nearest where the move was
+    aimed, or the people's least settled town (`Settlements.unsettled`). Its
+    loyalty rises, and every other people's regard there falls by as much.
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+      town: The town that feasts, by its own order.
+
+    Returns:
+      What happened, or why not; and the words each people that courted the
+      town hears at once.
+    """
+    target = self.targets.pop(actor, None)
+    towns, civ = self.settlements, self.civ
+    assert towns is not None and civ is not None
+    name = civ.polities[polity].name
+    cost = float(towns.war.get('gift_grain', 3.0))
+    if civ.stock(polity, 'grain') < cost:
+      return (
+          f'{name} hold no feast: it takes {cost:g} grain, which they lack.',
+          {},
+      )
+    found = towns.find(town) if town is not None else None
+    if found is not None and found[1] == polity:
+      place = found[0]
+    else:
+      place = towns.unsettled(polity, target)
+    if place is None:
+      return f'{name} hold no feast: no town of theirs needs one.', {}
+    civ.ledger.withdraw(polity, 'grain', cost, 'a feast')
+    courted = dict(place.regard)
+    lift = float(towns.war.get('feast_loyalty', 0.15))
+    towns.feast(place.id, lift)
+    where = towns.where(place)
+    # What the feast undid, and what it cost them: grain each time.
+    told = {
+        other: (
+            f'The {name} feasted their town {where}: its regard for us falls'
+            f' to {place.regard.get(other, 0.0):.2f} (a feast undoes'
+            f" {lift:.2f}, a cart's worth, and costs them {cost:g} grain)."
+        )
+        for other in courted
+    }
+    return (
+        news_lib.located(
+            f'{name} feast their town {where} with {cost:g} grain: it holds'
+            f' to them at {place.loyalty:.2f}'
+            + (", and others' regard there falls." if courted else '.'),
+            (place.row, place.col),
+        ),
+        told,
+    )
+
+  def _wars(self) -> list[WorldEvent]:
+    """Armies march; those arriving fight; won towns settle or rise.
+
+    Where conquest is played (`data/arms.yaml`, `war`). Every outcome is news
+    for every people, where it happened.
+
+    Returns:
+      The news.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.war:
+      return []
+    events = []
+
+    def told(text: str, **own: str) -> None:
+      """News for every people; and, at once, each side's own words."""
+      events.append(WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text)))
+      for key, words in own.items():
+        events.append(WorldEvent(self.war_topic(key), words))
+
+    for army in towns.march_on(self.tick):
+      draw = float(
+          np.random.default_rng([self.tiles.seed, army.id, self.tick]).random()
+      )
+      met = towns.odds(army)[0]  # The defence it meets, before the fight.
+      attack = towns.army_strength(army)
+      result = towns.fight(army, draw)
+      name = civ.polities[army.polity].name
+      kept = (
+          ' and '.join(
+              f'{n:.1f} {towns.arms[k]["label"]}'
+              for k, n in sorted(result['survivors'].items())
+          )
+          or 'no one'
+      )
+      if result['outcome'] == 'gone':
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            f'The army of the {name} finds no town to fight for and turns'
+            ' home.',
+            **{
+                army.polity: (
+                    f'Our army found no town to fight for; {kept} came home.'
+                )
+            },
+        )
+        continue
+      town, holder = result['town'], result['holder']
+      held_by = civ.polities[holder].name
+      where = towns.where(town)
+      if result['outcome'] == 'repelled':
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            news_lib.located(
+                f'The army of the {name} is thrown back from a town of the'
+                f' {held_by} {where}.',
+                (town.row, town.col),
+            ),
+            **{
+                army.polity: (
+                    f'Our army ({attack:.1f} strong) was thrown back from a'
+                    f' town of the {held_by} {where} ({met:.1f} strong);'
+                    f' {kept} came home.'
+                ),
+                holder: f'Our town {where} threw back the army of the {name}.',
+            },
+        )
+      elif army.intent == 'raze':
+        if self.treaties is not None:
+          self.treaties.aggrieve(holder, army.polity, f'razed a town {where}')
+        _, share = towns.raze(town.id)
+        civ.polities[holder].population *= 1.0 - share
+        civ.start_population[holder] *= 1.0 - share  # Not a famine either.
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            news_lib.located(
+                f'The {name} raze a town of the {held_by} {where}; its people'
+                ' are scattered.'
+                + self._gone(holder),
+                (town.row, town.col),
+            ),
+            **{
+                army.polity: (
+                    f'Our army razed a town of the {held_by} {where}; {kept}'
+                    ' came home.'
+                ),
+                holder: (
+                    f'The {name} razed our town {where}; its people are gone.'
+                ),
+            },
+        )
+      else:
+        if self.treaties is not None:
+          self.treaties.aggrieve(holder, army.polity, f'took a town {where}')
+        events.append(
+            self.change_hands(
+                town.id,
+                army.polity,
+                stay=0.8,
+                loyalty=float(towns.war.get('taken_loyalty', 0.35)),
+                how='take',
+            )
+        )
+        town.garrison = dict(result['survivors'])  # It holds what it took.
+        events.append(
+            WorldEvent(
+                self.war_topic(army.polity),
+                f'Our army took a town of the {held_by} {where}; {kept} hold'
+                ' it. It is restless: it holds to us while our arms stay.',
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(holder), f'The {name} took our town {where}.'
+            )
+        )
+    towns.fade_regard()
+    leader = towns.lead()
+    if leader is not None and leader[0] != towns.leader:
+      held, total = leader[1], leader[2]
+      told(
+          f'The {civ.polities[leader[0]].name} now hold {held} of the {total}'
+          ' towns: more than any people has held, and the others take note.'
+      )
+    towns.leader = leader[0] if leader is not None else ''
+    for town, holder, kind in towns.unrest():
+      held_by = civ.polities[holder].name
+      if kind == 'warn':
+        need = float(towns.war.get('hold_need', 2.0))
+        told(
+            news_lib.located(
+                f'A town {towns.where(town)} held by the {held_by} is restless:'
+                ' it will rise unless held by arms.',
+                (town.row, town.col),
+            ),
+            **{
+                holder: (
+                    f'Our town {towns.where(town)} is restless: it rises next'
+                    f' turn unless arms of strength {need:g} hold it.'
+                )
+            },
+        )
+      else:
+        events.append(
+            self.change_hands(
+                town.id, town.polity, stay=1.0, loyalty=0.6, how='rise'
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(holder),
+                f'Our town {towns.where(town)} rose against us and returned'
+                f' to the {civ.polities[town.polity].name}.',
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(town.polity),
+                f'Our old town {towns.where(town)} rose against the'
+                f' {held_by} and is ours again.',
+            )
+        )
+    return events
+
+  def _muster(self) -> list[str]:
+    """New arms join their people's capital; every unit eats grain.
+
+    Where conquest is played (`data/arms.yaml`). A people that cannot feed
+    its arms sees half of the unfed share desert, and every people hears it.
+
+    Returns:
+      The news.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.arms:
+      return []
+    news = []
+    for key, people in civ.polities.items():
+      for kind in towns.arms:
+        made = civ.stock(key, kind)
+        if made > 1e-9:
+          civ.ledger.withdraw(key, kind, made, 'mustered')
+          towns.muster(key, kind, made)
+      need = towns.upkeep(key)
+      if need <= 1e-9:
+        continue
+      eaten = min(need, civ.stock(key, 'grain'))
+      if eaten > 1e-9:
+        civ.ledger.withdraw(key, 'grain', eaten, 'arms')
+      if eaten < need - 1e-9:
+        lost = towns.desert(key, 0.5 * (1.0 - eaten / need))
+        gone = ', '.join(
+            f'{n:.1f} {towns.arms[k]["label"]}'
+            for k, n in sorted(lost.items())
+            if n >= 0.05
+        )
+        if gone:
+          news.append(f'{people.name} cannot feed their arms: {gone} desert.')
+    return news
 
   def _step_civ(self) -> list[str]:
     """Runs the polities' work, food and population for one tick."""
@@ -1767,6 +2354,31 @@ class Planet:
       return 0.0
     return max(0.0, self.out_of_band - float(recovery))
 
+  def _conquest(self) -> bool:
+    """Ends the game if one people holds `conquest_share` of all towns.
+
+    The age's shared goal is cut short (the world's verdict is a defeat)
+    and the conqueror is named (`winner`): its player wins, the others lose.
+
+    Returns:
+      Whether the map was conquered.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.war:
+      return False
+    lead = towns.lead()
+    share = float(towns.war.get('conquest_share', 0.75))
+    if lead is None or lead[1] < share * lead[2]:
+      return False
+    key, held, total = lead
+    self.winner = key
+    self.outcome = DEFEAT
+    self.outcome_reason = (
+        f'the {civ.polities[key].name} conquered the map ({held} of the'
+        f' {total} towns)'
+    )
+    return True
+
   def _band_defeat(self) -> str:
     """Why a planet strained out of its band is lost."""
     low, high = self.band()
@@ -1785,6 +2397,8 @@ class Planet:
 
   def _judge(self) -> None:
     if self.outcome is not None:
+      return
+    if self._conquest():
       return
     goal = self.goal()
     if goal['kind'] == 'iron_age' and self.civ is not None:
@@ -2694,6 +3308,7 @@ class Planet:
         'instrument_tier': self.instrument_tier,
         'outcome': self.outcome,
         'outcome_reason': self.outcome_reason,
+        **({'winner': self.winner} if self.winner else {}),
         'recent_temps': list(self._recent_temps),
         'ready_at': dict(self._ready_at),
         'made': [[t, k] for t, k in self.made],
@@ -2758,6 +3373,7 @@ class Planet:
     self.instrument_tier = state.get('instrument_tier', self.instrument_tier)
     self.outcome = state['outcome']
     self.outcome_reason = str(state['outcome_reason'])
+    self.winner = str(state.get('winner', ''))
     self._recent_temps = [float(t) for t in state['recent_temps']]
     self._ready_at = {k: int(v) for k, v in state['ready_at'].items()}
     self.made = [(int(t), str(k)) for t, k in state.get('made', ())]

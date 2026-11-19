@@ -127,9 +127,13 @@ export function whatsNewHtml(changes, build, titles) {
   const stamp = build && build.commit
     ? `<p class="small muted">Build ${escapeHtml(build.commit)} · ${escapeHtml(build.when)}</p>` : '';
   if (!shown.length) return stamp;
-  const key = (shown.find((c) => c.world && titles && titles[c.world]) || {}).world;
+  const pick = shown.find((c) => c.world && titles && titles[c.world]) || {};
+  const key = pick.world;
+  // A change about a role (a people) is played as that role.
+  const as = pick.role ? ` as the ${pick.role}` : '';
   return '<h2>What\'s new</h2>' + shown.map((c) =>
     `<p class="small"><b>${escapeHtml(c.when)}.</b> ${escapeHtml(c.text)}</p>`).join('')
-    + (key ? `<button class="primary" data-world="${escapeHtml(key)}">Play ${escapeHtml(titles[key])}</button>` : '')
+    + (key ? `<button class="primary" data-world="${escapeHtml(key)}"${pick.role ? ` data-role="${escapeHtml(pick.role)}"` : ''}>`
+      + `Play ${escapeHtml(titles[key])}${escapeHtml(as)}</button>` : '')
     + stamp;
 }

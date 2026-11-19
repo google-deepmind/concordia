@@ -55,6 +55,10 @@ class Proposal:
   kind: str = 'coal'  # What the treaty caps: 'coal' burned or 'fish' caught.
 
 
+# How many wrongs a people remembers against each other people.
+GRIEVANCES_KEPT = 4
+
+
 def treaty_key(a: str, b: str, kind: str = 'coal') -> str:
   """Key of a treaty: the pair, prefixed with its kind unless coal."""
   pair = '+'.join(sorted((a, b)))
@@ -120,6 +124,9 @@ class Treaties:
     self.embargoes: dict[str, int] = {}  # Pair key -> last tick of embargo.
     self.breaches: dict[str, int] = {}  # Polity -> treaties broken.
     self.signed = 0
+    # Wrongs remembered, where conquest is played: wronged people ->
+    # wrongdoer -> what it did (a town taken or razed, a pact broken).
+    self.grievances: dict[str, dict[str, list[str]]] = {}
 
   def terms(self, kind: str) -> str:
     """What each signatory of a kind of treaty promises, e.g.
@@ -128,6 +135,48 @@ class Treaties:
     """
     spec = self.kinds[kind]
     return spec.terms.format(cap=f'{spec.cap:g}')
+
+  def at_peace(self, a: str, b: str) -> bool:
+    """Whether two peoples are bound by a peace pact (where conquest is)."""
+    return 'peace' in self.kinds and treaty_key(a, b, 'peace') in self.active
+
+  def break_pact(self, breaker: str, wronged: str, tick: int) -> bool:
+    """A march on a partner's town breaks their peace pact at once.
+
+    The pact ends, trade between them stops for the embargo's term, and the
+    wronged people holds it against the breaker.
+
+    Args:
+      breaker: Who marched.
+      wronged: On whose town.
+      tick: Now.
+
+    Returns:
+      Whether a pact was broken.
+    """
+    if not self.at_peace(breaker, wronged):
+      return False
+    del self.active[treaty_key(breaker, wronged, 'peace')]
+    self.breaches[breaker] = self.breaches.get(breaker, 0) + 1
+    self.embargoes[treaty_key(breaker, wronged)] = tick + self.embargo_ticks
+    self.aggrieve(wronged, breaker, f'broke their {self.kinds["peace"].name}')
+    return True
+
+  def aggrieve(self, wronged: str, wrongdoer: str, wrong: str) -> None:
+    """Remembers a wrong (the last few of each people against each)."""
+    held = self.grievances.setdefault(wronged, {}).setdefault(wrongdoer, [])
+    held.append(wrong)
+    del held[:-GRIEVANCES_KEPT]
+
+  def describe_grievances(self, polity: str, names: Mapping[str, str]) -> str:
+    """What a people holds against whom, for its own sheet ('' if nothing)."""
+    held = self.grievances.get(polity, {})
+    parts = [
+        f'against the {names[other]} ({", ".join(wrongs)})'
+        for other, wrongs in sorted(held.items())
+        if wrongs and other in names
+    ]
+    return f'We hold grievances {"; ".join(parts)}.' if parts else ''
 
   def bound(self, polity: str, kind: str = 'coal') -> list[str]:
     """The peoples a polity is bound to by treaties of a kind."""
@@ -348,6 +397,16 @@ class Treaties:
         'breaches': dict(self.breaches),
         'signed': self.signed,
         'refused': dict(self.refused),
+        **(
+            {
+                'grievances': {
+                    k: {o: list(w) for o, w in v.items()}
+                    for k, v in self.grievances.items()
+                }
+            }
+            if self.grievances
+            else {}
+        ),
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -361,3 +420,7 @@ class Treaties:
     self.breaches = {k: int(v) for k, v in state.get('breaches', {}).items()}
     self.signed = int(state.get('signed', 0))
     self.refused = {k: int(v) for k, v in state.get('refused', {}).items()}
+    self.grievances = {
+        str(k): {str(o): [str(x) for x in w] for o, w in v.items()}
+        for k, v in state.get('grievances', {}).items()
+    }
