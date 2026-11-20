@@ -23,6 +23,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
+from concordia.typing import logging as logging_lib
 
 
 SELF_PERCEPTION_QUESTION = (
@@ -216,6 +217,12 @@ class QuestionOfRecentMemoriesWithoutPreAct(
 
   def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
     self._component.set_entity(entity)
+
+  def set_logging_channel(
+      self, logging_channel: logging_lib.LoggingChannel
+  ) -> None:
+    super().set_logging_channel(logging_channel)
+    self._component.set_logging_channel(logging_channel)
 
   def _make_pre_act_value(self) -> str:
     return ''
