@@ -85,7 +85,7 @@ class PuppetActComponent(
     if action_spec.output_type == entity_lib.OutputType.FREE:
       output = self.get_entity().name + " "
       output += prompt.open_question(
-          call_to_action,
+          cta_formatted,
           max_tokens=2200,
           answer_prefix=output,
           terminators=('" ', "\n"),
@@ -94,13 +94,13 @@ class PuppetActComponent(
       return output
     elif action_spec.output_type == entity_lib.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
-          question=call_to_action, answers=action_spec.options
+          question=cta_formatted, answers=action_spec.options
       )
       return action_spec.options[idx]
     elif action_spec.output_type == entity_lib.OutputType.FLOAT:
       prefix = self.get_entity().name + " "
       sampled_text = prompt.open_question(
-          call_to_action,
+          cta_formatted,
           max_tokens=2200,
           answer_prefix=prefix,
       )
