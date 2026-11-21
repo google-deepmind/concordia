@@ -140,19 +140,15 @@ class OllamaLanguageModel(language_model.LanguageModel):
         json_data_response = json.loads(response['response'])
       except json.JSONDecodeError:
         continue
-      sample_or_none = json_data_response.get('choice', None)
-      if sample_or_none is None:
-        if isinstance(json_data_response, dict) and json_data_response:
-          sample = next(iter(json_data_response.values()))
-        elif isinstance(json_data_response, str) and json_data_response:
-          # pyrefly: ignore [missing-attribute]
-          sample = sample_or_none.strip()
-        else:
-          continue
+      if isinstance(json_data_response, dict):
+        sample = json_data_response.get('choice')
+        if sample is None:
+          sample = next(iter(json_data_response.values()), None)
       else:
-        sample = sample_or_none
-        if isinstance(sample, str) and sample:
-          sample = sample.strip()
+        sample = json_data_response
+      if not isinstance(sample, str):
+        continue
+      sample = sample.strip()
 
       answer = sampling.extract_choice_response(sample)
       try:
