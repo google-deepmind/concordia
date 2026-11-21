@@ -49,6 +49,32 @@ class _AliceGainsMoneyModel(language_model.LanguageModel):
     return responses.index(yes_key), yes_key, {}
 
 
+class _BobLosesAllMoneyModel(language_model.LanguageModel):
+  """Scripted model: Alice gains 5 money; Bob, listed second, loses it all."""
+
+  def sample_text(self, prompt: str, **kwargs) -> str:
+    del kwargs
+    last_question = prompt[prompt.rfind('Question:') :]
+    if 'Which individuals' in last_question:
+      return 'Alice, Bob'
+    if 'How much' in last_question and 'Alice' in last_question:
+      return '5|Bob paid her.'
+    if 'How much' in last_question:
+      return 'all of it|Bob paid everything he had.'
+    return 'Bob paid Alice.'
+
+  def sample_choice(
+      self, prompt: str, responses: Sequence[str], **kwargs
+  ) -> tuple[int, str, dict[str, float]]:
+    del kwargs
+    last_question = prompt[prompt.rfind('Question:') :]
+    answer = 'No' if 'increase?' in last_question else 'Yes'
+    option = re.search(rf'\((\w)\) {answer}', last_question)
+    assert option is not None
+    key = option.group(1)
+    return responses.index(key), key, {}
+
+
 class _RecordingMemory:
   """Records everything written to it through `add` and `extend`."""
 
@@ -231,6 +257,44 @@ class InventoryTest(absltest.TestCase):
         entries,
         ['However, Alice did not gain any money because Bob gave it back.'],
     )
+
+  def test_pre_act_resolve_unparseable_loss_for_later_listed_player(self):
+    with mock.patch.object(
+        inventory.helper_functions, 'is_count_noun', return_value=False
+    ):
+      component = inventory.Inventory(
+          model=_BobLosesAllMoneyModel(),
+          item_type_configs=[inventory.ItemTypeConfig(name='money')],
+          player_initial_endowments={
+              'Alice': {'money': 10.0},
+              'Bob': {'money': 5.0},
+          },
+          clock_now=datetime.datetime.now,
+      )
+
+    mock_observation = mock.MagicMock()
+    mock_observation.get_pre_act_value.return_value = 'Bob paid Alice.'
+
+    def get_component(name, type_=None):
+      del type_
+      if name == component._memory_component_name:
+        return _RecordingMemory()
+      if name == component._observations_component_name:
+        return mock_observation
+      return mock.MagicMock()
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.side_effect = get_component
+    component._entity = mock_entity
+
+    action_spec = entity_lib.ActionSpec(
+        call_to_action='test', output_type=entity_lib.OutputType.RESOLVE
+    )
+    component.pre_act(action_spec)
+    # Bob follows ", " in the list of players; his amount is unparseable and
+    # did not increase, so he loses everything he had.
+    self.assertEqual(component.get_player_inventory('Alice')['money'], 15.0)
+    self.assertEqual(component.get_player_inventory('Bob')['money'], 0.0)
 
 
 class ScoreTest(absltest.TestCase):

@@ -270,7 +270,7 @@ class Inventory(
                     if increased:
                       amount = 1.0
                     else:
-                      amount = -new_inventories[player][item_type]
+                      amount = -new_inventories[formatted_player][item_type]
 
                   if self._item_types_dict[item_type].force_integer:
                     if not float(amount).is_integer():
