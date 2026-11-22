@@ -210,7 +210,7 @@ class GeminiModelVision(language_model.LanguageModel):
           b64_data = base64.b64encode(part.inline_data.data).decode('utf-8')
           mime = part.inline_data.mime_type
           output_parts.append(f'![image](data:{mime};base64,{b64_data})')
-    except (ValueError, IndexError, AttributeError) as e:
+    except (ValueError, IndexError, AttributeError, TypeError) as e:
       logging.error('An error occurred: %s', e)
       logging.debug('prompt: %s', prompt)
       logging.debug('response: %s', response)
