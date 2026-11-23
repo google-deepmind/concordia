@@ -31,12 +31,20 @@ from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
+from concordia.typing import scene as scene_lib
 from concordia.typing import simulation as simulation_lib
 from concordia.utils import structured_logging
 import numpy as np
 
 Config = prefab_lib.Config
 Role = prefab_lib.Role
+
+
+def _checkpoint_json_default(value: Any) -> Any:
+  """Writes the scene specs that scene components log as strings."""
+  if isinstance(value, (scene_lib.SceneSpec, scene_lib.SceneTypeSpec)):
+    return str(value)
+  return json.JSONEncoder().default(value)
 
 
 class Simulation(simulation_lib.Simulation):
@@ -602,7 +610,9 @@ class Simulation(simulation_lib.Simulation):
     )
     try:
       with open(checkpoint_file, "w") as f:
-        json.dump(checkpoint_data, f, indent=2)
+        json.dump(
+            checkpoint_data, f, indent=2, default=_checkpoint_json_default
+        )
       logging.info("Step %s: Saved checkpoint to %s", step, checkpoint_file)
     except IOError as e:
       logging.error("Error saving checkpoint at step %s: %s", step, e)

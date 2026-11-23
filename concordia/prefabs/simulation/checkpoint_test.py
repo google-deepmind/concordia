@@ -27,10 +27,12 @@ from concordia.agents import entity_agent_with_logging
 from concordia.components.agent import memory as memory_lib
 from concordia.language_model import no_language_model
 from concordia.prefabs.entity import minimal as minimal_entity
+from concordia.prefabs.game_master import dialogic_and_dramaturgic as dialogic_and_dramaturgic_gm
 from concordia.prefabs.game_master import generic as generic_gm
 from concordia.prefabs.simulation import generic as simulation_lib
 from concordia.prefabs.simulation import questionnaire_simulation
 from concordia.typing import prefab as prefab_lib
+from concordia.typing import scene as scene_lib
 from concordia.utils import async_measurements as async_measurements_lib
 from concordia.utils import measurements as measurements_lib
 import numpy as np
@@ -228,6 +230,54 @@ class CheckpointTest(parameterized.TestCase):
         )
       self.assertIn('test_channel', captured)
       self.assertEqual(captured['test_channel']['Value'], 'hello')
+
+  def _make_scene_simulation(self):
+    scene_type = scene_lib.SceneTypeSpec(
+        name='conversation', game_master_name='conversation_rules'
+    )
+    scenes = [
+        scene_lib.SceneSpec(
+            scene_type=scene_type,
+            participants=['Alice', 'Bob'],
+            num_rounds=2,
+            premise={'Alice': ['Alice meets Bob.'], 'Bob': ['Bob waves.']},
+        )
+    ]
+    config = _make_config()
+    gm_params = dict(dialogic_and_dramaturgic_gm.GameMaster().params)
+    gm_params['name'] = 'conversation_rules'
+    gm_params['scenes'] = scenes
+    config.prefabs['conversation_gm'] = dialogic_and_dramaturgic_gm.GameMaster()
+    config.instances[-1] = prefab_lib.InstanceConfig(
+        prefab='conversation_gm',
+        role=prefab_lib.Role.GAME_MASTER,
+        params=gm_params,
+    )
+    return simulation_lib.Simulation(
+        config=config,
+        model=no_language_model.NoLanguageModel(),
+        embedder=lambda _: np.ones(3),
+    )
+
+  def test_play_writes_valid_checkpoints_with_scenes(self):
+    sim = self._make_scene_simulation()
+    with tempfile.TemporaryDirectory() as tmpdir:
+      sim.play(max_steps=3, checkpoint_path=tmpdir)
+      paths = sorted(os.listdir(tmpdir))
+      self.assertIn('step_2_checkpoint.json', paths)
+      for path in paths:
+        with open(os.path.join(tmpdir, path)) as f:
+          json.load(f)
+
+  def test_checkpoints_still_reject_other_non_json_values(self):
+    sim = self._make_scene_simulation()
+    with tempfile.TemporaryDirectory() as tmpdir:
+      with self.assertRaises(TypeError):
+        sim.play(
+            max_steps=3,
+            raw_log=[{'non_json': object()}],
+            checkpoint_path=tmpdir,
+        )
 
 
 class CheckpointOwnershipTest(parameterized.TestCase):
