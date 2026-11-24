@@ -68,7 +68,9 @@ class AssociativeMemoryBank:
     """Sets the AssociativeMemory from a dictionary."""
 
     with self._memory_bank_lock:
-      self._memory_bank = pd.read_json(StringIO(state['memory_bank']))  # pyrefly: ignore[bad-argument-type]
+      self._memory_bank = pd.read_json(
+          StringIO(state['memory_bank']), dtype={'text': str}  # pyrefly: ignore[bad-argument-type]
+      )
       # String hashes vary between Python processes. Rebuild duplicate keys
       # from the restored text rather than reusing the writer's hashes.
       self._stored_hashes = {
