@@ -57,8 +57,10 @@ class ScriptedActComponent(
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
-      prefix_entity_name: Whether to prefix the entity name to the output of
-        `get_action_attempt` when the `action_spec` output type is `FREE`.
+      prefix_entity_name: Whether to prefix the entity name to each scripted
+        action returned by `get_action_attempt`, regardless of the action
+        spec's output type. Set to `False` when the script must exactly match
+        a constrained output, such as a choice or a number.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
