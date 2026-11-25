@@ -57,8 +57,10 @@ class ScriptedActComponent(
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
-      prefix_entity_name: Whether to prefix the entity name to the output of
-        `get_action_attempt` when the `action_spec` output type is `FREE`.
+      prefix_entity_name: Whether to prefix the entity name to each scripted
+        action returned by `get_action_attempt`, regardless of the action
+        spec's output type. Set to `False` when the script must exactly match
+        a constrained output, such as a choice or a number.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -115,10 +117,7 @@ class ScriptedActComponent(
         name=self.get_entity().name
     )
     output = ''
-    if (
-        self._prefix_entity_name
-        and action_spec.output_type in entity_lib.FREE_ACTION_TYPES
-    ):
+    if self._prefix_entity_name:
       output = self.get_entity().name + ' '
     if self._line_index < len(self._lines):
       training_target = self._lines[self._line_index]
