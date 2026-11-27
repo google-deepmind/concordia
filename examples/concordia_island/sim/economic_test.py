@@ -277,6 +277,8 @@ class EconomicProfileTest(absltest.TestCase):
   def test_build_economic_profiles_requires_region(self):
     configs = [_MockAgentConfig(name="Eve", home_place="palm_heights_3")]
     with self.assertRaises(TypeError):
+      # Intentionally omit the required keyword-only argument.
+      # pylint: disable-next=missing-kwoa
       getattr(economic_profile, "build_economic_profiles")(configs)
 
   def test_unknown_region_raises(self):

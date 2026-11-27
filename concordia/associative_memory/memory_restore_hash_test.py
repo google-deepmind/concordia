@@ -76,6 +76,18 @@ def run_worker(seed, request):
 
 class MemoryRestoreHashTest(parameterized.TestCase):
 
+  @parameterized.named_parameters(
+      ('leading_zeros', ['00123', '00456']),
+      ('decimal_strings', ['1.50', '2.75']),
+      ('scientific_notation', ['1e2', '2e2']),
+  )
+  def test_cross_process_restore_preserves_numeric_text(self, texts):
+    saved = run_worker(11, {'texts': texts})
+    restored = run_worker(22, {'state': saved['state'], 'texts': texts})
+
+    self.assertEqual(restored['texts'], texts)
+    self.assertEmpty(restored['calls'])
+
   @parameterized.parameters((11, 22), (22, 11), (0, 33))
   def test_cross_process_restore_rejects_existing_text_without_reembedding(
       self, writer, reader
