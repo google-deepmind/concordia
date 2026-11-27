@@ -61,3 +61,14 @@ test('every widget draws every payload real games publish', () => {
   }
   assert.ok(drawn >= 8, `only ${drawn} payloads drawn`);
 });
+
+test('a peace pact shows as a dove, with no cap', () => {
+  const html = INSTRUMENTS['civ.treaties']({
+    treaties: [{kind: 'peace', parties: ['Amber folk', 'Basalt clans'], ticks_left: 9},
+               {kind: 'coal', parties: ['Amber folk', 'Cedar league'], ticks_left: 3}],
+    caps: {coal: 4, peace: 0},
+  }, null).html;
+  assert.match(html, /🕊️ Amber folk &amp; Basalt clans/);
+  assert.match(html, /🤝 Amber folk &amp; Cedar league/);
+  assert.doesNotMatch(html, /peace cap/);
+});

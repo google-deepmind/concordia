@@ -147,7 +147,7 @@
   .crisis.urgent .due { background: var(--bad); color: #fff; }
   .crisis .answers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .crisis .answers button { min-height: 40px; padding: 0 12px; border-radius: 20px; font-size: .85rem; }
-  .options button.flash { outline: 3px solid #d98a2b; outline-offset: 2px; }
+  .options button.flash, #townorders.flash { outline: 3px solid #d98a2b; outline-offset: 2px; }
   button.rewind { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 0 12px; border-radius: 12px; }
   button.rewind.armed { border-color: var(--bad); color: var(--bad); }
   button.rewind small { color: var(--muted); }
@@ -336,7 +336,7 @@
                      background: var(--line); color: var(--ink); height: fit-content; }
   .moves .moverow.new .turnchip { background: var(--accent); color: var(--accent-ink); }
   .moves b { font-size: .92rem; }
-  .moves .what { font-size: .8rem; color: var(--muted); margin: 2px 0 0; }
+  .moves .what { font-size: .8rem; color: var(--muted); margin: 2px 0 0; white-space: pre-line; }
   .moves .steps { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
   .moves .steps span { font-size: .78rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); }
   .moves .steps span.done { background: rgba(60, 160, 110, .16); border-color: transparent; color: var(--good); }
@@ -345,10 +345,20 @@
             border: 1px solid var(--accent); border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px #0004; }
   .aimbar .row { display: flex; gap: 8px; margin-top: 8px; }
   .aimbar button { flex: 1; }
+  .aimbar .aimtowns { display: flex; gap: 6px; margin-top: 6px; overflow-x: auto; scrollbar-width: none; }
+  .aimbar .aimtowns:empty { display: none; }
+  .aimbar .aimtowns button { flex: 0 0 auto; min-height: 34px; padding: 4px 10px; font-size: .82rem; white-space: nowrap; }
   .pin { font-size: .9em; }
   .inspect { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font-size: .84rem; }
   .inspect .ihead { display: flex; justify-content: space-between; align-items: center; }
   .inspect button { border: 0; background: none; color: var(--muted); font-size: 1.3rem; padding: 0 4px; }
+  .wordsrow { display: flex; gap: 6px; margin: 6px 0; }
+  .wordsrow select { flex: none; width: 36%; margin: 0; }
+  .wordsrow input { flex: 1; min-width: 0; width: auto; margin: 0; }
+  .options .wordsrow button { width: auto; min-height: 0; margin: 0; }
+  #townhint .townbtn { display: inline-block; width: auto; min-height: 36px; padding: 4px 10px; margin: 4px 4px 0 0; font-size: .85rem; }
+  #townorders button { display: inline; width: auto; min-height: 0; border: 0; background: none; color: var(--muted); padding: 0 6px; margin: 0; }
+  .inspect button.tord { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: .84rem; padding: 4px 10px; margin: 2px 4px 2px 0; }
   .inspect dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 0; }
   .inspect dt { color: var(--muted); }
   .inspect dd { margin: 0; }
@@ -455,6 +465,7 @@
     </div>
     <div class="aimbar" id="aimbar" hidden>
       <span id="aimtext"></span>
+      <div class="aimtowns" id="aimtowns"></div>
       <div class="row"><button class="primary" id="aimgo">Here</button><button id="aimany">Anywhere</button><button id="aimno">Cancel</button></div>
     </div>
     <div class="stats" id="stats"></div>
@@ -486,6 +497,9 @@
       <p class="moveclock" id="moveclock" hidden></p>
       <p class="err" id="moveerr" hidden></p>
       <p class="planok" id="planok" hidden></p>
+      <p class="planok" id="townhint" hidden></p>
+      <p class="planok" id="townorders" hidden></p>
+      <div class="wordsrow" id="wordsrow" hidden><select id="wordsto" aria-label="To which people"></select><input id="wordstext" maxlength="240" placeholder="Your words to them"><button id="wordsadd">Add</button></div>
       <div class="plans" id="sheetplans"></div>
       <div class="when" id="when"></div>
       <div id="choices"></div>
@@ -629,8 +643,10 @@ function showPremise() {
   }
   $('premise').textContent = s ? s.premise : '';
   if (mindsOffered) loadMinds(false);  // The minds as measured in this world.
+  const picked = $('rolepick').value;  // A second tap on the world keeps the role picked.
   $('rolepick').innerHTML = (s ? s.roles : []).map((r) =>
     `<option value="${escapeHtml(r.name)}">Play ${escapeHtml(r.label)}</option>`).join('');
+  if (s && s.roles.some((r) => r.name === picked)) $('rolepick').value = picked;
   showFriends();
 }
 
@@ -696,6 +712,10 @@ async function loadCampaign() {
       $('scenario').value = b.dataset.world;
       chosenSeed = 0;
       showPremise();
+      if ([...$('rolepick').options].some((o) => o.value === b.dataset.role)) {
+        $('rolepick').value = b.dataset.role;  // The role the change is about.
+        showFriends();
+      }
       $('play').scrollIntoView({behavior: 'smooth', block: 'center'});
       const card = $('cards').querySelector(`button[data-scenario="${b.dataset.world}"]`);
       if (card) card.scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'});
@@ -775,7 +795,10 @@ function setText(id, text, cardId) {
 
 async function answer(requestId, response, target) {
   for (const x of $('choices').querySelectorAll('button, textarea')) x.disabled = true;
-  const body = {request_id: requestId, response: response};
+  // Its towns' orders go with the move, a line each.
+  const lines = townOrders.map((o) => (o.to ? `\nwords to the ${o.to}: ${o.text}`
+    : `\ntown ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`));
+  const body = {request_id: requestId, response: response + lines.join('')};
   if (target) body.target = [target.r, target.c];
   $('dockmain').textContent = `Sending: ${shortMove(response)}…`;
   const result = await api('api/choose', body);
@@ -789,7 +812,8 @@ async function answer(requestId, response, target) {
   sentNow = {move: response, how: 'chose', tick: dockTick};
   setSheet(false);
   $('dock').className = 'dock turning sent';
-  $('dockmain').textContent = `✓ Sent: ${shortMove(response)}`;
+  $('dockmain').textContent = `✓ Sent: ${shortMove(response)}${lines.length ? ` + ${lines.length} town order${lines.length === 1 ? '' : 's'}` : ''}`;
+  townOrders = townOrders.filter((o) => o.at && STANDING.test(o.move)); showTownOrders();
   $('docksub').textContent = 'The world turns';
   $('dockbtns').innerHTML = ''; $('dockbtns').dataset.html = '';
   refresh();
@@ -808,6 +832,7 @@ function startAim(requestId, option) {
   $('aimtext').textContent = `Tap the map where to ${moveWords(option)}.`;
   $('aimgo').disabled = true;
   $('aimbar').hidden = false;
+  showAimTowns();
   setSheet(false);
   $('dock').hidden = true;
   $('mapcard').scrollIntoView({behavior: 'smooth', block: 'center'});
@@ -826,6 +851,207 @@ function aimAt(r, c) {
   $('aimtext').textContent = `${words[0].toUpperCase()}${words.slice(1)} around ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}?`;
   $('aimgo').disabled = false;
   redrawMap();
+}
+
+// Orders from towns: a tap on one of your towns lists what it may do this
+// turn; a second tap aims it. They go with your move, a line each.
+let townOrders = [];  // {at: [r, c], move, target}
+// A town's envoys and feasts stand from turn to turn (a courtship takes
+// carts turn after turn) until cancelled, the town can no longer give them,
+// or the courted town has joined; a march or a founding is given once.
+const STANDING = /^(send grain and envoys|hold a feast)/;
+function standingOrders(q) {
+  const sites = (lastMap && lastMap.peoples && lastMap.peoples.settlements) || [];
+  const at = (r, c) => sites.find((s) => s[2] === r && s[3] === c);
+  return townOrders.flatMap((o) => {
+    if (!o.at || !STANDING.test(o.move)) return [];
+    const town = Object.values((q && q.towns) || {}).find((t) => t.at[0] === o.at[0] && t.at[1] === o.at[1]);
+    const move = town && town.orders.find((m) => m.split(' ').slice(0, 3).join(' ') === o.move.split(' ').slice(0, 3).join(' '));
+    const ours = at(...o.at), there = o.target && at(o.target.r, o.target.c);
+    if (!move || (ours && there && there[0] === ours[0])) return [];  // Joined us.
+    return [{...o, move}];
+  });
+}
+function townOrder(id, i) {
+  const q = lastQuestion, t = q && q.towns && q.towns[id];
+  if (!t) return;
+  const move = t.orders[i];
+  if (move.startsWith('hold a feast')) { queueTownOrder(t.at, move, null); return; }
+  startAim(q.request_id, move);
+  aim.town = t.at;
+  $('aimtext').textContent = `Tap the map where this town should ${moveWords(move)}.`;
+  showAimTowns();
+}
+// Aiming at a town: the other peoples' towns nearest where the move goes
+// from (the ordering town, else the capital), as buttons; a tap aims there,
+// as a tap on the map does (a small town is hard to hit with a thumb).
+// The other peoples' towns a march or envoys may go to from a town (or,
+// for the people's own move, from its capital): nearest first; for envoys
+// the towns already courted first, nearest to joining first, without
+// capitals or a town another of your towns courts this turn.
+function aimSites(option, town) {
+  const m = lastMap, q = lastQuestion;
+  if (!m || !m.peoples || !/^(march to (take|raze)|send grain and envoys)/.test(option)) return null;
+  const sites = m.peoples.settlements, cols = m.tile_cols;
+  const any = q && q.towns && Object.values(q.towns)[0];
+  const at = town || (any && any.at);
+  const mine = at && sites.find((s) => s[2] === at[0] && s[3] === at[1]);
+  if (!mine) return null;
+  const from = town ? mine : (sites.find((s) => s[0] === mine[0] && s[4]) || mine);
+  const steps = (s) => {
+    const dc = Math.abs(s[3] - from[3]);
+    return Math.max(Math.abs(s[2] - from[2]), Math.min(dc, cols - dc));
+  };
+  const courting = option.startsWith('send grain');
+  const leaning = m.peoples.leaning || {};
+  const toGo = (s) => {
+    const lean = leaning[s[1]];
+    return courting && lean && lean[0] === mine[0] ? 1 - lean[1] / lean[2] : 2;
+  };
+  // A town hears a people's envoys once a turn.
+  const sent = (s) => courting && townOrders.some((o) => o.target && o.target.r === s[2] && o.target.c === s[3]
+    && o.move.startsWith('send grain') && !(town && o.at[0] === town[0] && o.at[1] === town[1]));
+  return {
+    m, mine, from, courting, leaning,
+    sites: sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]) && !sent(s))
+      .sort((a, b) => toGo(a) - toGo(b) || steps(a) - steps(b)),
+  };
+}
+// Envoys from every town that can send them, each to a different town (as
+// many town orders, queued as one by one).
+function envoysEverywhere() {
+  const q = lastQuestion;
+  for (const t of Object.values((q && q.towns) || {})) {
+    const move = t.orders.find((o) => o.startsWith('send grain'));
+    if (!move || townOrders.some((o) => o.at && o.at[0] === t.at[0] && o.at[1] === t.at[1])) continue;
+    const found = aimSites(move, t.at);
+    const site = found && found.sites[0];
+    if (site) townOrders.push({at: t.at, move, target: {r: site[2], c: site[3]}});
+  }
+  showQueued();
+}
+function showAimTowns() {
+  const box = $('aimtowns');
+  box.innerHTML = '';
+  const found = aim && aimSites(aim.option, aim.town);
+  if (!found) return;
+  const {m, mine, from, courting, leaning} = found;
+  box.innerHTML = found.sites.slice(0, 6).map((s) => {
+    const lat = 90 - (s[2] + 0.5) * 180 / m.tile_rows;
+    // What the choice turns on: the arms seen in it (a march), or how far
+    // it is from joining you (envoys).
+    const held = (m.peoples.garrisons || {})[s[1]], lean = leaning[s[1]];
+    // A march: the town's defence (arms and people, behind walls), and the
+    // odds against it of the arms in the town it goes from (as the fight
+    // reckons them: attack² against attack² + defence²).
+    const defence = (m.peoples.defence || {})[s[1]], ours = ((m.peoples.garrisons || {})[from[1]] || [0])[0];
+    const odds = defence != null && ours > 0 ? ` · odds ${Math.min(99, Math.round(100 * ours * ours / (ours * ours + defence * defence)))}%` : '';
+    const note = courting
+      ? (lean && lean[0] === mine[0] ? ` · ${Math.round(100 * Math.max(0, 1 - lean[1] / lean[2]))}% to go` : '')
+      : (defence != null ? ` · defence ${defence}${odds}` : ` · ${held ? `arms ${held[0]}` : 'no arms seen'}`);
+    return `<button data-at="${s[2]},${s[3]}">${escapeHtml(m.peoples.polities[s[0]].name)}${s[4] ? ' capital' : ''}`
+      + ` · ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${s[3] + 1}${note}</button>`;
+  }).join('');
+  // A town picked from the list is chosen outright for a town's order
+  // (queued, not yet sent); a move of the people's still asks "Here?".
+  for (const b of box.querySelectorAll('button')) {
+    b.addEventListener('click', () => {
+      aimAt(...b.dataset.at.split(',').map(Number));
+      if (aim && aim.town) $('aimgo').click();
+    });
+  }
+  if (box.innerHTML) $('aimtext').textContent += ' Or pick a town nearby:';
+}
+function queueTownOrder(at, move, target) {
+  townOrders = townOrders.filter((o) => !o.at || o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
+  townOrders.push({at, move, target});
+  showQueued();
+}
+function showQueued() {
+  showTownOrders(); showInspect(); redrawMap();
+  // Seen at once: the move opens on the orders queued, with the people's
+  // move (which sends them) below.
+  setSheet(true);
+  $('townorders').scrollIntoView({behavior: 'smooth', block: 'center'});
+  $('townorders').classList.add('flash');
+  setTimeout(() => $('townorders').classList.remove('flash'), 2500);
+}
+// The towns that may give an order: a hint, and each town as a button (a
+// town found without the map: a small screen, a screen reader). Drawn again
+// once the map has come, which says where each lies.
+let townHintMapped = false;
+function renderTownHint(q) {
+  const orderable = Object.keys(q.towns || {}).length;  // The owner missed them (c181).
+  townHintMapped = !!lastMap;
+  // Where conquest is played (the peoples speak), say so even before any
+  // town can give an order, and what it takes.
+  const war = (q.speak || []).length > 0;
+  $('townhint').hidden = !orderable && !war;
+  $('townhint').innerHTML = orderable
+    ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one, on the map or here, to march from it, send grain and envoys, feast it or found a town.`
+      + `<br>${townButtons(q.towns)}`
+      // Courting from several towns at once (a feast answers one a turn).
+      + (Object.values(q.towns).filter((t) => t.orders.some((o) => o.startsWith('send grain'))).length > 1
+        ? '<br><button class="townbtn" id="envoysall">✉ Envoys from every town, each to a different town</button>' : '')
+    : war ? 'Your towns can each give an order once you have the means: arms raised to march, grain to spare for envoys or a feast, or settlers and goods to found a town.' : '';
+  for (const b of $('townhint').querySelectorAll('button[data-at]')) {
+    b.addEventListener('click', () => showTown(...b.dataset.at.split(',').map(Number)));
+  }
+  if ($('envoysall')) $('envoysall').addEventListener('click', envoysEverywhere);
+}
+function townButtons(towns) {
+  const sites = (lastMap && lastMap.peoples && lastMap.peoples.settlements) || [];
+  return Object.values(towns).map(({at: [r, c]}) => {
+    const lat = 90 - (r + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
+    const site = sites.find((s) => s[2] === r && s[3] === c);
+    const where = `${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}`;
+    return `<button class="townbtn" data-at="${r},${c}"><span style="color:#d98a2b">●</span> ${site && site[4] ? `capital (${where})` : where}</button>`;
+  }).join(' ');
+}
+// A town's card on the map, with the orders it may give (as a tap on it).
+function showTown(r, c) {
+  setSheet(false);  // The map, as a tap on it shows the town.
+  mapInspect = {r, c};
+  showInspect();
+  redrawMap();
+  $('inspect').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+// Where an order was aimed: the town there, else its latitude.
+function targetWords({r, c}) {
+  const m = lastMap, site = m && m.peoples && m.peoples.settlements.find((s) => s[2] === r && s[3] === c);
+  const lat = 90 - (r + 0.5) * 180 / ((m && m.tile_rows) || 1);
+  const at = `${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}`;
+  return site ? `the ${m.peoples.polities[site[0]].name} town at ${at}` : `aimed at ${at}`;
+}
+// Each town gives one order a turn: how many more could give one now.
+function townsLeftWords() {
+  const towns = Object.values((lastQuestion && lastQuestion.towns) || {});
+  const given = townOrders.filter((o) => o.at).length;
+  const left = towns.filter((t) => !townOrders.some((o) => o.at && o.at[0] === t.at[0] && o.at[1] === t.at[1])).length;
+  return given && left ? ` Each town gives one order a turn; ${left} more of your towns can give one (tap them above).` : '';
+}
+function showTownOrders() {
+  const p = $('townorders');
+  p.hidden = !townOrders.length;
+  p.innerHTML = townOrders.map((o, i) => {
+    if (o.to) return `To the ${escapeHtml(o.to)}: “${escapeHtml(o.text)}” <button data-drop="${i}" aria-label="Drop these words">✕</button>`;
+    const lat = 90 - (o.at[0] + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
+    return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ` (${escapeHtml(targetWords(o.target))})` : ''}`
+      + (STANDING.test(o.move) ? ' · each turn until you cancel it' : '')
+      + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
+  }).join('<br>')
+    + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '')
+    // Sent at once, the people's labor kept as it is (a turn of town orders
+    // alone needs no labor move).
+    + (townOrders.length && keepMove() ? '<br><button class="townbtn" id="sendorders">Send them now (labor as it is)</button>' : '');
+  for (const b of p.querySelectorAll('button[data-drop]')) {
+    b.addEventListener('click', () => { townOrders.splice(Number(b.dataset.drop), 1); showTownOrders(); redrawMap(); });
+  }
+  if ($('sendorders')) $('sendorders').addEventListener('click', () => answer(lastQuestion.request_id, keepMove()));
+}
+// The move that changes nothing this turn, if the question offers one.
+function keepMove() {
+  return lastQuestion && (lastQuestion.options || []).find((o) => NEUTRAL_MOVES.test(o));
 }
 
 // Planning a move for a later turn: the When row above the
@@ -932,9 +1158,14 @@ function openAt(move) {
 function renderQuestion(q) {
   lastQuestion = q || null;
   if (!q) { shownRequest = ''; if (aim) endAim(); return; }
-  lastContext = q.context;
+  lastContext = q.context + (q.call_to_action ? `\n\n${q.call_to_action}` : '');  // The whole prompt.
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
+  townOrders = standingOrders(q); showTownOrders();
+  renderTownHint(q);
+  const peoples = q.speak || [];  // Words to other peoples (where conquest is).
+  $('wordsrow').hidden = !peoples.length;
+  $('wordsto').innerHTML = peoples.map((p) => `<option>${escapeHtml(p)}</option>`).join('');
   $('planok').hidden = true;
   planIn = 0;
   // The tags carry the rest; a Steward that may speak is asked plainly.
@@ -1077,6 +1308,13 @@ function renderHud(state) {
 
 // The game told once it is decided: the verdict and why, the
 // temperature all through against its band, and a player's moves.
+// A people's towns at the end, e.g. "7 of the 18 towns (founded 2, took 3)".
+const GAIN_WORDS = [['found', 'founded'], ['take', 'took'], ['win', 'won over'], ['rise', 'rose to you']];
+function townsWords(towns) {
+  const gains = GAIN_WORDS.filter(([k]) => towns.gains[k]).map(([k, w]) => `${w} ${towns.gains[k]}`);
+  const held = `${towns.held} of the ${towns.of} towns${gains.length ? ` (${gains.join(', ')})` : ''}`;
+  return towns.alone && !towns.conquered ? `${held}; holding ${towns.alone} would have won the age alone` : held;
+}
 function renderRecap(recap) {
   const card = $('recapcard');
   card.hidden = !recap;
@@ -1102,11 +1340,17 @@ function renderRecap(recap) {
                  recap.planned ? `${recap.planned} planned ahead` : '',
                  recap.rewinds ? `went back ${recap.rewinds} turn${recap.rewinds === 1 ? '' : 's'}` : '',
                  recap.timed_out ? `${recap.timed_out} out of time` : ''].filter(Boolean).join(' · ');
-  card.innerHTML = `<h2>The game is decided · ${recap.ticks} turns</h2>`
+  // Whether the age ran its whole length, or was decided early.
+  const full = recap.max_ticks && recap.ticks >= recap.max_ticks;
+  card.innerHTML = `<h2>${full ? `The age ran its ${recap.ticks} turns` : `The game is decided · turn ${recap.ticks}`}</h2>`
     + `<p class="verdict ${recap.outcome}">${escapeHtml(recap.outcome.toUpperCase())}</p>`
-    + `<p class="small">${escapeHtml(recap.reason)}.</p>${svg}`
-    + `<p class="small muted">The temperature all through${recap.band ? `, against the band ${recap.band[0]}–${recap.band[1]} °C` : ''}.`
-    + `${key ? `<br>${escapeHtml(key)}` : ''}</p>`
+    // A people's verdict says which road decided it: the age's shared goal,
+    // or one people holding the map.
+    + `<p class="small">${recap.towns && !recap.towns.conquered ? "The age's shared goal: " : ''}${escapeHtml(recap.reason)}.</p>`
+    // The temperature line is the Steward's story; a people's is its towns.
+    + (recap.towns ? '' : `${svg}<p class="small muted">The temperature all through${recap.band ? `, against the band ${recap.band[0]}–${recap.band[1]} °C` : ''}.`
+      + `${key ? `<br>${escapeHtml(key)}` : ''}</p>`)
+    + (recap.towns ? `<p class="small"><b>Your towns at the end:</b> ${townsWords(recap.towns)}</p>` : '')
     + (moves || extra ? `<p class="small"><b>Your moves:</b> ${[moves, extra].filter(Boolean).join(' · ')}</p>` : '')
     + (recap.play ? `<p class="small muted">You acted on ${recap.play.acted} of ${recap.play.turns} turns`
       + `${recap.play.seconds != null ? `, taking about ${Math.round(recap.play.seconds)} s to choose` : ''}.</p>` : '')
@@ -1359,7 +1603,8 @@ function renderDock(state) {
   } else if (state.hold && state.hold.turns > 0) {
     mode = 'turning';
     main = `Holding course · ${state.hold.turns} turn${state.hold.turns === 1 ? '' : 's'} left`;
-    sub = lastWord || 'It stops by itself if something needs you.';
+    sub = state.hold.keeping ? 'Your envoys and feasts go on each turn; it stops by itself if something needs you.'
+      : lastWord || 'It stops by itself if something needs you.';
     buttons = '<button id="dockstop">Stop</button>';
   } else if (q) {
     sentNow = null;
@@ -1369,7 +1614,8 @@ function renderDock(state) {
     sub = lastWord ? `Last turn: ${lastWord}`
       : state.hold && state.hold.stopped ? `Stopped holding: ${state.hold.stopped}.`
       : 'Choose what to do this turn.';
-    buttons = (state.hold ? '<button id="dockhold">Hold 5</button>' : '')
+    // "Hold 5" puzzled a newcomer (c183): it says what it does.
+    buttons = (state.hold ? '<button id="dockhold" aria-label="Keep your course for 5 turns">Keep 5 turns</button>' : '')
       + `<button class="primary" id="dockgo">${sheetOpen ? 'Hide' : 'Choose'}</button>`;
   } else {
     const sent = (sentNow && sentNow.tick === now ? sentNow : null) || (last && last.tick === now ? last : null);
@@ -1408,7 +1654,7 @@ function renderMoves(moves, now, actsIn, lag) {
   const rows = [];
   for (const m of moves) {  // Turns held, or the same quiet move, in a row fold into one.
     const prev = rows[rows.length - 1];
-    const same = prev && prev.from === m.tick + 1 && ((m.how === 'held' && prev.how === 'held')
+    const same = prev && prev.from === m.tick + 1 && !m.orders && !prev.orders && ((m.how === 'held' && prev.how === 'held')
       || (m.move === prev.move && NEUTRAL_MOVES.test(m.move)));
     if (same) {
       prev.from = m.tick; prev.count += 1; continue;
@@ -1420,7 +1666,8 @@ function renderMoves(moves, now, actsIn, lag) {
     const neutral = NEUTRAL_MOVES.test(m.move);
     const when = m.count > 1 ? `t${m.from}–${m.tick}` : `t${m.tick}`;
     const label = m.count > 1 ? (m.how === 'held' ? `Held course for ${m.count} turns` : `${shortMove(m.move)} ×${m.count}`) : shortMove(m.move)
-      + (m.how === 'held' ? ' (held course)' : m.how === 'timed out' ? ' (out of time)' : m.how === 'planned' ? ' (as planned)' : '');
+      + (m.how === 'held' ? ' (held course)' : m.how === 'timed out' ? ' (out of time)' : m.how === 'planned' ? ' (as planned)' : '')
+      + (m.orders ? ` + ${m.orders.length} town order${m.orders.length === 1 ? '' : 's'}` : '');
     const step = (done, text, cur) => `<span class="${done ? 'done' : cur ? 'now' : ''}">${done ? '✓ ' : ''}${text}</span>`;
     const steps = neutral ? '' : '<div class="steps">'
       + step(true, 'sent')
@@ -1437,7 +1684,20 @@ function renderMoves(moves, now, actsIn, lag) {
 // next turns; it stops by itself when something needs the player.
 async function holdCourse(turns) {
   const seat = new URLSearchParams(location.search).get('seat');
-  await api('api/hold', {turns, seat});
+  // Town orders or words given this turn go with its kept course, never
+  // dropped: this turn is answered with them, the rest held.
+  // A town's envoys or feast go on each held turn (a courtship takes carts
+  // turn after turn); a march or a founding is given once.
+  const q = lastQuestion, keep = q && turns > 0 && townOrders.length
+    && (q.options || []).find((o) => NEUTRAL_MOVES.test(o));
+  if (keep) {
+    const again = townOrders.filter((o) => o.at && /^(send grain and envoys|hold a feast)/.test(o.move))
+      .map((o) => `town ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`);
+    await answer(q.request_id, keep);
+    if (turns > 1) await api('api/hold', {turns: turns - 1, seat, keep: again});
+  } else {
+    await api('api/hold', {turns, seat});
+  }
   refresh();
 }
 function renderHold(hold) {
@@ -1445,7 +1705,8 @@ function renderHold(hold) {
   card.hidden = !hold;
   if (!hold) return;
   if (hold.turns > 0) {
-    $('holdtext').innerHTML = `Holding course · <b>${hold.turns}</b> turn${hold.turns === 1 ? '' : 's'} left`;
+    $('holdtext').innerHTML = `Holding course · <b>${hold.turns}</b> turn${hold.turns === 1 ? '' : 's'} left`
+      + (hold.keeping ? ` · your town${hold.keeping === 1 ? "'s" : "s'"} envoys and feasts go on each turn` : '');
     $('holdrow').innerHTML = '<button id="holdstop">Stop</button>';
     $('holdstop').onclick = () => holdCourse(0);
   } else {
@@ -1507,8 +1768,15 @@ function renderPeople(people, tick) {
   const shared = sharedHtml(people.shared);
   // The road to the goal's good, as the people's sheet says it.
   const road = (people.aims || []).map((a) => `<p class="small road">🧭 ${escapeHtml(a.replace(/^Aim: /, 'Road to the goal: '))}</p>`).join('');
+  // Its arms (where conquest is played): kinds, strength, their grain.
+  const arms = people.arms;
+  const armed = arms ? Object.entries(arms.kinds) : [];
+  const armsLine = !arms ? '' : armed.length
+    ? `<p class="small">⚔ Arms: ${armed.map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`
+      + ` · strength <b>${arms.strength}</b> · they eat ${arms.upkeep} grain a turn.</p>`
+    : '<p class="small muted">⚔ No arms raised.</p>';
   $('stores').innerHTML = Object.entries(people.stocks).map(([k, v]) =>
-    `<span>${escapeHtml(k)} <b>${v}</b></span>`).join('') + granary + shared + road;
+    `<span>${escapeHtml(k)} <b>${v}</b></span>`).join('') + granary + armsLine + shared + road;
 }
 
 // The temperatures behind the briefing: the habitable band
@@ -2384,6 +2652,7 @@ function drawMapNow(m) {
   const firstMap = !lastMap || lastMap.game_id !== m.game_id;
   lastMap = m;
   showInspect();
+  if (lastQuestion && !townHintMapped) renderTownHint(lastQuestion);
   if (firstMap) setTimeout(reportPerf, 0);
   let html;
   if (mapLayer === 'life' && m.life_tiles) {
@@ -2541,43 +2810,6 @@ function drawRipples(ctx, v, k, X, Y) {
       ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fill();
       ctx.lineWidth = 1.6; ctx.strokeStyle = v.theme === 'dark' ? '#111' : '#fff'; ctx.stroke();
       ctx.globalAlpha = 1;
-    }
-  }
-}
-
-// News on the road to a people's player: a courier rides
-// from where it happened to the capital, arriving on the turn the people
-// reads it, the rest of the road dashed and the turns left beside it. The
-// map's ripples show news spreading to everyone; this is the player's own.
-function drawCouriers(ctx, v, k, X, Y) {
-  if (!v.couriers || !v.couriers.length) return;
-  const tile = X(1) - X(0), world = X(v.cols) - X(0), dark = v.theme === 'dark';
-  for (const [fr, fc, tr, tc, sent, lands, kind] of v.couriers) {
-    let dc = tc - fc;  // The short way round: longitude wraps.
-    if (Math.abs(dc) > v.cols / 2) dc -= Math.sign(dc) * v.cols;
-    const f = Math.max(0, Math.min(1, (v.tick - 1 + k - sent) / Math.max(1, lands - sent)));
-    const r = fr + f * (tr - fr), c = fc + f * dc;
-    const col = RIPPLE_COLOURS[kind] || [220, 220, 220], left = lands - v.tick;
-    for (const shift of [0, -world, world]) {
-      const x = X(c + 0.5) + shift, y = Y(r + 0.5);
-      const ex = X(fc + dc + 0.5) + shift, ey = Y(tr + 0.5);
-      if (Math.max(x, ex) < -20 || Math.min(x, ex) > v.width + 20) continue;
-      ctx.save();  // The road still to ride.
-      ctx.setLineDash([3, 4]); ctx.lineWidth = 1.6;
-      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},.75)`;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
-      ctx.restore();
-      const rad = Math.max(4.5, tile * 0.5);  // The courier.
-      ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fill();
-      ctx.lineWidth = 1.6; ctx.strokeStyle = dark ? '#111' : '#fff'; ctx.stroke();
-      if (left > 0) {  // Turns until the people read it.
-        ctx.font = `600 ${Math.max(9, Math.round(rad * 1.6))}px system-ui, sans-serif`;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.lineWidth = 3; ctx.strokeStyle = dark ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.9)';
-        ctx.strokeText(String(left), x + rad + 2, y - rad);
-        ctx.fillStyle = dark ? '#fff' : '#1d2a22'; ctx.fillText(String(left), x + rad + 2, y - rad);
-      }
     }
   }
 }
@@ -2960,6 +3192,47 @@ function drawHeadline(ctx, v) {
 
 // Settlements on top of everything: a capital as a house with its people's
 // name, towns as small squares, ports with a dot of sea blue.
+// Armies on the march: a pennant in their people's colour where they are,
+// a dashed line to the town they march on, their strength and the turn
+// they arrive (a fire for a town they mean to raze).
+function drawArmies(ctx, v, unit, X, Y) {
+  for (const o of townOrders) {  // This turn's aimed town orders: dotted, to where they land.
+    if (!o.target) continue;
+    let tc = o.target.c;
+    if (Math.abs(tc - o.at[1]) > v.cols / 2) tc += tc > o.at[1] ? -v.cols : v.cols;
+    ctx.save(); ctx.setLineDash([2 * unit * 0.5, 2 * unit * 0.5]); ctx.lineWidth = 1.2 * unit * 0.6;
+    ctx.strokeStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+    ctx.beginPath(); ctx.moveTo(X(o.at[1] + 0.5), Y(o.at[0] + 0.5)); ctx.lineTo(X(tc + 0.5), Y(o.target.r + 0.5)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(tc + 0.5), Y(o.target.r + 0.5), 2 * unit, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
+  }
+  const armies = (v.peoples && v.peoples.armies) || [];
+  for (const [pi, r, c, strength, , tr, tc, arrives, intent] of armies) {
+    const sp = v.peoples.polities[pi];
+    if (!sp) continue;
+    let tcol = tc;  // The short way round, across the date line.
+    if (Math.abs(tcol - c) > v.cols / 2) tcol += tcol > c ? -v.cols : v.cols;
+    const x = X(c + 0.5), y = Y(r + 0.5), tx = X(tcol + 0.5), ty = Y(tr + 0.5);
+    ctx.save();
+    ctx.setLineDash([4 * unit * 0.5, 3 * unit * 0.5]);
+    ctx.lineWidth = 1.6 * unit * 0.6;
+    ctx.strokeStyle = rgb(sp[v.theme]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.restore();
+    const h = 3 * unit;  // A pennant on a pole.
+    ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y - h * 1.4);
+    ctx.lineTo(x + h * 1.6, y - h * 0.9); ctx.lineTo(x, y - h * 0.4); ctx.closePath();
+    ctx.fillStyle = rgb(sp[v.theme]); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = v.theme === 'dark' ? '#000' : '#fff'; ctx.stroke();
+    const label = `${intent === 'raze' ? '🔥' : '⚔️'}${Math.round(strength)} → turn ${arrives}`;
+    ctx.font = `700 ${Math.max(10, 5.4 * unit)}px system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.strokeStyle = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
+    ctx.strokeText(label, x + h * 1.8, y - h * 0.9);
+    ctx.fillStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+    ctx.fillText(label, x + h * 1.8, y - h * 0.9);
+  }
+}
+
 function drawSettlements(ctx, v, unit, X, Y) {
   if (v.site) {  // The colony's ice mine: a diamond and its name.
     const x = X(v.site[1] + 0.5), y = Y(v.site[0] + 0.5), h = 3.4 * unit;
@@ -2976,7 +3249,7 @@ function drawSettlements(ctx, v, unit, X, Y) {
   const halo = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
   ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
   ctx.textBaseline = 'middle';
-  for (const [i, , r, c, capital, port] of peoples.settlements) {
+  for (const [i, id, r, c, capital, port, founder] of peoples.settlements) {
     const sp = peoples.polities[i];
     const x = X(c + 0.5), y = Y(r + 0.5), h = (capital ? 3.6 : 2.4) * unit;
     if (x < -40 || x > v.width + 40 || y < -20 || y > v.height + 20) continue;
@@ -2998,9 +3271,35 @@ function drawSettlements(ctx, v, unit, X, Y) {
       ctx.strokeStyle = v.theme === 'dark' ? 'rgba(255,120,100,.95)' : 'rgba(196,40,28,.9)';
       ctx.stroke();
     }
+    const lean = (peoples.leaning || {})[id];
+    if (lean && peoples.polities[lean[0]]) {  // Courted: a ring in the courting colour, filled as far as it is to joining.
+      ctx.lineWidth = 1.2 * unit;
+      ctx.beginPath(); ctx.arc(x, y, h * 2.4, 0, 2 * Math.PI); ctx.strokeStyle = halo; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, h * 2.4, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, lean[1] / lean[2]));
+      ctx.strokeStyle = rgb(peoples.polities[lean[0]][v.theme]); ctx.stroke();
+    }
+    if (founder !== undefined) {  // A town won from another people: its old colour inside.
+      const old = peoples.polities[founder];
+      ctx.beginPath(); ctx.rect(x - h * 0.45, y - h * 0.45, h * 0.9, h * 0.9);
+      ctx.fillStyle = rgb(old[v.theme]); ctx.fill();
+    }
     if (port) {
       ctx.beginPath(); ctx.arc(x + h, y + h, 1.2 * unit, 0, 2 * Math.PI);
       ctx.fillStyle = v.theme === 'dark' ? '#8cc8f0' : '#2a6aa8'; ctx.fill();
+    }
+    if (lastQuestion && (lastQuestion.towns || {})[id] && !townOrders.some((o) => o.at && o.at[0] === r && o.at[1] === c)) {
+      ctx.beginPath(); ctx.arc(x + h * 1.1, y - h * 1.1, Math.max(3, 1.5 * unit), 0, 2 * Math.PI);  // ● It may give an order.
+      ctx.fillStyle = '#d98a2b'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = halo; ctx.stroke();
+    }
+    const held = (peoples.garrisons || {})[id];
+    if (held && held[0] >= 0.5) {  // Its garrison's strength, below it.
+      const label = `⚔️${Math.round(held[0])}`;
+      ctx.font = `700 ${Math.max(10, 5.6 * unit)}px system-ui, sans-serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = halo;
+      ctx.strokeText(label, x - h, y + h + 5 * unit);
+      ctx.fillStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+      ctx.fillText(label, x - h, y + h + 5 * unit);
+      ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
     }
     if (capital) {  // The name beside it (left near the right edge), or above.
       const label = sp.name + (hunger ? ` · ${hunger}` : ''), wide = ctx.measureText(label).width;
@@ -3069,7 +3368,7 @@ function showHerds(m, base, width, height, dpr, theme) {
                            plantings: m.plantings || [],
                            lifeSpecies: m.life_tiles ? m.life_tiles.species : [],
                            peoples: m.peoples, ripples: m.ripples, newsSpeed: m.news_speed, site: m.site,
-                           couriers: m.couriers || [], pins: m.pins || [], reserves: m.reserves || []});
+                           pins: m.pins || [], reserves: m.reserves || []});
   // The player's moves acting this turn, laid out to play over the glide.
   herdView.sprites = motionSprites(m.acting || [], {rows: m.tile_rows, cols: m.tile_cols, site: m.site,
     terrain: terrainCache && terrainCache.terrain ? terrainCache.terrain.terrain : [],
@@ -3192,11 +3491,11 @@ function drawHerds(k) {
   drawPlantings(ctx, v, X, Y);
   drawRipples(ctx, v, k, X, Y);
   drawActing(ctx, v, X, Y, k, herds);
-  drawCouriers(ctx, v, k, X, Y);
   drawReserves(ctx, v, X, Y);
   drawCrisisMarks(ctx, v, X, Y);
   drawPins(ctx, v, X, Y, k);
   drawSettlements(ctx, v, unit, X, Y);
+  drawArmies(ctx, v, unit, X, Y);
   drawHeadline(ctx, v);
   if (aim && aim.target) {  // Where the aimed move will land: a pin and a halo.
     const x = X(aim.target.c + 0.5), y = Y(aim.target.r + 0.5), rad = (X(1) - X(0)) * 2.5;
@@ -3654,14 +3953,44 @@ function showInspect() {
     add(age === 0 ? 'News now' : `News, ${age} turn${age === 1 ? '' : 's'} ago`, escapeHtml(text));
   }
   if (m.peoples) {
+    for (const a of (m.peoples.armies || []).filter((a) => a[1] === r && a[2] === c)) {
+      add('Army', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
+        + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')} (strength ${a[3]}), `
+        + `marching to ${a[8]} a town, arriving in turn ${a[7]}`);
+    }
     const town = m.peoples.settlements.find((s) => s[2] === r && s[3] === c);
     if (town) {
       const who = m.peoples.polities[town[0]].name;
-      add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${town[5] ? ' · a port' : ''}`);
+      const won = town[6] === undefined ? '' : `, won from the ${m.peoples.polities[town[6]].name}`;
+      add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
+      const mine = lastQuestion && lastQuestion.towns && lastQuestion.towns[town[1]];
+      if (mine) {  // Your town: the orders it may give this turn.
+        const given = townOrders.find((o) => o.at && o.at[0] === r && o.at[1] === c);
+        add('Orders', (given ? `<b>Ordered: ${escapeHtml(moveWords(given.move))}</b><br>` : '')
+          + mine.orders.map((o, i) => `<button class="tord" data-t="${town[1]}" data-o="${i}">${escapeHtml(moveWords(o))}</button>`).join(' ')
+          + Object.entries(mine.waits || {}).map(([o, why]) => `<br><span class="muted">To ${escapeHtml(moveWords(o))}: ${escapeHtml(why)}.</span>`).join(''));
+      }
+      for (const a of (m.peoples.armies || []).filter((a) => a[5] === r && a[6] === c)) {
+        add('Marching on it', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
+          + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}, to ${a[8]} it, in turn ${a[7]}`);
+      }
+      const lean = (m.peoples.leaning || {})[town[1]];
+      if (lean) {  // Courted with grain and envoys: how far it is to joining.
+        add('Leaning', `to the ${escapeHtml(m.peoples.polities[lean[0]].name)}: regard ${lean[1].toFixed(2)}`
+          + ` of the ${lean[2].toFixed(2)} it needs to join them (${Math.round(100 * Math.max(0, 1 - lean[1] / lean[2]))}% to go)`);
+      }
+      const restless = (m.peoples.restless || {})[town[1]];
+      if (restless !== undefined) add('Restless', `taken by arms: holds to its people at ${restless.toFixed(2)} (settled at 1.00)`);
+      const held = (m.peoples.garrisons || {})[town[1]];
+      if (held) {  // Its garrison: the arms stationed there, by kind.
+        add('Garrison', `${Object.entries(held[1]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`
+          + ` · strength ${held[0]}`);
+      }
     }
   }
   box.innerHTML = `<div class="ihead"><b>${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}</b>`
     + `<button id="iclose" aria-label="Close">×</button></div><dl>${rows.join('')}</dl>`;
+  for (const b of box.querySelectorAll('button.tord')) b.addEventListener('click', () => townOrder(b.dataset.t, Number(b.dataset.o)));
   box.hidden = false;
   $('iclose').addEventListener('click', () => { mapInspect = null; showInspect(); redrawMap(); });
 }
@@ -3707,8 +4036,20 @@ for (const b of document.querySelectorAll('#speed button')) {
     refresh();
   });
 }
-$('aimgo').addEventListener('click', () => { const a = aim; endAim(); if (a && a.target) answer(a.requestId, a.option, a.target); });
-$('aimany').addEventListener('click', () => { const a = aim; endAim(); if (a) answer(a.requestId, a.option); });
+$('wordsadd').addEventListener('click', () => {
+  const to = $('wordsto').value, text = $('wordstext').value.replace(/\s+/g, ' ').trim();
+  if (!to || !text) return;
+  townOrders = townOrders.filter((o) => o.to !== to);  // Once a people, a turn.
+  townOrders.push({to, text});
+  $('wordstext').value = '';
+  showTownOrders();
+});
+$('aimgo').addEventListener('click', () => {
+  const a = aim; endAim();
+  if (a && a.town) { if (a.target) queueTownOrder(a.town, a.option, a.target); return; }
+  if (a && a.target) answer(a.requestId, a.option, a.target);
+});
+$('aimany').addEventListener('click', () => { const a = aim; endAim(); if (a && a.town) queueTownOrder(a.town, a.option, null); else if (a) answer(a.requestId, a.option); });
 $('aimno').addEventListener('click', () => { endAim(); setSheet(true); });
 $('sheetclose').addEventListener('click', () => setSheet(false));
 $('dockbtns').addEventListener('click', (e) => {

@@ -627,6 +627,27 @@ def own_people(
       'stocks': {
           k: round(float(v), 1) for k, v in stocks.items() if float(v) > 0.05
       },
+      # Where conquest is played: its arms by kind, their strength and the
+      # grain they eat a turn.
+      'arms': _arms(context, key),
+  }
+
+
+def _arms(context: game_lib.GameContext, polity: str) -> dict[str, Any] | None:
+  """A people's arms for its own panel (None where none are raised)."""
+  towns = context.planet.settlements
+  if towns is None or not towns.arms:
+    return None
+  return {
+      'kinds': {
+          towns.arms[k]['label']: round(n, 1)
+          for k, n in sorted(towns.arms_of(polity).items())
+          if n >= 0.05
+      },
+      'strength': round(
+          sum(towns.strength(t) for t in towns.places.get(polity, ())), 1
+      ),
+      'upkeep': round(towns.upkeep(polity), 1),
   }
 
 

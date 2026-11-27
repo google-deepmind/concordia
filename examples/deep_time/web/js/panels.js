@@ -21,7 +21,8 @@ import {escapeHtml} from './util.js';
 export const PANELS = [
   {key: 'now', label: 'Now', cards: ['goalcard', 'civcard', 'holdcard', 'waiting', 'briefcard', 'peoplecard']},
   {key: 'readings', label: 'Readings', cards: ['instcard', 'lagcard', 'readcard', 'ctxcard']},
-  {key: 'moves', label: 'Moves', cards: ['movescard']},
+  // Moves made (a newcomer looked for moves to make here: c177).
+  {key: 'moves', label: 'Past moves', cards: ['movescard']},
   {key: 'story', label: 'Story', cards: ['storycard', 'newscard', 'chroncard']},
   {key: 'world', label: 'World', cards: ['climcard', 'colonycard', 'invite']},
 ];
