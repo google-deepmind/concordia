@@ -32,6 +32,7 @@ from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import formative_memories_initializer
 from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
 from concordia.prefabs.game_master import generic
+from concordia.prefabs.game_master import interviewer
 from concordia.prefabs.game_master import marketplace
 from concordia.prefabs.game_master import open_ended_interviewer
 from concordia.prefabs.game_master import scripted
@@ -247,6 +248,13 @@ _NEXT_GAME_MASTER_PREFABS = {
     'marketplace': (
         marketplace.GameMaster,
         {'experiment_component_class': _ExperimentComponent},
+    ),
+    'interviewer': (
+        interviewer.GameMaster,
+        {
+            'player_names': _PLAYERS,
+            'questionnaires': [types.SimpleNamespace(name='q', questions=[])],
+        },
     ),
     'open_ended_interviewer': (
         open_ended_interviewer.GameMaster,
