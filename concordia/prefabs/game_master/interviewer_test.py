@@ -18,6 +18,7 @@ from absl.testing import absltest
 from concordia.contrib.data.questionnaires import base_questionnaire
 from concordia.language_model import no_language_model
 from concordia.prefabs.entity import minimal
+from concordia.prefabs.game_master import formative_memories_initializer
 from concordia.prefabs.game_master import interviewer
 from concordia.prefabs.simulation import questionnaire_simulation
 from concordia.typing import prefab as prefab_lib
@@ -147,6 +148,73 @@ class InterviewerTest(absltest.TestCase):
         simulation.game_masters[0].get_component('questionnaire').get_answers()
     )
     for name in players:
+      self.assertCountEqual(answers[name]['mood'].keys(), ['mood_0', 'mood_1'])
+
+  def test_stays_the_game_master_after_an_initializer(self):
+    next_game_master_questions = []
+
+    class _Model(no_language_model.NoLanguageModel):
+
+      def sample_choice(self, prompt, responses, **kwargs):
+        if 'Which rule set should we use for the next step?' in prompt:
+          next_game_master_questions.append(prompt)
+        return super().sample_choice(prompt, responses, **kwargs)
+
+    config = prefab_lib.Config(
+        default_premise='',
+        prefabs={
+            'minimal__Entity': minimal.Entity(),
+            'formative_memories_initializer__GameMaster': (
+                formative_memories_initializer.GameMaster()
+            ),
+            'interviewer__GameMaster': interviewer.GameMaster(),
+        },
+        instances=[
+            prefab_lib.InstanceConfig(
+                prefab='minimal__Entity',
+                role=prefab_lib.Role.ENTITY,
+                params={'name': name},
+            )
+            for name in _PLAYERS
+        ]
+        + [
+            prefab_lib.InstanceConfig(
+                prefab='formative_memories_initializer__GameMaster',
+                role=prefab_lib.Role.INITIALIZER,
+                params={
+                    'name': 'initial setup rules',
+                    'next_game_master_name': 'interviewer',
+                    'shared_memories': ['Alice and Bob are neighbours.'],
+                    'skip_formative_memories_for': list(_PLAYERS),
+                },
+            ),
+            prefab_lib.InstanceConfig(
+                prefab='interviewer__GameMaster',
+                role=prefab_lib.Role.GAME_MASTER,
+                params={
+                    'name': 'interviewer',
+                    'player_names': list(_PLAYERS),
+                    'questionnaires': [_make_questionnaire()],
+                },
+            ),
+        ],
+    )
+    simulation = questionnaire_simulation.QuestionnaireSimulation(
+        config=config,
+        model=_Model(),
+        embedder=lambda _: np.ones(3),
+    )
+
+    simulation.play()
+
+    # Without its own next game master component, the interviewer asks the
+    # model which game master runs next, and can hand respondents back to the
+    # initializer in the middle of the questionnaire.
+    self.assertEmpty(next_game_master_questions)
+    answers = (
+        simulation.game_masters[1].get_component('questionnaire').get_answers()
+    )
+    for name in _PLAYERS:
       self.assertCountEqual(answers[name]['mood'].keys(), ['mood_0', 'mood_1'])
 
 
